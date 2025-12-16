@@ -1,0 +1,14 @@
+{
+  "name": "blog-editor",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@milkdown/crepe": "^7.17.1",
+    "@milkdown/utils": "^7.17.2"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

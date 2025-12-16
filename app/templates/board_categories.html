@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Board Categories{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* 트리 영역 기본 스타일 */
+  .category-tree {
+    border: 1px solid #eee;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    max-height: 480px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    background-color: #fff;
+  }
+
+  .category-tree-root,
+  .category-tree-root ul {
+    list-style: none;
+    margin: 0;
+    padding-left: 0.75rem;
+  }
+
+  .cat-tree-node {
+    margin: 2px 0;
+  }
+
+  .cat-tree-node .tree-toggle {
+    border: none;
+    background: transparent;
+    padding: 0 0.25rem 0 0;
+    font-size: 0.8rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .cat-tree-node .tree-toggle.disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .cat-tree-node .cat-label {
+    cursor: pointer;
+  }
+
+  .cat-tree-node .cat-label.active {
+    font-weight: 600;
+    color: #0d6efd;
+  }
+
+  .cat-tree-children.collapsed {
+    display: none;
+  }
+
+  .category-tree-caption {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .category-tree-help {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Board Categories</h2>
+
+{% if error %}
+  <div class="alert alert-danger" role="alert">
+    {{ error }}
+  </div>
+{% endif %}
+
+{% if success %}
+  <div class="alert alert-success" role="alert">
+    {{ success }}
+  </div>
+{% endif %}
+
+<div class="row">
+  <!-- 왼쪽: 카테고리 생성 폼 -->
+  <div class="col-md-5 mb-4">
+    <div class="card">
+      <div class="card-header">
+        New Category
+      </div>
+      <div class="card-body">
+        <form method="post" action="/board/categories">
+          <div class="mb-3">
+            <label for="name" class="form-label">Name</label>
+            <input
+              type="text"
+              class="form-control"
+              id="name"
+              name="name"
+              required
+            />
+          </div>
+
+          <div class="mb-3">
+            <label for="parent_id" class="form-label">Parent Category</label>
+            <select class="form-select" id="parent_id" name="parent_id">
+              <option value="">(최상위)</option>
+              {% for cat in categories %}
+                <option value="{{ cat.id }}">
+                  {{ cat.name }}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="form-text">
+              부모 카테고리를 선택하지 않으면 최상위 카테고리로 생성됩니다.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="description" class="form-label">
+              Description (optional)
+            </label>
+            <input
+              type="text"
+              class="form-control"
+              id="description"
+              name="description"
+            />
+          </div>
+
+          <button type="submit" class="btn btn-primary">
+            Create
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 트리 도움 텍스트 -->
+    <div class="mt-3 text-muted small">
+      트리에서 카테고리 이름을 클릭하면
+      <strong>Parent Category 셀렉트 박스가 해당 항목으로 선택</strong>됩니다.
+      → 기존 카테고리를 수정하는 UI를 나중에 추가하면,
+      이 트리를 이용해서 “카테고리 이동” UX를 쉽게 만들 수 있습니다.
+    </div>
+  </div>
+
+  <!-- 오른쪽: 리스트 + 트리 -->
+  <div class="col-md-7">
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Category List</h5>
+      <a href="/board/" class="btn btn-sm btn-outline-secondary">
+        &laquo; Back to board
+      </a>
+    </div>
+
+    <!-- 기존 테이블: 각 row에 data-id, data-parent-id를 심어둠 -->
+    <table class="table table-hover align-middle" id="category-table">
+      <thead class="table-light">
+        <tr>
+          <th style="width: 60px;">ID</th>
+          <th>Name</th>
+          <th style="width: 160px;">Parent</th>
+          <th style="width: 200px;">Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cat in categories %}
+          <tr
+            data-id="{{ cat.id }}"
+            data-parent-id="{{ cat.parent_id or '' }}"
+          >
+            <td>{{ cat.id }}</td>
+            <td class="cat-name">{{ cat.name }}</td>
+            <td>
+              {% if cat.parent %}
+                {{ cat.parent.name }}
+              {% else %}
+                <span class="text-muted">(최상위)</span>
+              {% endif %}
+            </td>
+            <td>{{ (cat.created_at_kr or cat.created_at).strftime("%Y-%m-%d %H:%M") }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- 트리 UI 영역 -->
+    <div class="mt-4">
+      <div class="category-tree-caption">
+        Category Tree
+      </div>
+      <div id="category-tree" class="category-tree">
+        <!-- JS로 채워짐 -->
+      </div>
+      <div class="category-tree-help">
+        ▸ / ▾ 버튼으로 하위 카테고리를 접고 펼칠 수 있고,<br />
+        이름을 클릭하면 왼쪽 폼의 “Parent Category”가 해당 카테고리로 선택됩니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 트리 렌더링 JS -->
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const rows = Array.from(
+      document.querySelectorAll('#category-table tbody tr[data-id]')
+    );
+
+    // 1) 테이블에서 트리 정보 추출
+    const nodesById = {};
+    rows.forEach((row) => {
+      const id = parseInt(row.dataset.id, 10);
+      const parentId = row.dataset.parentId
+        ? parseInt(row.dataset.parentId, 10)
+        : null;
+      const nameEl = row.querySelector('.cat-name');
+      const name = nameEl ? nameEl.textContent.trim() : String(id);
+
+      nodesById[id] = {
+        id,
+        parentId,
+        name,
+        children: [],
+      };
+    });
+
+    // 2) children 연결
+    Object.values(nodesById).forEach((node) => {
+      if (node.parentId && nodesById[node.parentId]) {
+        nodesById[node.parentId].children.push(node);
+      }
+    });
+
+    // 3) 최상위 노드들
+    const roots = Object.values(nodesById).filter(
+      (node) => !node.parentId || !nodesById[node.parentId]
+    );
+
+    // 4) DOM 렌더링
+    const treeContainer = document.getElementById('category-tree');
+    const parentSelect = document.getElementById('parent_id');
+
+    function renderNode(node) {
+      const li = document.createElement('li');
+      li.className = 'cat-tree-node';
+      li.dataset.id = node.id;
+
+      const hasChildren = node.children.length > 0;
+
+      // 접기 / 펼치기 버튼
+      const toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'tree-toggle btn btn-sm btn-link px-0';
+      if (hasChildren) {
+        toggleBtn.textContent = '▾';
+      } else {
+        toggleBtn.textContent = '•';
+        toggleBtn.classList.add('disabled');
+      }
+
+      // 라벨 (카테고리 이름)
+      const labelSpan = document.createElement('span');
+      labelSpan.textContent = node.name;
+      labelSpan.className = 'cat-label ms-1';
+
+      // 클릭하면 왼쪽 Parent 셀렉트에 반영 → "이동 대상" 선택 UX
+      labelSpan.addEventListener('click', () => {
+        if (!parentSelect) return;
+        parentSelect.value = String(node.id);
+        // 선택된 것 강조
+        document
+          .querySelectorAll('.cat-label.active')
+          .forEach((el) => el.classList.remove('active'));
+        labelSpan.classList.add('active');
+      });
+
+      li.appendChild(toggleBtn);
+      li.appendChild(labelSpan);
+
+      if (hasChildren) {
+        const ul = document.createElement('ul');
+        ul.className = 'cat-tree-children';
+        node.children
+          .sort((a, b) => a.id - b.id)
+          .forEach((child) => {
+            ul.appendChild(renderNode(child));
+          });
+        li.appendChild(ul);
+
+        toggleBtn.addEventListener('click', () => {
+          const collapsed = ul.classList.toggle('collapsed');
+          toggleBtn.textContent = collapsed ? '▸' : '▾';
+        });
+      }
+
+      return li;
+    }
+
+    const rootUl = document.createElement('ul');
+    rootUl.className = 'category-tree-root';
+
+    roots
+      .sort((a, b) => a.id - b.id)
+      .forEach((root) => {
+        rootUl.appendChild(renderNode(root));
+      });
+
+    treeContainer.innerHTML = '';
+    treeContainer.appendChild(rootUl);
+  });
+</script>
+{% endblock %}

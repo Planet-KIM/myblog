@@ -1,0 +1,95 @@
+############################
+# Python
+############################
+__pycache__/
+*.pyo
+*.pyd
+.Python
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+############################
+# Virtual Environments
+############################
+venv/
+.venv/
+.env/
+.env*/
+.python-version
+
+############################
+# Node.js
+############################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+############################
+# Static files (tracked)
+#  - css / js / fonts 등은 Git 관리
+############################
+
+############################
+# User-uploaded static files (DO NOT TRACK)
+############################
+app/static/editor/**
+app/static/images/**
+app/static/uploads/**
+
+# Keep directories
+!app/static/editor/.gitkeep
+!app/static/images/.gitkeep
+!app/static/uploads/.gitkeep
+
+############################
+# Build / Distribution
+############################
+build/
+dist/
+*.egg-info/
+.eggs/
+
+############################
+# Jupyter / Research
+############################
+.ipynb_checkpoints/
+*.log
+*.tmp
+*.bak
+
+############################
+# ML / Experiment Artifacts
+############################
+wandb/
+mlruns/
+lightning_logs/
+tensorboard/
+runs/
+
+*.ckpt
+*.pt
+*.pth
+*.onnx
+
+############################
+# OS / Editor
+############################
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+############################
+# Docker
+############################
+docker-compose.override.yml
+

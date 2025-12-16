@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if published %}
+  <div class="alert alert-success" role="alert">
+    새 글을 작성하였습니다.
+  </div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Board</h2>
+  <div class="d-flex gap-2">
+    {% if current_user %}
+      <a href="/board/categories" class="btn btn-outline-secondary btn-sm">
+        Manage Categories
+      </a>
+      <a href="/board/new" class="btn btn-primary btn-sm">New Post</a>
+    {% else %}
+      <a href="/auth/login?next=/board/new" class="btn btn-outline-primary btn-sm">
+        Login to write
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ✅ 카테고리 필터 -->
+<div class="mb-3">
+  <span class="me-2 fw-semibold">Categories:</span>
+  <a
+    href="/board/"
+    class="badge {% if not selected_category_id %}bg-primary{% else %}bg-light text-dark border{% endif %} text-decoration-none me-1"
+  >
+    All
+  </a>
+  {% for cat in categories %}
+    <a
+      href="/board/?category_id={{ cat.id }}"
+      class="badge {% if selected_category_id == cat.id %}bg-primary{% else %}bg-light text-dark border{% endif %} text-decoration-none me-1"
+    >
+      {{ cat.name }}
+    </a>
+  {% endfor %}
+  {% if not categories %}
+    <span class="text-muted small">No categories yet.</span>
+  {% endif %}
+</div>
+
+<table class="table table-hover align-middle">
+  <thead class="table-light">
+    <tr>
+      <th style="width: 60px;">#</th>
+      <th>Title</th>
+      <th style="width: 160px;">Category</th>
+      <th style="width: 220px;">Author</th>
+      <th style="width: 120px;">Visibility</th>
+      <th style="width: 180px;">Created</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for post in posts %}
+    <tr>
+      <!-- 🔥 여기만 변경: post.id → loop.index -->
+      <td>{{ loop.index }}</td>
+      <td>
+        <a href="/board/{{ post.id }}">
+          {{ post.title }}
+        </a>
+      </td>
+      <td>
+        {% if post.category %}
+          <span class="badge bg-secondary">{{ post.category.name }}</span>
+        {% else %}
+          <span class="text-muted small">-</span>
+        {% endif %}
+      </td>
+      <td>{{ post.author }}</td>
+      <td>
+        {% if post.is_private %}
+          <span class="badge bg-secondary">Private</span>
+        {% else %}
+          <span class="badge bg-success">Public</span>
+        {% endif %}
+      </td>
+      <td>{{ post.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="6">No posts yet.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

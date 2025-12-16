@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}New post (Milkdown){% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='editor/layout.css') }}">
+
+<style>
+  .editor-page-container {
+      max-width: 1100px;
+  }
+
+  .editor-card {
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      padding: 1.5rem;
+      background-color: #ffffff;
+  }
+
+  .editor-wrapper {
+      border-radius: 12px;
+      overflow: hidden;
+      background-color: #f9fafb;
+  }
+
+  .editor-wrapper .crepe {
+      min-height: 480px;
+  }
+
+  /* 🔥 이미지 리사이즈 핸들 코너로 이동 */
+  .milkdown .milkdown-image-block .image-wrapper {
+      position: relative !important;
+      display: inline-block !important;
+  }
+
+  .milkdown .milkdown-image-block .image-wrapper .image-resize-handle {
+      position: absolute !important;
+      left: auto !important;
+      top: auto !important;
+      transform: none !important;
+      right: 8px !important;
+      bottom: 8px !important;
+      width: 18px !important;
+      height: 18px !important;
+      border-radius: 999px !important;
+      background: rgba(15, 23, 42, 0.85) !important;
+      border: 2px solid #ffffff !important;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35) !important;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      cursor: se-resize !important;
+      z-index: 5 !important;
+      opacity: 1 !important;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 editor-page-container">
+  <h1 class="mb-1">New post (Milkdown)</h1>
+  <p class="text-muted mb-4">
+    첫 번째 줄의 제목(예: <code># 제목</code>)이 자동으로 제목으로 사용됩니다.
+  </p>
+
+  <form id="post-form" method="post" action="/board/new">
+    <div class="mb-3">
+      <label class="form-label">Author</label>
+      <input
+        type="text"
+        class="form-control"
+        value="{{ current_user.email }}"
+        readonly
+      >
+    </div>
+
+    <!-- ✅ 카테고리 선택 (normal 기본 선택) -->
+    <div class="mb-3">
+      <label class="form-label" for="category_id">Category</label>
+      <select class="form-select" id="category_id" name="category_id" required>
+        {% for cat in categories %}
+          <option value="{{ cat.id }}"
+            {% if cat.id == normal_category_id %}selected{% endif %}
+          >
+            {{ cat.name }}
+          </option>
+        {% endfor %}
+      </select>
+      <div class="form-text">
+        필요한 카테고리가 없다면 먼저
+        <a href="/board/categories">카테고리 관리</a>에서 추가할 수 있습니다.
+      </div>
+    </div>
+
+    <div class="form-check mb-3">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        value="true"
+        id="is_private"
+        name="is_private"
+      >
+      <label class="form-check-label" for="is_private">
+        Private (나만 볼 수 있는 글)
+      </label>
+    </div>
+
+    <div class="mb-3 editor-card">
+      <label class="form-label mb-2">Content (Markdown)</label>
+      <div class="editor-wrapper">
+        <div id="editor-root"></div>
+      </div>
+      <div class="form-text mt-2">
+        코드 블록, 이미지, 수식 등을 자유롭게 작성할 수 있습니다.
+      </div>
+    </div>
+
+    <!-- 서버로 전송될 실제 필드 -->
+    <input type="hidden" name="content" id="content">
+    <input type="hidden" name="content_html" id="content_html">
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary">Submit</button>
+      <a href="/board/" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script type="module" src="{{ url_for('static', path='editor/board_new.js') }}"></script>
+{% endblock %}

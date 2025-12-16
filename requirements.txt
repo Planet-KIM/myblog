@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+alembic
+jinja2
+python-multipart
+pydantic>=2
+pydantic-settings
+celery
+redis
+markdown
+passlib[bcrypt]

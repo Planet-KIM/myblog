@@ -1,0 +1,37 @@
+  /* 이미지 블록 컨테이너를 리사이즈 기준으로 */
+  .milkdown .milkdown-image-block .image-wrapper {
+      position: relative !important;
+      display: inline-block !important;
+  }
+
+  /* 리사이즈 핸들: 아래 막대 → 오른쪽 아래 동그라미로 */
+  .milkdown .milkdown-image-block .image-wrapper .image-resize-handle {
+      position: absolute !important;
+
+      /* 기존 위치/변환 제거 */
+      left: auto !important;
+      top: auto !important;
+      transform: none !important;
+
+      right: 8px !important;
+      bottom: 8px !important;
+
+      width: 18px !important;
+      height: 18px !important;
+      border-radius: 999px !important;
+
+      background: rgba(15, 23, 42, 0.85) !important;
+      border: 2px solid #ffffff !important;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35) !important;
+
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+
+      cursor: se-resize !important;
+      z-index: 5 !important;
+
+      /* 항상 보이도록 */
+      opacity: 1 !important;
+  }
+

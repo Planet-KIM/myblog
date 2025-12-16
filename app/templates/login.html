@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Log in{% endblock %}
+
+{% block content %}
+<div class="container mt-5" style="max-width: 480px;">
+  <h2 class="mb-4">Log in</h2>
+
+  {% if error %}
+    <div class="alert alert-danger" role="alert">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  <form method="post" action="/auth/login">
+    <div class="mb-3">
+      <label for="email" class="form-label">Email</label>
+      <input
+        type="email"
+        class="form-control"
+        id="email"
+        name="email"
+        required
+        value="{{ email or '' }}"
+        placeholder="you@example.com"
+      >
+    </div>
+
+    <div class="mb-3">
+      <label for="password" class="form-label">Password</label>
+      <input
+        type="password"
+        class="form-control"
+        id="password"
+        name="password"
+        required
+      >
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">
+      Log in
+    </button>
+
+    <p class="mt-3 text-muted text-center">
+      아직 계정이 없으신가요?
+      <a href="/auth/signup">회원가입</a>
+    </p>
+  </form>
+</div>
+{% endblock %}
+

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.title }} - Board{% endblock %}
+
+{% block extra_head %}
+  <!-- Milkdown / Crepe 뷰어용 공통 스타일 -->
+  <link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='editor/layout.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="editor-page-container mt-4">
+  <!-- 헤더 영역 -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-1">{{ post.title }}</h1>
+      <div class="text-muted small">
+        by {{ post.author }} · {{ post.created_at.strftime("%Y-%m-%d %H:%M") }}
+
+        {% if post.category %}
+          · <span class="badge bg-secondary">{{ post.category.name }}</span>
+        {% else %}
+          · <span class="badge bg-secondary">normal</span>
+        {% endif %}
+
+        {% if post.is_private %}
+          · <span class="badge bg-warning text-dark">Private</span>
+        {% else %}
+          · <span class="badge bg-success">Public</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if current_user and current_user.id == post.user_id %}
+    <div>
+      <a href="/board/{{ post.id }}/edit" class="btn btn-sm btn-outline-secondary">
+        Edit
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <hr class="my-4" />
+
+  <!-- 🔥 여기 안에 read-only Milkdown viewer가 mount 됨 -->
+  <div id="viewer-root" class="milkdown"></div>
+
+  <!-- 서버에서 가져온 markdown 원문을 JSON으로 넘김 -->
+  <script id="initial-content" type="application/json">
+    {{ post.content | tojson | safe }}
+  </script>
+
+  <div class="mt-4">
+    <a href="/board/" class="btn btn-link">&laquo; Back to board</a>
+  </div>
+</div>
+
+<!-- Vite 빌드된 read-only viewer 스크립트 -->
+<script type="module" src="{{ url_for('static', path='editor/board_view.js') }}"></script>
+{% endblock %}
