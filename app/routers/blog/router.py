@@ -1,5 +1,7 @@
 from typing import Optional
 from datetime import datetime, timedelta
+import re
+import html as html_module
 import markdown
 import copy
 
@@ -70,6 +72,30 @@ templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(tags=["blog"])
 
 
+def markdown_to_plain(text: str, max_len: int = 180) -> str:
+    """Markdown 원본을 렌더링 후 HTML 태그를 제거하여 순수 텍스트 미리보기 생성"""
+    # 1. 이미지 Markdown 문법 ![alt](url) 전제 제거
+    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
+    # 2. Markdown → HTML 변환
+    raw_html = markdown.markdown(text, extensions=['fenced_code', 'tables'])
+    # 3. HTML 태그 제거
+    plain = re.sub(r'<[^>]+>', ' ', raw_html)
+    # 4. HTML 엔티티 복원 (&amp; 등)
+    plain = html_module.unescape(plain)
+    # 5. 연속 공백/줄바꾸을 단일 공백으로
+    plain = re.sub(r'\s+', ' ', plain).strip()
+    # 6. 최대 길이 제한
+    if len(plain) > max_len:
+        plain = plain[:max_len] + '...'
+    return plain
+
+
+def extract_first_image(text: str):
+    """Markdown 원본에서 첫 번째 이미지 URL 추출 (![alt](url) 형식)"""
+    match = re.search(r'!\[.*?\]\((.*?)\)', text)
+    return match.group(1) if match else None
+
+
 @router.get("/", response_class=HTMLResponse)
 def read_index(
     request: Request,
@@ -98,6 +124,11 @@ def read_index(
         )
 
     board_posts = posts[:5]
+
+    # 각 post에 plain-text 회데 미리보기 주입
+    for post in posts:
+        post.preview = markdown_to_plain(post.content or '')
+        post.thumbnail = extract_first_image(post.content or '')
 
     return templates.TemplateResponse(
         "index.html",

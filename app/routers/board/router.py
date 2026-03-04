@@ -5,6 +5,7 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -170,6 +171,42 @@ def category_create(
     db.commit()
 
     return RedirectResponse("/board/categories", status_code=303)
+
+
+# ============================================================
+# ★ 카테고리 이동 (Drag & Drop API)
+# ============================================================
+class CategoryMoveRequest(BaseModel):
+    category_id: int
+    new_parent_id: Optional[int] = None
+
+@router.post("/categories/move")
+def category_move(
+    req: CategoryMoveRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    category = db.query(models.BoardCategory).filter(models.BoardCategory.id == req.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+        
+    # Prevent circular dependency (e.g. moving parent into its own child)
+    if req.new_parent_id == req.category_id:
+        raise HTTPException(status_code=400, detail="Cannot move category into itself")
+
+    if req.new_parent_id:
+        current_parent = db.query(models.BoardCategory).filter(models.BoardCategory.id == req.new_parent_id).first()
+        while current_parent:
+            if current_parent.id == req.category_id:
+                raise HTTPException(status_code=400, detail="Cannot move a category into its own descendant")
+            if current_parent.parent_id:
+                current_parent = db.query(models.BoardCategory).filter(models.BoardCategory.id == current_parent.parent_id).first()
+            else:
+                break
+                
+    category.parent_id = req.new_parent_id
+    db.commit()
+    return {"status": "success"}
 
 
 # ============================================================
