@@ -9,10 +9,10 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from fastapi.templating import Jinja2Templates
 
-from .. import models
-from ..database import get_db
-from ..auth_utils import get_current_user_optional
-from ..cv_content import (
+from app import models
+from app.database import get_db
+from app.auth_utils import get_current_user_optional
+from app.cv_content import (
     cv_profile,
     education,
     experience,
@@ -22,6 +22,8 @@ from ..cv_content import (
     skill_palette,
     research_interest,
 )
+
+router = APIRouter(prefix="/blog", tags=["blog"])
 
 def render_markdown_fields(cv):
     """

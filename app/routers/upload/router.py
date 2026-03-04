@@ -5,8 +5,8 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from starlette import status
 
-from ..auth_utils import get_current_user
-from .. import models
+from app.auth_utils import get_current_user
+from app import models
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
@@ -45,18 +45,20 @@ async def upload_image(
     - 응답: {"url": "/static/uploads/<user_id>/<post_id?>/<filename>"}
     """
 
-    # 1) 이미지 타입 검사
-    if not file.content_type.startswith("image/"):
+    # 1) 이미지 확장자 검사 (보안 강화)
+    ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+    suffix = Path(file.filename).suffix.lower()
+    
+    if suffix not in ALLOWED_EXTENSIONS or not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only image upload is allowed.",
+            detail="Only valid image files (.jpg, .png, .gif, .webp) are allowed.",
         )
 
     # 2) 저장 디렉토리 생성
     save_dir = _ensure_upload_dir(current_user.id, post_id)
 
     # 3) 파일명 생성
-    suffix = Path(file.filename).suffix or ""
     filename = f"{uuid4().hex}{suffix}"
     save_path = save_dir / filename
 

@@ -6,11 +6,11 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from ..database import get_db
-from .. import models
-from ..auth_utils import get_current_user, get_current_user_optional
+from app.database import get_db
+from app import models
+from app.auth_utils import get_current_user, get_current_user_optional
 
 router = APIRouter(prefix="/board", tags=["board"])
 
@@ -21,13 +21,22 @@ templates = Jinja2Templates(directory="app/templates")
 # Markdown 첫 줄 제목 추출
 # ------------------------------------------------------------
 def extract_title_from_markdown(content: str) -> str:
-    lines = [line.strip() for line in content.splitlines() if line.strip()]
-    if not lines:
-        return "Untitled"
-    title = lines[0]
-    if title.startswith("#"):
-        title = title.lstrip("#").strip()
-    return title[:200] if title else "Untitled"
+    import re
+    # Remove image tags ![...](...) and link tags [...](...) to extract pure text
+    lines = content.splitlines()
+    for line in lines:
+        # Remove images
+        clean_line = re.sub(r'!\[.*?\]\(.*?\)', '', line)
+        # Remove links, keeping the link text
+        clean_line = re.sub(r'\[(.*?)\]\(.*?\)', r'\1', clean_line)
+        clean_line = clean_line.strip()
+        
+        if clean_line:
+            if clean_line.startswith("#"):
+                clean_line = clean_line.lstrip("#").strip()
+            return clean_line[:200] if clean_line else "Untitled"
+            
+    return "Untitled"
 
 
 # ------------------------------------------------------------
@@ -204,7 +213,10 @@ def board_create(
     normal = ensure_default_category(db)
 
     # 카테고리 선택 없으면 normal 에 저장
-    category_id_int = int(category_id) if category_id not in (None, "", "0") else normal.id
+    try:
+        category_id_int = int(category_id) if category_id not in (None, "", "0") else normal.id
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid category ID format")
 
     # 유효성 검사
     category = (
@@ -290,7 +302,10 @@ def board_update(
     if post.user_id != current_user.id:
         raise HTTPException(403, "Not authorized")
 
-    category_id_int = int(category_id) if category_id not in (None, "", "0") else normal.id
+    try:
+        category_id_int = int(category_id) if category_id not in (None, "", "0") else normal.id
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid category ID format")
 
     post.title = extract_title_from_markdown(content)
     post.content = content
@@ -309,6 +324,8 @@ def board_update(
 def board_list(
     request: Request,
     category_id: Optional[int] = None,
+    page: int = 1,
+    size: int = 10,
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
@@ -320,7 +337,10 @@ def board_list(
         .all()
     )
 
-    q = db.query(models.BoardPost)
+    q = db.query(models.BoardPost).options(
+        joinedload(models.BoardPost.category),
+        joinedload(models.BoardPost.user)
+    )
 
     if category_id:
         q = q.filter(models.BoardPost.category_id == category_id)
@@ -336,7 +356,12 @@ def board_list(
             )
         )
 
-    posts = q.order_by(models.BoardPost.created_at.desc()).all()
+    # Pagination logic
+    total_posts = q.count()
+    total_pages = (total_posts + size - 1) // size if total_posts > 0 else 1
+    page = max(1, min(page, total_pages))
+    
+    posts = q.order_by(models.BoardPost.created_at.desc()).offset((page - 1) * size).limit(size).all()
 
     return templates.TemplateResponse(
         "board_list.html",
@@ -346,6 +371,9 @@ def board_list(
             "categories": categories,
             "selected_category_id": category_id,
             "current_user": current_user,
+            "page": page,
+            "total_pages": total_pages,
+            "size": size,
         },
     )
 

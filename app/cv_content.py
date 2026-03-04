@@ -9,7 +9,7 @@ cv_profile = {
     "name_en": "DOWON KIM",
     "email": "kdw59520@gmail.com",
     "github": "https://github.com/Planet-KIM",
-    #"website": "https://your-portfolio-example", # TODO: 실제 URL로 반드시 수정 또는 삭제하세요.
+    # "website": "https://your-portfolio-example.com",
     "role_ko": "KAIST 의과학대학원(GSMSE) jklab 연구원 · AI 시스템 및 데이터 엔지니어링",
     "role_en": "Research Engineer, KAIST GSMSE jklab · AI Systems & Data Engineering",
     "intro_ko": (
@@ -41,7 +41,6 @@ education = {
             "삼성 Convergence S/W Course for College(SCSC-C)을 통해 "
             "운영체제, 데이터베이스, 자료구조, 소프트웨어 개발 입문 등 핵심 CS 과목을 이수했습니다."
         ),
-        # TODO: 여기에 GPA를 반드시 추가하세요. 예: "GPA 4.0/4.5 (Major 4.2/4.5) 달성"
     },
     "en": {
         "title": "B.S. in Information & Communication Engineering, Hanbat University",
