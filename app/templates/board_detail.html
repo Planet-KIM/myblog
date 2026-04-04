@@ -3,58 +3,119 @@
 {% block title %}{{ post.title }} - Board{% endblock %}
 
 {% block extra_head %}
-  <!-- Milkdown / Crepe 뷰어용 공통 스타일 -->
-  <link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='editor/layout.css') }}">
+<!-- Milkdown / Crepe 뷰어용 공통 스타일 -->
+<link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='editor/layout.css') }}">
+<style>
+  .post-article-body {
+    max-width: 720px;
+    width: 100%;
+  }
+
+  .post-meta-bar .badge {
+    font-size: 0.75rem;
+  }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="editor-page-container mt-4">
-  <!-- 헤더 영역 -->
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-      <h1 class="h3 mb-1">{{ post.title }}</h1>
-      <div class="text-muted small">
-        by {{ post.author }} · {{ post.created_at.strftime("%Y-%m-%d %H:%M") }}
+<div class="page-content">
+  <div class="post-detail-layout">
 
-        {% if post.category %}
-          · <span class="badge bg-secondary">{{ post.category.name }}</span>
-        {% else %}
-          · <span class="badge bg-secondary">normal</span>
-        {% endif %}
+    <!-- 본문 영역 -->
+    <article class="page-card post-article-body">
+      <!-- 헤더 영역 -->
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <div class="flex-grow-1">
+          <h1 class="h3 mb-2">{{ post.title }}</h1>
+          <div class="post-meta-bar d-flex flex-wrap align-items-center gap-2 text-muted small">
+            <span><i class="bi bi-person-fill me-1"></i>{{ post.author }}</span>
+            <span>·</span>
+            <span><i class="bi bi-clock me-1"></i>{{ post.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
 
-        {% if post.is_private %}
-          · <span class="badge bg-warning text-dark">Private</span>
-        {% else %}
-          · <span class="badge bg-success">Public</span>
+            {% if post.category %}
+            <span class="badge bg-secondary">{{ post.category.name }}</span>
+            {% else %}
+            <span class="badge bg-secondary">normal</span>
+            {% endif %}
+
+            {% if post.is_private %}
+            <span class="badge bg-warning text-dark">Private</span>
+            {% else %}
+            <span class="badge bg-success">Public</span>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if current_user and current_user.id == post.user_id %}
+        <div class="flex-shrink-0">
+          <a href="/board/{{ post.id }}/edit" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-pencil me-1"></i>Edit
+          </a>
+        </div>
         {% endif %}
       </div>
-    </div>
 
-    {% if current_user and current_user.id == post.user_id %}
-    <div>
-      <a href="/board/{{ post.id }}/edit" class="btn btn-sm btn-outline-secondary">
-        Edit
-      </a>
-    </div>
-    {% endif %}
-  </div>
+      <hr class="my-4" />
 
-  <hr class="my-4" />
+      <!-- 🔥 여기 안에 read-only Milkdown viewer가 mount 됨 -->
+      <div id="viewer-root" class="milkdown"></div>
 
-  <!-- 🔥 여기 안에 read-only Milkdown viewer가 mount 됨 -->
-  <div id="viewer-root" class="milkdown"></div>
+      <!-- 서버에서 가져온 markdown 원문을 JSON으로 넘김 -->
+      <script id="initial-content" type="application/json">
+      {{ post.content | tojson | safe }}
+    </script>
 
-  <!-- 서버에서 가져온 markdown 원문을 JSON으로 넘김 -->
-  <script id="initial-content" type="application/json">
-    {{ post.content | tojson | safe }}
-  </script>
+      <div class="mt-4">
+        <a href="/board/" class="btn btn-link ps-0">&laquo; Back to board</a>
+      </div>
+    </article><!-- post-article-body -->
 
-  <div class="mt-4">
-    <a href="/board/" class="btn btn-link">&laquo; Back to board</a>
-  </div>
-</div>
+    <!-- TOC 사이드바 -->
+    <aside class="post-toc-sidebar" id="toc-sidebar">
+      <div class="toc-heading"><i class="bi bi-list-ul me-1"></i>Contents</div>
+      <nav id="toc-nav" class="toc-nav"></nav>
+    </aside>
+
+  </div><!-- post-detail-layout -->
+</div><!-- page-content -->
 
 <!-- Vite 빌드된 read-only viewer 스크립트 -->
 <script type="module" src="{{ url_for('static', path='editor/board_view.js') }}"></script>
+
+<script>
+  // TOC 생성 — Milkdown viewer 렌더링 완료 후 헤딩 스캔
+  setTimeout(() => {
+    const headings = document.querySelectorAll('#viewer-root h1, #viewer-root h2, #viewer-root h3');
+    const tocNav = document.getElementById('toc-nav');
+    const tocSidebar = document.getElementById('toc-sidebar');
+
+    if (!tocNav || headings.length < 2) {
+      if (tocSidebar) tocSidebar.remove();
+      return;
+    }
+
+    headings.forEach((h, i) => {
+      if (!h.id) h.id = `toc-heading-${i}`;
+      const depth = parseInt(h.tagName[1]) - 1;
+      const a = document.createElement('a');
+      a.href = `#${h.id}`;
+      a.textContent = h.textContent;
+      a.style.setProperty('--toc-depth', depth);
+      tocNav.appendChild(a);
+    });
+
+    // IntersectionObserver로 활성 헤딩 하이라이트
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          const link = tocNav.querySelector(`a[href="#${e.target.id}"]`);
+          if (link) link.classList.toggle('toc-active', e.isIntersecting);
+        });
+      }, { rootMargin: '-10% 0px -80% 0px' });
+
+      headings.forEach(h => observer.observe(h));
+    }
+  }, 500);
+</script>
 {% endblock %}

@@ -10,3 +10,10 @@ celery
 redis
 markdown
 passlib[bcrypt]
+# ── 맞춤법 검사 ──
+transformers>=4.40.0
+torch>=2.0.0
+sentencepiece
+# ── 맞춤법 모델 학습 (선택) ──
+datasets>=2.14.0
+beautifulsoup4>=4.12.0

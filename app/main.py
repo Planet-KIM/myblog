@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import Base, engine
-from .routers import blog, board, admin, auth, upload
+from .routers import blog, board, admin, auth, upload, api
 
 Base.metadata.create_all(bind=engine)
 
@@ -41,3 +41,4 @@ app.include_router(blog.router)
 app.include_router(board.router)
 app.include_router(admin.router)
 app.include_router(upload.router)
+app.include_router(api.router)

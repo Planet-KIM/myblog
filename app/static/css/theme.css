@@ -1,0 +1,360 @@
+/* ============================================
+   Planet KIM's Travel - Enhanced Theme System
+   ============================================ */
+
+/* ─────────────────────────────────────────────
+   Root Variables - Dark Theme (Default)
+   ───────────────────────────────────────────── */
+:root {
+  /* Primary Colors */
+  --primary: #38bdf8;        /* Sky Blue */
+  --primary-light: #7dd3fc;
+  --primary-dark: #0284c7;
+  --primary-rgb: 56, 189, 248;
+
+  /* Accent Colors */
+  --accent: #10b981;          /* Emerald */
+  --accent-light: #34d399;
+  --accent-dark: #059669;
+  --accent-rgb: 16, 185, 129;
+
+  /* Secondary Colors */
+  --secondary: #a78bfa;       /* Purple */
+  --secondary-light: #c4b5fd;
+  --secondary-dark: #8b5cf6;
+
+  /* Alert Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #06b6d4;
+
+  /* Surface Colors */
+  --surface: #1e293b;         /* Slate 800 */
+  --surface-light: #334155;   /* Slate 700 */
+  --surface-dark: #0f172a;    /* Slate 900 */
+
+  /* Background Colors */
+  --bg-body: #0f172a;         /* Slate 900 */
+  --bg-overlay: rgba(15, 23, 42, 0.85);
+
+  /* Text Colors */
+  --text-primary: #f1f5f9;    /* Slate 100 */
+  --text-main: #cbd5e1;       /* Slate 300 */
+  --text-muted: #94a3b8;      /* Slate 400 */
+  --text-disabled: #64748b;   /* Slate 500 */
+
+  /* Border Colors */
+  --border: #334155;          /* Slate 700 */
+  --border-light: #475569;    /* Slate 600 */
+  --border-dark: #1e293b;     /* Slate 800 */
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, var(--primary), var(--accent));
+  --gradient-hero: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(16, 185, 129, 0.1));
+  --gradient-card: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.1));
+  --gradient-text: linear-gradient(135deg, var(--primary), var(--secondary));
+
+  /* Category Colors */
+  --cat-travel: #06b6d4;      /* Cyan */
+  --cat-food: #f59e0b;        /* Amber */
+  --cat-tech: #8b5cf6;        /* Violet */
+  --cat-life: #ec4899;        /* Pink */
+  --cat-nature: #10b981;      /* Emerald */
+
+  /* Layout */
+  --card-radius: 12px;
+  --btn-radius: 8px;
+  --input-radius: 6px;
+  --max-width: 1200px;
+
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* Typography */
+  --font-sans: 'Pretendard Variable', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'Fira Code', 'JetBrains Mono', monospace;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(56, 189, 248, 0.3);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-index */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+}
+
+/* ─────────────────────────────────────────────
+   Light Theme
+   ───────────────────────────────────────────── */
+[data-theme="light"] {
+  /* Primary Colors */
+  --primary: #0ea5e9;         /* Sky 500 */
+  --primary-light: #38bdf8;
+  --primary-dark: #0284c7;
+
+  /* Accent Colors */
+  --accent: #10b981;          /* Emerald 500 */
+  --accent-light: #34d399;
+  --accent-dark: #059669;
+
+  /* Surface Colors */
+  --surface: #ffffff;
+  --surface-light: #f8fafc;
+  --surface-dark: #f1f5f9;
+
+  /* Background Colors */
+  --bg-body: #f8fafc;         /* Slate 50 */
+  --bg-overlay: rgba(255, 255, 255, 0.85);
+
+  /* Text Colors */
+  --text-primary: #0f172a;    /* Slate 900 */
+  --text-main: #334155;       /* Slate 700 */
+  --text-muted: #64748b;      /* Slate 500 */
+  --text-disabled: #94a3b8;   /* Slate 400 */
+
+  /* Border Colors */
+  --border: #e2e8f0;          /* Slate 200 */
+  --border-light: #f1f5f9;    /* Slate 100 */
+  --border-dark: #cbd5e1;     /* Slate 300 */
+
+  /* Gradients */
+  --gradient-hero: linear-gradient(135deg, rgba(14, 165, 233, 0.05), rgba(16, 185, 129, 0.05));
+  --gradient-card: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.02));
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 20px rgba(14, 165, 233, 0.2);
+}
+
+/* ─────────────────────────────────────────────
+   Utility Classes
+   ───────────────────────────────────────────── */
+
+/* Text Gradients */
+.gradient-text {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glassmorphism */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Glow Effects */
+.glow {
+  box-shadow: var(--shadow-glow);
+}
+
+.glow-text {
+  text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+}
+
+/* Category Badge Colors */
+.cat-travel {
+  background-color: var(--cat-travel);
+  color: white;
+}
+.cat-food {
+  background-color: var(--cat-food);
+  color: white;
+}
+.cat-tech {
+  background-color: var(--cat-tech);
+  color: white;
+}
+.cat-life {
+  background-color: var(--cat-life);
+  color: white;
+}
+.cat-nature {
+  background-color: var(--cat-nature);
+  color: white;
+}
+
+/* ─────────────────────────────────────────────
+   Animations
+   ───────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Animation Classes */
+.animate-fade-in {
+  animation: fadeIn var(--transition-base);
+}
+
+.animate-slide-up {
+  animation: slideInUp var(--transition-base);
+}
+
+.animate-slide-down {
+  animation: slideInDown var(--transition-base);
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ─────────────────────────────────────────────
+   Loading States
+   ───────────────────────────────────────────── */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-light) 50%,
+    var(--surface) 75%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: rotate 0.8s linear infinite;
+}
+
+/* ─────────────────────────────────────────────
+   Responsive Breakpoints
+   ───────────────────────────────────────────── */
+
+/* Mobile First Approach */
+@media (min-width: 640px) {
+  /* sm */
+  :root {
+    --card-radius: 12px;
+  }
+}
+
+@media (min-width: 768px) {
+  /* md */
+  :root {
+    --card-radius: 14px;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* lg */
+  :root {
+    --card-radius: 16px;
+  }
+}
+
+@media (min-width: 1280px) {
+  /* xl */
+}
+
+@media (min-width: 1536px) {
+  /* 2xl */
+}
+
+/* ─────────────────────────────────────────────
+   Accessibility
+   ───────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Focus Visible */
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  :root {
+    --border: #64748b;
+    --text-muted: #cbd5e1;
+  }
+}

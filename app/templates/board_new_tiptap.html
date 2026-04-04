@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Write - Magazine{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}">
+
+<style>
+  body { margin: 0; padding: 0; overflow-x: hidden; }
+  main.container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  body > nav { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tiptap-container">
+  <form id="post-form" method="post" action="/board/new">
+    <!-- Toolbar -->
+    <div class="tiptap-toolbar" id="tiptap-toolbar">
+      <a href="/board/" style="text-decoration: none; color: inherit; font-weight: 600; font-size: 0.9rem; margin-right: 1rem;">
+        ← Stories
+      </a>
+      <div class="tiptap-toolbar-sep"></div>
+      <div id="wordCount" style="font-size: 0.78rem; color: var(--text-muted, #9ca3af); margin-right: 0.5rem;">0 words</div>
+      <div class="tiptap-toolbar-sep"></div>
+      <!-- Toolbar buttons injected by JS -->
+    </div>
+
+    <!-- Meta -->
+    <div class="tiptap-meta">
+      <select id="category_id" name="category_id" required>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if cat.id == normal_category_id %}selected{% endif %}>
+          {{ cat.name }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <label>
+        <input type="checkbox" value="true" id="is_private" name="is_private">
+        Private
+      </label>
+
+      <label>
+        <input type="checkbox" value="true" id="show_title" name="show_title" checked>
+        Show title
+      </label>
+    </div>
+
+    <!-- Block Canvas -->
+    <div class="tiptap-editor-wrapper">
+      <div id="block-canvas"></div>
+      <div id="page-tab-bar" class="page-tab-bar"></div>
+    </div>
+
+    <!-- Hidden fields -->
+    <input type="hidden" name="draft_id" id="draft_id" value="{{ draft_id }}">
+    <input type="hidden" name="editor_type" value="tiptap">
+    <input type="hidden" name="content" id="content">
+    <input type="hidden" name="content_html" id="content_html">
+    <input type="hidden" name="content_blocks" id="content_blocks">
+
+    <!-- Bottom bar -->
+    <div class="tiptap-bottom-bar">
+      <button type="submit" class="tiptap-btn tiptap-btn-primary">Publish</button>
+      <button type="button" class="tiptap-btn tiptap-btn-secondary tiptap-btn-preview">Preview</button>
+      <a href="/board/" class="tiptap-btn tiptap-btn-secondary" style="text-decoration: none;">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+window.DRAFT_ID = "{{ draft_id }}";
+</script>
+<script type="module" src="{{ url_for('static', path='editor/board_new_tiptap.js') }}?v=3"></script>
+{% endblock %}

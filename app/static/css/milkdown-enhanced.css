@@ -1,0 +1,366 @@
+/* Enhanced Milkdown Editor Styles - Beautiful markdown rendering while editing */
+
+/* ProseMirror container */
+.milkdown .ProseMirror {
+  outline: none;
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: var(--ink-black, #1a1a1a);
+  padding: 2rem;
+  min-height: 60vh;
+}
+
+/* Headings with visual hierarchy */
+.milkdown .ProseMirror h1 {
+  font-family: 'Merriweather', 'Georgia', serif;
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin: 2rem 0 1rem;
+  line-height: 1.3;
+  color: var(--ink-black, #1a1a1a);
+  border-bottom: 2px solid var(--light-gray, #f3f4f6);
+  padding-bottom: 0.5rem;
+}
+
+.milkdown .ProseMirror h2 {
+  font-family: 'Merriweather', 'Georgia', serif;
+  font-size: 1.875rem;
+  font-weight: 600;
+  margin: 1.75rem 0 0.875rem;
+  line-height: 1.4;
+  color: var(--ink-black, #1a1a1a);
+}
+
+.milkdown .ProseMirror h3 {
+  font-family: 'Merriweather', 'Georgia', serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.75rem;
+  line-height: 1.5;
+  color: var(--ink-black, #1a1a1a);
+}
+
+.milkdown .ProseMirror h4 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.625rem;
+}
+
+.milkdown .ProseMirror h5 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+}
+
+.milkdown .ProseMirror h6 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.875rem 0 0.4375rem;
+}
+
+/* Paragraphs */
+.milkdown .ProseMirror p {
+  margin: 1rem 0;
+  line-height: 1.8;
+}
+
+/* Code blocks - Beautiful syntax highlighting */
+.milkdown .ProseMirror pre {
+  background: #282c34;
+  color: #abb2bf;
+  padding: 1.25rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  font-family: 'Fira Code', 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.milkdown .ProseMirror pre code {
+  background: transparent !important;
+  color: #abb2bf !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Inline code */
+.milkdown .ProseMirror code {
+  background: var(--light-gray, #f3f4f6);
+  color: var(--accent-blue, #3b82f6);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+/* Blockquotes - Elegant styling */
+.milkdown .ProseMirror blockquote {
+  border-left: 4px solid var(--accent-blue, #3b82f6);
+  padding: 0.75rem 0 0.75rem 1.5rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: var(--soft-gray, #6b7280);
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.08), transparent);
+  border-radius: 0 6px 6px 0;
+}
+
+.milkdown .ProseMirror blockquote p {
+  margin: 0.5rem 0;
+}
+
+/* Lists */
+.milkdown .ProseMirror ul,
+.milkdown .ProseMirror ol {
+  padding-left: 2rem;
+  margin: 1rem 0;
+}
+
+.milkdown .ProseMirror li {
+  margin: 0.5rem 0;
+  line-height: 1.75;
+}
+
+.milkdown .ProseMirror li > p {
+  margin: 0.25rem 0;
+}
+
+/* Nested lists */
+.milkdown .ProseMirror ul ul,
+.milkdown .ProseMirror ol ul,
+.milkdown .ProseMirror ul ol,
+.milkdown .ProseMirror ol ol {
+  margin: 0.25rem 0;
+}
+
+/* Task lists */
+.milkdown .ProseMirror .task-list-item {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+}
+
+.milkdown .ProseMirror .task-list-item input[type="checkbox"] {
+  margin-right: 0.5rem;
+  margin-top: 0.4em;
+}
+
+/* Links - Subtle underline on hover */
+.milkdown .ProseMirror a {
+  color: var(--accent-blue, #3b82f6);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.milkdown .ProseMirror a:hover {
+  border-bottom-color: var(--accent-blue, #3b82f6);
+}
+
+/* Images */
+.milkdown .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1.5rem auto;
+  display: block;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Horizontal rule */
+.milkdown .ProseMirror hr {
+  border: none;
+  height: 1px;
+  background: var(--light-gray, #f3f4f6);
+  margin: 2.5rem 0;
+  position: relative;
+}
+
+.milkdown .ProseMirror hr::after {
+  content: "◆";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--paper-white, #fdfcf8);
+  padding: 0 1rem;
+  color: var(--soft-gray, #6b7280);
+  font-size: 0.875rem;
+}
+
+/* Tables */
+.milkdown .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.milkdown .ProseMirror thead {
+  background: var(--light-gray, #f3f4f6);
+}
+
+.milkdown .ProseMirror th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid var(--accent-blue, #3b82f6);
+  color: var(--ink-black, #1a1a1a);
+}
+
+.milkdown .ProseMirror td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--light-gray, #f3f4f6);
+}
+
+.milkdown .ProseMirror tbody tr:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+/* Strong and emphasis */
+.milkdown .ProseMirror strong {
+  font-weight: 700;
+  color: var(--ink-black, #1a1a1a);
+}
+
+.milkdown .ProseMirror em {
+  font-style: italic;
+}
+
+/* Selection */
+.milkdown .ProseMirror ::selection {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+/* Placeholder */
+.milkdown .ProseMirror p.is-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--soft-gray, #6b7280);
+  pointer-events: none;
+  height: 0;
+  float: left;
+}
+
+/* Dark theme */
+[data-theme="dark"] .milkdown .ProseMirror {
+  color: var(--dark-ink, #e8e6e3) !important;
+  background: var(--dark-paper, #1e1e1e);
+}
+
+[data-theme="dark"] .writing-editor .milkdown .editor {
+  background: var(--dark-paper, #1e1e1e);
+  border-color: var(--dark-surface, #2a2a2a);
+}
+
+[data-theme="dark"] .milkdown .ProseMirror h1,
+[data-theme="dark"] .milkdown .ProseMirror h2,
+[data-theme="dark"] .milkdown .ProseMirror h3,
+[data-theme="dark"] .milkdown .ProseMirror h4,
+[data-theme="dark"] .milkdown .ProseMirror h5,
+[data-theme="dark"] .milkdown .ProseMirror h6 {
+  color: var(--dark-ink, #e8e6e3);
+}
+
+[data-theme="dark"] .milkdown .ProseMirror p {
+  color: var(--dark-ink, #e8e6e3);
+}
+
+[data-theme="dark"] .milkdown .ProseMirror code {
+  background: var(--dark-surface, #2a2a2a);
+  color: var(--accent-blue, #3b82f6);
+}
+
+[data-theme="dark"] .milkdown .ProseMirror blockquote {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.12), transparent);
+}
+
+[data-theme="dark"] .milkdown .ProseMirror hr::after {
+  background: var(--dark-paper, #1e1e1e);
+}
+
+[data-theme="dark"] .milkdown .ProseMirror table thead {
+  background: var(--dark-surface, #2a2a2a);
+}
+
+[data-theme="dark"] .milkdown .ProseMirror table th,
+[data-theme="dark"] .milkdown .ProseMirror table td {
+  border-color: var(--dark-surface, #2a2a2a);
+}
+
+[data-theme="dark"] .milkdown .ProseMirror tbody tr:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* Code syntax highlighting in editor (basic) */
+.milkdown .ProseMirror pre .token.comment {
+  color: #5c6370;
+  font-style: italic;
+}
+
+.milkdown .ProseMirror pre .token.keyword {
+  color: #c678dd;
+}
+
+.milkdown .ProseMirror pre .token.string {
+  color: #98c379;
+}
+
+.milkdown .ProseMirror pre .token.function {
+  color: #61aeee;
+}
+
+.milkdown .ProseMirror pre .token.number {
+  color: #d19a66;
+}
+
+.milkdown .ProseMirror pre .token.operator {
+  color: #56b6c2;
+}
+
+.milkdown .ProseMirror pre .token.punctuation {
+  color: #abb2bf;
+}
+
+/* Focus state */
+.milkdown:focus-within {
+  outline: none;
+}
+
+/* Smooth animations */
+.milkdown .ProseMirror * {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .milkdown .ProseMirror {
+    font-size: 1rem;
+    padding: 1rem;
+  }
+
+  .milkdown .ProseMirror h1 {
+    font-size: 1.75rem;
+  }
+
+  .milkdown .ProseMirror h2 {
+    font-size: 1.5rem;
+  }
+
+  .milkdown .ProseMirror h3 {
+    font-size: 1.25rem;
+  }
+
+  .milkdown .ProseMirror pre {
+    font-size: 0.875rem;
+    padding: 1rem;
+  }
+}

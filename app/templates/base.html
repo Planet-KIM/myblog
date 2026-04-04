@@ -1,66 +1,421 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ title or "FastAPI Blog & Board" }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    {% block extra_head %}{% endblock %}
-  </head>
-  <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="/main">FastAPI Blog</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item">
-              <a class="nav-link" href="/main">Main</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/">Home</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/board/">Board</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/admin/">Admin</a>
-            </li>
-            {% if current_user %}
-              <li class="nav-item">
-                <a class="nav-link" href="/board/new">Write</a>
-              </li>
-            {% endif %}
-          </ul>
-          <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-            {% if current_user %}
-              <li class="nav-item">
-                <span class="navbar-text me-2">
-                  {{ current_user.username }}
-                </span>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="/auth/logout">Logout</a>
-              </li>
-            {% else %}
-              <li class="nav-item">
-                <a class="nav-link" href="/auth/login">Login</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link" href="/auth/signup">Signup</a>
-              </li>
-            {% endif %}
-          </ul>
-        </div>
+<html lang="ko" data-bs-theme="dark">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Planet KIM's Travel{% endblock %}</title>
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <!-- Pretendard Font for Korean -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/variable/pretendardvariable-dynamic-subset.css" />
+  <!-- Google Fonts: Developer Dark Theme -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <!-- Enhanced Theme System -->
+  <link rel="stylesheet" href="{{ url_for('static', path='css/theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/mobile.css') }}">
+  <style>
+    /* Override Bootstrap with our custom theme */
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      line-height: 1.6;
+      font-size: 15px;
+      transition: background-color var(--transition-base), color var(--transition-base);
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    .display-font {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      font-weight: 600;
+    }
+
+    /* ─── Navbar ─────────────────────────────────── */
+    .site-nav {
+      background: var(--bg-overlay);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: var(--z-sticky);
+      transition: background var(--transition-base);
+    }
+
+    .site-nav .navbar-brand {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary) !important;
+      letter-spacing: -0.5px;
+      transition: transform var(--transition-fast);
+    }
+
+    .site-nav .navbar-brand:hover {
+      transform: translateX(5px);
+    }
+
+    .site-nav .navbar-brand .accent {
+      background: var(--gradient-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .site-nav .nav-link {
+      color: var(--text-main) !important;
+      font-size: 0.88rem;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      padding: 0.5rem 0.9rem !important;
+      transition: color var(--transition-fast);
+      position: relative;
+    }
+
+    .site-nav .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 2px;
+      background: var(--gradient-primary);
+      transition: width var(--transition-fast);
+    }
+
+    .site-nav .nav-link:hover::after,
+    .site-nav .nav-link.active::after {
+      width: calc(100% - 1.8rem);
+    }
+
+    .site-nav .nav-link:hover,
+    .site-nav .nav-link.active {
+      color: var(--primary) !important;
+    }
+
+    .site-nav .btn-nav-write {
+      background: var(--gradient-primary);
+      color: white !important;
+      border-radius: var(--btn-radius);
+      padding: 0.38rem 1.1rem !important;
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.2px;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .site-nav .btn-nav-write:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    /* ─── Footer ─────────────────────────────────── */
+    .site-footer {
+      background: var(--surface-dark);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      padding: 2rem 0;
+      margin-top: 5rem;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    .site-footer a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color var(--transition-fast);
+    }
+
+    .site-footer a:hover {
+      color: var(--accent-light);
+      text-decoration: underline;
+    }
+
+    /* ─── Cards ──────────────────────────────────── */
+    .travel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      transition: transform var(--transition-base),
+                  border-color var(--transition-base),
+                  box-shadow var(--transition-base);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .travel-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--gradient-primary);
+      opacity: 0;
+      transition: opacity var(--transition-base);
+    }
+
+    .travel-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--primary);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .travel-card:hover::before {
+      opacity: 1;
+    }
+
+    .travel-card .card-body {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .travel-card .card-title {
+      margin-bottom: 0.5rem;
+    }
+
+    .travel-card .card-title a {
+      color: var(--text-primary);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-size: 1.05rem;
+      font-weight: 500;
+      line-height: 1.4;
+      transition: color var(--transition-fast);
+    }
+
+    .travel-card .card-title a:hover {
+      color: var(--primary);
+    }
+
+    .travel-card .card-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-family: var(--font-mono);
+    }
+
+    .travel-card .card-preview {
+      font-size: 0.85rem;
+      color: var(--text-main);
+      line-height: 1.6;
+      max-height: 140px;
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 1.5rem;
+      flex-grow: 1;
+    }
+
+    /* 마크다운 요소(pre, code 등) 미리보기 스타일링 */
+    .travel-card .card-preview pre {
+      background: var(--surface-dark);
+      padding: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      overflow-x: hidden;
+      margin-bottom: 0;
+    }
+
+    .travel-card .card-preview code {
+      color: var(--primary);
+      font-family: var(--font-mono);
+    }
+
+    .travel-card .card-preview::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: linear-gradient(to bottom, transparent, var(--surface));
+      pointer-events: none;
+    }
+
+    .travel-card .badge-cat {
+      background: var(--gradient-primary);
+      color: white;
+      font-size: 0.7rem;
+      border-radius: 20px;
+      padding: 0.2em 0.7em;
+      font-weight: 500;
+      align-self: flex-start;
+    }
+
+    /* ─── Section titles ────────────────────────────── */
+    .section-title {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 1.4rem;
+      color: var(--text-primary);
+      padding-bottom: 0.4rem;
+      border-bottom: 2px solid;
+      border-image: var(--gradient-primary) 1;
+      display: inline-block;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ─── Page content wrapper ──────────────────── */
+    .page-content {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    /* shared card style for non-home pages */
+    .page-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow-md);
+      padding: 2rem 2.5rem;
+      color: var(--text-main);
+    }
+
+    @media (max-width: 768px) {
+      .page-content {
+        padding: 1.5rem 1rem 3rem;
+      }
+
+      .page-card {
+        padding: 1.2rem 1rem;
+      }
+    }
+
+    /* ─── Buttons ────────────────────────────────── */
+    .btn-travel {
+      background: var(--gradient-primary);
+      color: white;
+      border: none;
+      border-radius: var(--btn-radius);
+      font-size: 0.8rem;
+      padding: 0.35rem 1rem;
+      font-weight: 600;
+      transition: transform var(--transition-fast),
+                  box-shadow var(--transition-fast);
+      display: inline-block;
+      text-decoration: none;
+      font-family: var(--font-mono);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-travel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: left var(--transition-base);
+    }
+
+    .btn-travel:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-glow);
+      color: white;
+    }
+
+    .btn-travel:hover::before {
+      left: 100%;
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+  <!-- ─── Navigation ─────────────────────────────── -->
+  <nav class="navbar navbar-expand-lg site-nav">
+    <div class="container">
+      <a class="navbar-brand" href="/">
+        <i class="bi bi-airplane-fill me-1"></i>Planet <span class="accent">KIM</span>'s Travel
+      </a>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/board/"><i class="bi bi-journal-text me-1"></i>Board</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/main"><i class="bi bi-person me-1"></i>About</a>
+          </li>
+          {% if current_user and current_user.is_admin %}
+          <li class="nav-item">
+            <a class="nav-link" href="/admin/"><i class="bi bi-gear me-1"></i>Admin</a>
+          </li>
+          {% endif %}
+        </ul>
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center gap-2">
+          {% if current_user %}
+          <li class="nav-item">
+            <a class="nav-link btn-nav-write" href="/board/new">
+              <i class="bi bi-pencil-fill me-1"></i>Write
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/auth/logout" title="{{ current_user.username }}">
+              <i class="bi bi-box-arrow-right"></i>
+            </a>
+          </li>
+          {% else %}
+          <li class="nav-item">
+            <a class="nav-link" href="/auth/login">Login</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link btn-nav-write" href="/auth/signup">Sign up</a>
+          </li>
+          {% endif %}
+        </ul>
       </div>
-    </nav>
+    </div>
+  </nav>
 
-    <main class="container">
-      {% block content %}{% endblock %}
-    </main>
+  <!-- ─── Main Content ───────────────────────────── -->
+  <main class="container" style="max-width:1200px;">
+    {% block content %}{% endblock %}
+  </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
+  <!-- ─── Footer ────────────────────────────────── -->
+  <footer class="site-footer">
+    <div class="container">
+      <p class="mb-1">
+        <i class="bi bi-airplane-fill me-1"></i>
+        <strong style="color:#fff;">Planet KIM's Travel</strong>
+      </p>
+      <p class="mb-0">
+        &copy; 2025 <a href="https://github.com/Planet-KIM" target="_blank">Planet-KIM</a> · 세상의 모든 여행을 기록합니다
+      </p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', path='js/app.js') }}"></script>
+</body>
+
 </html>

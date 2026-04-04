@@ -1,0 +1,560 @@
+/* Writer's Journey Theme - A traveling writer's perspective with programmer soul */
+
+:root {
+  /* Typography - Clean, readable, writer-focused */
+  --font-writing: 'iA Writer Quattro', 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  --font-reading: 'Merriweather', 'Georgia', serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+  /* Colors - Soft, paper-like with subtle tech accents */
+  --paper-white: #fdfcf8;
+  --ink-black: #1a1a1a;
+  --soft-gray: #6b7280;
+  --light-gray: #f3f4f6;
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-amber: #f59e0b;
+  --shadow-color: rgba(0, 0, 0, 0.05);
+
+  /* Dark mode - Like writing at night */
+  --dark-paper: #1e1e1e;
+  --dark-ink: #e8e6e3;
+  --dark-soft: #9ca3af;
+  --dark-surface: #2a2a2a;
+
+  /* Spacing - Generous, comfortable */
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4rem;
+
+  /* Writing area specifics */
+  --editor-max-width: 850px;
+  --reading-max-width: 720px;
+  --line-height-writing: 1.8;
+  --line-height-reading: 1.75;
+}
+
+/* Dark mode variables */
+[data-theme="dark"] {
+  --paper-white: var(--dark-paper);
+  --ink-black: var(--dark-ink);
+  --soft-gray: var(--dark-soft);
+  --light-gray: var(--dark-surface);
+  --shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Base reset for writer-friendly experience */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--paper-white);
+  color: var(--ink-black);
+  line-height: 1.6;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Navigation - Minimal, stays out of the way */
+.writer-nav {
+  background: var(--paper-white);
+  border-bottom: 1px solid var(--light-gray);
+  padding: var(--space-sm) 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  background: rgba(253, 252, 248, 0.95);
+}
+
+[data-theme="dark"] .writer-nav {
+  background: rgba(30, 30, 30, 0.95);
+}
+
+.writer-nav-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.writer-logo {
+  font-family: var(--font-writing);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ink-black);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.writer-logo::before {
+  content: ">";
+  color: var(--accent-blue);
+  font-weight: 400;
+}
+
+/* Writing page - Focus on the content */
+.writing-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.writing-header {
+  max-width: var(--editor-max-width);
+  width: 100%;
+  margin: var(--space-xl) auto var(--space-lg);
+  padding: 0 var(--space-lg);
+}
+
+.writing-title {
+  font-family: var(--font-reading);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--ink-black);
+  margin-bottom: var(--space-xs);
+}
+
+.writing-subtitle {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  color: var(--soft-gray);
+  font-weight: 400;
+}
+
+/* Meta controls - Subtle, accessible */
+.writing-meta {
+  max-width: var(--editor-max-width);
+  width: 100%;
+  margin: 0 auto var(--space-lg);
+  padding: 0 var(--space-lg);
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.meta-field {
+  flex: 1;
+  min-width: 200px;
+}
+
+.meta-label {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--soft-gray);
+  margin-bottom: var(--space-xs);
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+
+.meta-input,
+.meta-select {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--light-gray);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  background: var(--paper-white);
+  color: var(--ink-black);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.meta-input:focus,
+.meta-select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Checkboxes - Clean toggle style */
+.meta-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  cursor: pointer;
+  user-select: none;
+}
+
+.meta-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+/* Main editor - The star of the show */
+.writing-editor-wrapper {
+  flex: 1;
+  width: 100%;
+  background: var(--paper-white);
+  padding: var(--space-lg) 0 var(--space-2xl);
+}
+
+.writing-editor {
+  max-width: var(--editor-max-width);
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
+
+/* Milkdown editor customization */
+.writing-editor .milkdown {
+  font-family: var(--font-writing);
+  font-size: 1.125rem;
+  line-height: var(--line-height-writing);
+  color: var(--ink-black);
+  min-height: 500px;
+}
+
+.writing-editor .milkdown .editor {
+  padding: var(--space-lg);
+  background: var(--paper-white);
+  border: 1px solid var(--light-gray);
+  border-radius: 8px;
+  min-height: 600px;
+  transition: box-shadow 0.2s ease;
+}
+
+.writing-editor .milkdown .editor:focus-within {
+  box-shadow: 0 0 0 1px var(--accent-blue), 0 4px 12px var(--shadow-color);
+}
+
+/* Editor typography */
+.writing-editor h1 {
+  font-family: var(--font-reading);
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: var(--space-lg) 0 var(--space-md);
+  line-height: 1.3;
+  color: var(--ink-black);
+}
+
+.writing-editor h2 {
+  font-family: var(--font-reading);
+  font-size: 2rem;
+  font-weight: 600;
+  margin: var(--space-lg) 0 var(--space-md);
+  line-height: 1.4;
+  color: var(--ink-black);
+}
+
+.writing-editor h3 {
+  font-family: var(--font-reading);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: var(--space-md) 0 var(--space-sm);
+  line-height: 1.5;
+}
+
+.writing-editor p {
+  margin: var(--space-md) 0;
+  line-height: var(--line-height-writing);
+}
+
+.writing-editor blockquote {
+  border-left: 3px solid var(--accent-blue);
+  padding-left: var(--space-md);
+  margin: var(--space-md) 0;
+  font-style: italic;
+  color: var(--soft-gray);
+}
+
+.writing-editor code {
+  font-family: var(--font-writing);
+  font-size: 0.9em;
+  background: var(--light-gray);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  color: var(--accent-blue);
+}
+
+.writing-editor pre {
+  background: var(--dark-surface);
+  color: var(--dark-ink);
+  padding: var(--space-md);
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: var(--space-md) 0;
+  font-family: var(--font-writing);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.writing-editor pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+/* Image handling */
+.writing-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: var(--space-lg) 0;
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+/* Lists */
+.writing-editor ul,
+.writing-editor ol {
+  margin: var(--space-md) 0;
+  padding-left: var(--space-lg);
+}
+
+.writing-editor li {
+  margin: var(--space-xs) 0;
+  line-height: var(--line-height-writing);
+}
+
+/* Action buttons */
+.writing-actions {
+  max-width: var(--editor-max-width);
+  width: 100%;
+  margin: var(--space-lg) auto;
+  padding: 0 var(--space-lg);
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-start;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: var(--space-sm) var(--space-lg);
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-primary {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-secondary {
+  background: var(--light-gray);
+  color: var(--ink-black);
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+/* Writing status indicators */
+.writing-status {
+  position: fixed;
+  bottom: var(--space-lg);
+  right: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  align-items: flex-end;
+  z-index: 50;
+}
+
+.status-item {
+  background: var(--paper-white);
+  border: 1px solid var(--light-gray);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--soft-gray);
+  box-shadow: 0 2px 8px var(--shadow-color);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Word count display */
+.word-count {
+  font-family: var(--font-writing);
+  font-size: 0.875rem;
+  color: var(--soft-gray);
+}
+
+/* Auto-save indicator */
+.auto-save {
+  color: var(--accent-green);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.auto-save::before {
+  content: "✓";
+  color: var(--accent-green);
+}
+
+/* Focus mode */
+.focus-mode {
+  position: fixed;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  z-index: 200;
+}
+
+.focus-toggle {
+  background: var(--paper-white);
+  border: 1px solid var(--light-gray);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--soft-gray);
+  transition: all 0.2s ease;
+}
+
+.focus-toggle:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+body.focus-active .writer-nav,
+body.focus-active .writing-meta,
+body.focus-active .writing-actions,
+body.focus-active .writing-header {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+body.focus-active .writing-editor-wrapper {
+  padding-top: var(--space-2xl);
+}
+
+body.focus-active .focus-toggle {
+  background: var(--accent-blue);
+  color: white;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .writing-header,
+  .writing-meta,
+  .writing-editor,
+  .writing-actions {
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+  }
+
+  .writing-editor .milkdown {
+    font-size: 1rem;
+  }
+
+  .writing-editor h1 {
+    font-size: 2rem;
+  }
+
+  .writing-editor h2 {
+    font-size: 1.5rem;
+  }
+
+  .writing-status {
+    bottom: var(--space-sm);
+    right: var(--space-sm);
+  }
+}
+
+/* Print styles */
+@media print {
+  .writer-nav,
+  .writing-meta,
+  .writing-actions,
+  .writing-status,
+  .focus-mode {
+    display: none;
+  }
+
+  .writing-editor .milkdown .editor {
+    border: none;
+    box-shadow: none;
+  }
+}
+
+/* Loading animation for save */
+@keyframes saving {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.saving-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+  animation: saving 1s ease-in-out infinite;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--light-gray);
+  border-radius: 6px;
+  padding: var(--space-xs);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background: var(--light-gray);
+}
+
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--ink-black);
+}
+
+/* Subtle animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}

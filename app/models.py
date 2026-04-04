@@ -102,11 +102,20 @@ class BoardPost(Base):
     # 필요시 사용할 수 있는 미리 렌더링된 HTML
     content_html = Column(Text, nullable=True)
 
+    # 에디터 타입: "milkdown" (기존 마크다운) 또는 "tiptap" (블록 에디터)
+    editor_type = Column(String(20), nullable=False, default="milkdown")
+
+    # TipTap 블록 에디터 JSON 데이터
+    content_blocks = Column(Text, nullable=True)
+
     # 화면에 표시할 작성자 (email 또는 닉네임)
     author = Column(String(255), nullable=False)
 
     # 공개/비공개
     is_private = Column(Boolean, default=False)
+    
+    # 제목 표시 여부
+    show_title = Column(Boolean, default=True)
 
     # ── 카테고리 (서브카테고리 포함) ─────────────────────
     category_id = Column(
@@ -127,5 +136,113 @@ class BoardPost(Base):
         onupdate=now_kst,
     )
 
+    # ── 태그 관계 ─────────────────────
+    tags = relationship("Tag", secondary="post_tags", back_populates="posts")
+
+    # ── 통계 관계 ─────────────────────
+    stats = relationship("PostStats", uselist=False, back_populates="post")
+
     def __repr__(self) -> str:
         return f"<BoardPost id={self.id} title={self.title!r}>"
+
+
+# ─────────────────────────────
+# 태그 모델
+# ─────────────────────────────
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), nullable=False, unique=True)
+    slug = Column(String(50), nullable=False, unique=True, index=True)
+    count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=now_kst)
+
+    # 이 태그를 가진 포스트들
+    posts = relationship("BoardPost", secondary="post_tags", back_populates="tags")
+
+    def __repr__(self) -> str:
+        return f"<Tag id={self.id} name={self.name!r}>"
+
+
+# ─────────────────────────────
+# 포스트-태그 연결 테이블
+# ─────────────────────────────
+class PostTag(Base):
+    __tablename__ = "post_tags"
+
+    post_id = Column(Integer, ForeignKey("board_posts.id"), primary_key=True)
+    tag_id = Column(Integer, ForeignKey("tags.id"), primary_key=True)
+    created_at = Column(DateTime, default=now_kst)
+
+
+# ─────────────────────────────
+# 포스트 통계 모델
+# ─────────────────────────────
+class PostStats(Base):
+    __tablename__ = "post_stats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("board_posts.id"), unique=True, nullable=False)
+    views = Column(Integer, default=0)
+    likes = Column(Integer, default=0)
+    read_time = Column(Integer, default=0)  # seconds
+    unique_visitors = Column(Integer, default=0)
+    last_viewed_at = Column(DateTime, nullable=True)
+
+    post = relationship("BoardPost", back_populates="stats")
+
+    def __repr__(self) -> str:
+        return f"<PostStats post_id={self.post_id} views={self.views}>"
+
+
+# ─────────────────────────────
+# 업로드 파일 레지스트리
+# ─────────────────────────────
+class UploadedFile(Base):
+    __tablename__ = "uploaded_files"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    user_id       = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # 연결 대상: 발행 전에는 draft_id, 발행 후에는 post_id
+    post_id       = Column(Integer, ForeignKey("board_posts.id"), nullable=True)
+    draft_id      = Column(String(36), nullable=True)
+
+    # 파일 분류: image / document / text / code / archive / video / audio / other
+    file_type     = Column(String(20), nullable=False, default="other")
+
+    original_name = Column(String(255), nullable=False)   # 원본 파일명 (user.pdf)
+    stored_name   = Column(String(255), nullable=False)   # 저장된 파일명 (uuid.pdf)
+    file_path     = Column(String(500), nullable=False)   # 디스크 절대경로
+    url           = Column(String(500), nullable=False)   # 서빙 URL
+
+    size_bytes    = Column(Integer, nullable=False, default=0)
+    mime_type     = Column(String(100), nullable=False, default="application/octet-stream")
+
+    created_at    = Column(DateTime, default=now_kst)
+
+    user  = relationship("User")
+    post  = relationship("BoardPost")
+
+    def __repr__(self) -> str:
+        return f"<UploadedFile id={self.id} type={self.file_type!r} name={self.original_name!r}>"
+
+
+# ─────────────────────────────
+# 임시 저장 (Draft) 모델
+# ─────────────────────────────
+class Draft(Base):
+    __tablename__ = "drafts"
+
+    id = Column(String(36), primary_key=True)  # UUID
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(200), nullable=True)
+    content = Column(Text, nullable=True)
+    tags = Column(Text, nullable=True)  # JSON string
+    category_id = Column(Integer, ForeignKey("board_categories.id"), nullable=True)
+    is_private = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=now_kst)
+    updated_at = Column(DateTime, default=now_kst, onupdate=now_kst)
+
+    user = relationship("User")

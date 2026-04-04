@@ -1,0 +1,940 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.title or 'Story' }}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}">
+<!-- Highlight.js for syntax highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<style>
+  /* ── 매거진 전용 레이아웃 ────────────────────────── */
+  main.container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Reading progress bar */
+  .reading-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--border, #e5e7eb);
+    z-index: 200;
+  }
+
+  .reading-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #f97316, #ec4899);
+    width: 0%;
+    transition: width 0.1s ease;
+  }
+
+  /* ── Hero header (매거진 스타일) ───────────────────── */
+  .magazine-header {
+    position: relative;
+    padding: 4rem 2rem 3rem;
+    text-align: center;
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.08), rgba(236, 72, 153, 0.08));
+    border-bottom: 1px solid var(--border, #e5e7eb);
+    margin-bottom: 0;
+  }
+
+  .magazine-header .editor-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.2rem 0.7rem;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #f97316, #ec4899);
+    color: white;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .magazine-category {
+    display: inline-block;
+    font-size: 0.8rem;
+    color: #f97316;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .magazine-title {
+    font-family: 'Pretendard Variable', -apple-system, sans-serif;
+    font-size: 3.2rem;
+    font-weight: 800;
+    line-height: 1.15;
+    color: var(--text-primary, #111827);
+    margin-bottom: 1.5rem;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+    letter-spacing: -0.02em;
+  }
+
+  .magazine-meta {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+    color: var(--text-muted, #6b7280);
+    margin-bottom: 1.5rem;
+  }
+
+  .magazine-meta .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .magazine-meta .author-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f97316, #ec4899);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .reading-time-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.85rem;
+    background: var(--surface, #f9fafb);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: var(--text-muted, #6b7280);
+  }
+
+  /* ── 매거진 콘텐츠 영역 ───────────────────────────── */
+  .magazine-content {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Pretendard Variable', -apple-system, sans-serif;
+    font-size: 1.15rem;
+    line-height: 1.85;
+    color: var(--text-main, #1f2937);
+  }
+
+  /* 자유 배치 레이아웃 — 에디터와 동일한 비율 유지 */
+  .magazine-content .magazine-layout {
+    display: block;
+    width: 100%;
+  }
+
+  .magazine-content .magazine-layout > div {
+    /* inner absolute container */
+  }
+
+  /* 텍스트 블록 안 타이포그래피 */
+  .magazine-content .magazine-layout p { margin: 0.5rem 0; }
+  .magazine-content .magazine-layout h1 { font-size: 2rem; font-weight: 800; margin: 0 0 0.5rem; }
+  .magazine-content .magazine-layout h2 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; }
+  .magazine-content .magazine-layout h3 { font-size: 1.2rem; font-weight: 600; margin: 0 0 0.5rem; }
+  .magazine-content .magazine-layout img { display: block; }
+
+  /* 타이포그래피 */
+  .magazine-content h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 3rem 0 1.25rem;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .magazine-content h2 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    margin: 2.5rem 0 1rem;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .magazine-content h3 {
+    font-size: 1.45rem;
+    font-weight: 600;
+    margin: 2rem 0 0.75rem;
+    line-height: 1.4;
+  }
+
+  .magazine-content p {
+    margin: 1.25rem 0;
+  }
+
+  /* 인용문 — 매거진 스타일 */
+  .magazine-content blockquote {
+    border-left: 4px solid #f97316;
+    padding: 1.25rem 0 1.25rem 2rem;
+    margin: 2.5rem 0;
+    font-style: italic;
+    font-size: 1.2rem;
+    color: var(--text-muted, #6b7280);
+    background: linear-gradient(90deg, rgba(249, 115, 22, 0.06), transparent);
+    border-radius: 0 12px 12px 0;
+  }
+
+  /* 코드 블록 */
+  .magazine-content pre {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 1.5rem;
+    border-radius: 12px;
+    overflow-x: auto;
+    margin: 2rem 0;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .magazine-content code {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.88em;
+    background: var(--surface, #f3f4f6);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    color: #f97316;
+  }
+
+  .magazine-content pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+
+  /* 이미지 — 매거진 풀폭 스타일 */
+  .magazine-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    margin: 2rem auto;
+    display: block;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .magazine-content .tiptap-image {
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  /* 멀티 컬럼 렌더링 */
+  .magazine-content div[data-type="multi-column"] {
+    display: flex;
+    gap: 2rem;
+    margin: 2rem 0;
+    align-items: flex-start;
+  }
+
+  .magazine-content div[data-type="column"] {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* 리스트 */
+  .magazine-content ul,
+  .magazine-content ol {
+    padding-left: 1.5rem;
+    margin: 1.25rem 0;
+  }
+
+  .magazine-content li {
+    margin: 0.5rem 0;
+  }
+
+  /* 구분선 */
+  .magazine-content hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border, #e5e7eb), transparent);
+    margin: 3rem 0;
+    position: relative;
+  }
+
+  .magazine-content hr::after {
+    content: "◆";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--bg-body, #fff);
+    padding: 0 1rem;
+    color: #f97316;
+    font-size: 0.9rem;
+  }
+
+  /* 테이블 */
+  .magazine-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 2rem 0;
+  }
+
+  .magazine-content th {
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(236, 72, 153, 0.1));
+    padding: 0.85rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #f97316;
+  }
+
+  .magazine-content td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+  }
+
+  /* 하이라이트 마크 */
+  .magazine-content mark {
+    border-radius: 2px;
+    padding: 0.1em 0;
+  }
+
+  /* ── 하단 footer ──────────────────────────────────── */
+  .magazine-footer {
+    max-width: 900px;
+    margin: 2rem auto 0;
+    padding: 0 2rem 3rem;
+  }
+
+  .magazine-footer .article-tags {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border, #e5e7eb);
+  }
+
+  .magazine-footer .tag {
+    padding: 0.35rem 0.85rem;
+    background: var(--surface, #f3f4f6);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: var(--text-main, #374151);
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .magazine-footer .tag:hover {
+    background: #f97316;
+    color: white;
+  }
+
+  .article-action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    margin-bottom: 2rem;
+  }
+
+  .action-left, .action-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-decoration: none;
+    border: 1px solid transparent;
+    background: transparent;
+    font-family: inherit;
+  }
+
+  .btn-action-edit {
+    border-color: #f97316;
+    color: #f97316;
+  }
+
+  .btn-action-edit:hover {
+    background: #f97316;
+    color: white;
+  }
+
+  .btn-action-delete {
+    border-color: var(--border, #e5e7eb);
+    color: var(--text-muted, #9ca3af);
+  }
+
+  .btn-action-delete:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.05);
+  }
+
+  .btn-action-share {
+    border-color: var(--border, #e5e7eb);
+    color: var(--text-muted, #6b7280);
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .btn-action-share:hover {
+    border-color: #f97316;
+    color: #f97316;
+    background: rgba(249, 115, 22, 0.05);
+  }
+
+  .action-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border, #e5e7eb);
+  }
+
+  /* Navigation between posts */
+  .post-navigation {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin: 3rem 0;
+  }
+
+  .nav-post {
+    padding: 1.5rem;
+    background: var(--surface, #f9fafb);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .nav-post:hover {
+    border-color: #f97316;
+    box-shadow: 0 4px 16px rgba(249, 115, 22, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .nav-label {
+    font-size: 0.8rem;
+    color: #f97316;
+    margin-bottom: 0.5rem;
+    display: block;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .nav-title {
+    font-size: 1.05rem;
+    color: var(--text-primary, #111827);
+    font-weight: 600;
+  }
+
+  .nav-post.prev { text-align: left; }
+  .nav-post.next { text-align: right; }
+
+  /* ── Mobile ───────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .magazine-header { padding: 2.5rem 1rem 2rem; }
+    .magazine-title { font-size: 2rem; }
+    .magazine-content { font-size: 1rem; }
+    .post-navigation { grid-template-columns: 1fr; }
+    .magazine-footer { padding: 0 1rem 2rem; }
+  }
+
+  /* ── Dark theme ───────────────────────────────────── */
+  [data-theme="dark"] .magazine-header {
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.05), rgba(236, 72, 153, 0.05));
+  }
+
+  [data-theme="dark"] .magazine-content blockquote {
+    background: linear-gradient(90deg, rgba(249, 115, 22, 0.08), transparent);
+  }
+
+  [data-theme="dark"] .nav-post {
+    background: var(--surface-dark, #1e293b);
+  }
+
+  [data-theme="dark"] .btn-action-delete,
+  [data-theme="dark"] .btn-action-share {
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #9ca3af;
+  }
+
+  /* Print */
+  @media print {
+    .article-action-bar, .post-navigation, .reading-progress { display: none; }
+    .magazine-content { font-size: 12pt; line-height: 1.5; }
+  }
+
+  /* ── Page flip viewer ───────────────────────────────────── */
+  .page-viewer {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg-body, #fff);
+    user-select: none;
+  }
+
+  /* Sliding track */
+  .page-track {
+    display: flex;
+    will-change: transform;
+  }
+
+  .page-slide {
+    min-width: 100%;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+
+  /* Page entering/leaving — flip effect via perspective + rotateY */
+  .page-slide.flip-out-left {
+    animation: flipOutLeft 0.42s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+    transform-origin: right center;
+    perspective: 1200px;
+  }
+  .page-slide.flip-in-right {
+    animation: flipInRight 0.42s cubic-bezier(0, 0.55, 0.45, 1) forwards;
+    transform-origin: left center;
+    perspective: 1200px;
+  }
+  .page-slide.flip-out-right {
+    animation: flipOutRight 0.42s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+    transform-origin: left center;
+    perspective: 1200px;
+  }
+  .page-slide.flip-in-left {
+    animation: flipInLeft 0.42s cubic-bezier(0, 0.55, 0.45, 1) forwards;
+    transform-origin: right center;
+    perspective: 1200px;
+  }
+
+  @keyframes flipOutLeft {
+    0%   { transform: rotateY(0deg);    opacity: 1; }
+    100% { transform: rotateY(-90deg);  opacity: 0; }
+  }
+  @keyframes flipInRight {
+    0%   { transform: rotateY(90deg);   opacity: 0; }
+    100% { transform: rotateY(0deg);    opacity: 1; }
+  }
+  @keyframes flipOutRight {
+    0%   { transform: rotateY(0deg);    opacity: 1; }
+    100% { transform: rotateY(90deg);   opacity: 0; }
+  }
+  @keyframes flipInLeft {
+    0%   { transform: rotateY(-90deg);  opacity: 0; }
+    100% { transform: rotateY(0deg);    opacity: 1; }
+  }
+
+  /* Page content typography */
+  .page-slide p { margin: 0.4em 0; }
+  .page-slide h1 { font-size: 2em; font-weight: 800; margin: 0 0 0.3em; line-height: 1.1; }
+  .page-slide h2 { font-size: 1.5em; font-weight: 700; margin: 0 0 0.3em; }
+  .page-slide h3 { font-size: 1.2em; font-weight: 600; margin: 0 0 0.3em; }
+
+  /* Nav bar */
+  .page-nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 0.9rem 0 0.6rem;
+    border-top: 1px solid var(--border, #f3f4f6);
+  }
+
+  .page-nav-btn {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border, #e5e7eb);
+    background: var(--bg-body, #fff);
+    color: var(--text-main, #374151);
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.18s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .page-nav-btn:hover:not(:disabled) {
+    background: #f97316;
+    border-color: #f97316;
+    color: #fff;
+    box-shadow: 0 3px 12px rgba(249,115,22,0.28);
+    transform: scale(1.08);
+  }
+  .page-nav-btn:disabled { opacity: 0.25; cursor: default; transform: none; }
+
+  .page-counter {
+    font-size: 0.78rem;
+    color: var(--text-muted, #9ca3af);
+    letter-spacing: 0.1em;
+    min-width: 56px;
+    text-align: center;
+  }
+
+  /* Page dots */
+  .page-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding-bottom: 0.8rem;
+  }
+  .page-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--border, #d1d5db);
+    cursor: pointer;
+    border: none;
+    padding: 0;
+    transition: all 0.2s;
+  }
+  .page-dot.active {
+    background: #f97316;
+    width: 22px;
+    border-radius: 4px;
+  }
+
+  [data-theme="dark"] .page-nav-btn { background: #1e293b; border-color: rgba(255,255,255,0.1); color: #e5e7eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Reading progress bar -->
+<div class="reading-progress">
+  <div class="reading-progress-bar" id="progressBar"></div>
+</div>
+
+<!-- Magazine header -->
+<header class="magazine-header">
+  <span class="editor-badge">Magazine</span>
+
+  {% if post.category %}
+  <div><span class="magazine-category">{{ post.category.name }}</span></div>
+  {% endif %}
+
+  <h1 class="magazine-title">{{ post.title }}</h1>
+
+  <div class="magazine-meta">
+    <div class="meta-item">
+      <span class="author-avatar">{{ post.author[0].upper() }}</span>
+      <span>{{ post.author }}</span>
+    </div>
+    <span class="meta-item">
+      {{ post.created_at.strftime('%B %d, %Y') }}
+    </span>
+    <span class="meta-item">
+      {{ stats.views if stats else 0 }} views
+    </span>
+    {% if post.is_private %}
+    <span class="meta-item" style="color: #f97316;">
+      <i class="bi bi-lock-fill"></i> Private
+    </span>
+    {% endif %}
+  </div>
+
+  <div class="reading-time-badge">
+    <i class="bi bi-clock"></i>
+    {{ (post.content.split()|length / 200)|round|int }} min read
+  </div>
+</header>
+
+<!-- Magazine content: page viewer -->
+<article class="magazine-content" id="magazineContent">
+  {% if post.content_blocks %}
+  <!-- content_blocks is parsed by JS viewer below -->
+  <div id="magazine-viewer-root"></div>
+  {% else %}
+  {{ post.content_html | safe }}
+  {% endif %}
+</article>
+
+<!-- Footer -->
+<footer class="magazine-footer">
+  {% if post.tags %}
+  <div class="article-tags">
+    {% for tag in post.tags %}
+    <a href="/board/?tag={{ tag }}" class="tag">#{{ tag }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="article-action-bar">
+    <div class="action-left">
+      {% if current_user and current_user.id == post.user_id %}
+      <a href="/board/{{ post.id }}/edit" class="btn-action btn-action-edit">
+        <i class="bi bi-pencil"></i> Edit
+      </a>
+      <div class="action-divider"></div>
+      <form method="post" action="/board/{{ post.id }}/delete" style="display:inline;"
+            onsubmit="return confirm('Delete this story?');">
+        <button type="submit" class="btn-action btn-action-delete">
+          <i class="bi bi-trash"></i> Delete
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="action-right">
+      <button class="btn-action btn-action-share" onclick="copyLink()" title="Copy link">
+        <i class="bi bi-link-45deg"></i>
+      </button>
+      <button class="btn-action btn-action-share" onclick="shareTwitter()" title="Share on X">
+        <i class="bi bi-twitter-x"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Post navigation -->
+  <nav class="post-navigation">
+    {% if prev_post %}
+    <a href="/board/{{ prev_post.id }}" class="nav-post prev">
+      <span class="nav-label"><i class="bi bi-arrow-left"></i> Previous</span>
+      <span class="nav-title">{{ prev_post.title or 'Previous Story' }}</span>
+    </a>
+    {% else %}
+    <div></div>
+    {% endif %}
+
+    {% if next_post %}
+    <a href="/board/{{ next_post.id }}" class="nav-post next">
+      <span class="nav-label">Next <i class="bi bi-arrow-right"></i></span>
+      <span class="nav-title">{{ next_post.title or 'Next Story' }}</span>
+    </a>
+    {% else %}
+    <div></div>
+    {% endif %}
+  </nav>
+</footer>
+
+{% if post.content_blocks %}
+<script id="content-blocks-data" type="application/json">
+{{ post.content_blocks | safe }}
+</script>
+{% endif %}
+
+<script>
+// ── Page flip viewer ─────────────────────────────────────
+(function() {
+  const root = document.getElementById('magazine-viewer-root');
+  if (!root) return;
+  const raw = document.getElementById('content-blocks-data');
+  if (!raw) return;
+
+  let data;
+  try { data = JSON.parse(raw.textContent); } catch { return; }
+
+  let pages = [];
+  if (data.v === 3 && Array.isArray(data.pages) && data.pages.length) {
+    pages = data.pages;
+  } else if ((data.v === 2 || data.cw) && Array.isArray(data.blocks)) {
+    pages = [data];
+  } else { return; }
+
+  if (!pages.length) return;
+
+  // Build one slide's inner HTML from page data
+  function buildSlideHTML(page) {
+    const cw = page.cw || 1200, ch = page.ch || 800;
+    const ratio = (ch / cw * 100).toFixed(3);
+    let html = `<div class="magazine-layout" style="position:relative;width:100%;padding-bottom:${ratio}%;overflow:hidden;">`;
+    html += `<div style="position:absolute;top:0;left:0;width:100%;height:100%;">`;
+    (page.blocks || []).forEach(b => {
+      const L = (b.x / cw * 100).toFixed(3);
+      const T = (b.y / ch * 100).toFixed(3);
+      const W = (b.w / cw * 100).toFixed(3);
+      const H = (b.h / ch * 100).toFixed(3);
+      const br = b.showBorder ? (b.borderRadius >= 9999 ? '9999px' : `${b.borderRadius ?? 0}px`) : '';
+      const border = b.showBorder ? `border:${b.borderWidth ?? 1}px solid ${b.borderColor ?? '#000000'};border-radius:${br};` : '';
+      const s = `position:absolute;left:${L}%;top:${T}%;width:${W}%;height:${H}%;overflow:hidden;box-sizing:border-box;${border}`;
+      if (b.type === 'image' && b.src) {
+        const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
+        html += `<div style="${s}"><img src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
+      } else if (b.type === 'spacer') {
+        html += `<div style="${s}"></div>`;
+      } else {
+        html += `<div style="${s}">${b.content || ''}</div>`;
+      }
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  // ── Build DOM ──────────────────────────────────────────
+  const viewer = document.createElement('div');
+  viewer.className = 'page-viewer';
+
+  const track = document.createElement('div');
+  track.className = 'page-track';
+
+  const slides = pages.map((page, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'page-slide';
+    slide.innerHTML = buildSlideHTML(page);
+    track.appendChild(slide);
+    return slide;
+  });
+
+  viewer.appendChild(track);
+  root.appendChild(viewer);
+
+  // Nav bar
+  const navBar  = document.createElement('div'); navBar.className = 'page-nav-bar';
+  const prevBtn = document.createElement('button'); prevBtn.className = 'page-nav-btn'; prevBtn.innerHTML = '&#8249;';
+  const counter = document.createElement('div');   counter.className = 'page-counter';
+  const nextBtn = document.createElement('button'); nextBtn.className = 'page-nav-btn'; nextBtn.innerHTML = '&#8250;';
+  navBar.appendChild(prevBtn); navBar.appendChild(counter); navBar.appendChild(nextBtn);
+  root.appendChild(navBar);
+
+  // Dots
+  const dotsBar = document.createElement('div'); dotsBar.className = 'page-dots';
+  const dots = pages.map((_, i) => {
+    const d = document.createElement('button');
+    d.className = 'page-dot' + (i === 0 ? ' active' : '');
+    d.addEventListener('click', () => goTo(i));
+    dotsBar.appendChild(d);
+    return d;
+  });
+  root.appendChild(dotsBar);
+
+  // ── State & transition ────────────────────────────────
+  let current = 0, animating = false;
+  const HALF = 210; // ms for each half of the flip
+
+  // Show only current slide immediately (no animation)
+  function showImmediate(idx) {
+    slides.forEach((s, i) => {
+      s.style.display = i === idx ? 'block' : 'none';
+      s.className = 'page-slide';
+    });
+    dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+    counter.textContent = `${idx + 1} / ${pages.length}`;
+    prevBtn.disabled = idx <= 0;
+    nextBtn.disabled = idx >= pages.length - 1;
+  }
+
+  function goTo(next, dir) {
+    if (animating || next === current) return;
+    if (next < 0 || next >= pages.length) return;
+    if (dir === undefined) dir = next > current ? 1 : -1;
+    animating = true;
+
+    const outSlide = slides[current];
+    const inSlide  = slides[next];
+
+    // Show both for transition
+    slides.forEach(s => s.style.display = 'none');
+    outSlide.style.display = 'block';
+    inSlide.style.display  = 'block';
+
+    // Outgoing: flip away from spine
+    outSlide.className = 'page-slide ' + (dir > 0 ? 'flip-out-left' : 'flip-out-right');
+
+    setTimeout(() => {
+      outSlide.style.display = 'none';
+      // Incoming: flip in from spine
+      inSlide.className = 'page-slide ' + (dir > 0 ? 'flip-in-right' : 'flip-in-left');
+
+      setTimeout(() => {
+        inSlide.className = 'page-slide';
+        current = next;
+        showImmediate(current);
+        animating = false;
+      }, HALF);
+    }, HALF);
+
+    // Update UI immediately
+    dots.forEach((d, i) => d.classList.toggle('active', i === next));
+    counter.textContent = `${next + 1} / ${pages.length}`;
+    prevBtn.disabled = next <= 0;
+    nextBtn.disabled = next >= pages.length - 1;
+  }
+
+  prevBtn.addEventListener('click', () => goTo(current - 1, -1));
+  nextBtn.addEventListener('click', () => goTo(current + 1,  1));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1,  1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(current - 1, -1);
+  });
+
+  let tx = 0;
+  viewer.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+  viewer.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 50) goTo(current + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
+  });
+
+  showImmediate(0);
+})();
+
+// Reading progress bar
+window.addEventListener('scroll', () => {
+  const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+  const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+  const scrolled = (winScroll / height) * 100;
+  document.getElementById('progressBar').style.width = scrolled + '%';
+});
+
+// Share
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href);
+  const toast = document.createElement('div');
+  toast.textContent = 'Link copied!';
+  toast.style.cssText = `
+    position: fixed; bottom: 2rem; right: 2rem;
+    background: #f97316; color: white;
+    padding: 1rem 1.5rem; border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 1000;
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 2000);
+}
+
+function shareTwitter() {
+  const text = `{{ post.title or 'Story' }}`;
+  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`);
+}
+
+// Theme
+const html = document.documentElement;
+const savedTheme = localStorage.getItem('theme') || 'light';
+html.setAttribute('data-theme', savedTheme);
+
+// Syntax highlighting
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('pre code').forEach((block) => {
+    hljs.highlightElement(block);
+  });
+
+  // 제목 중복 제거: 본문 첫 h1이 헤더 제목과 같으면 숨김
+  const content = document.querySelector('.magazine-content');
+  if (content) {
+    const firstEl = content.firstElementChild;
+    if (firstEl && firstEl.tagName === 'H1') {
+      firstEl.style.display = 'none';
+    }
+  }
+});
+</script>
+{% endblock %}

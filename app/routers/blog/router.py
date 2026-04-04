@@ -130,12 +130,15 @@ def read_index(
         post.preview = markdown_to_plain(post.content or '')
         post.thumbnail = extract_first_image(post.content or '')
 
+    categories = db.query(models.BoardCategory).order_by(models.BoardCategory.id).all()
+
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
             "posts": posts,
             "board_posts": board_posts,
+            "categories": categories,
             "current_user": current_user,
         },
     )

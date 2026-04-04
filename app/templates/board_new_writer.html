@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}Write Your Story{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/writer-journey.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/milkdown-enhanced.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/editor-color-picker.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
+
+<style>
+  /* Override base styles for full writing experience */
+  body {
+    background: var(--paper-white);
+    padding: 0;
+    margin: 0;
+  }
+
+  .container {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Custom Milkdown styles for spacious writing */
+  .writing-editor .milkdown .editor {
+    min-height: 70vh;
+    font-size: 1.2rem;
+    line-height: 1.9;
+    padding: 3rem 4rem;
+  }
+
+  .writing-editor .milkdown .ProseMirror {
+    outline: none;
+    min-height: 65vh;
+  }
+
+  .writing-editor .milkdown .ProseMirror:focus {
+    outline: none;
+  }
+
+  /* First line as title styling */
+  .writing-editor .milkdown h1:first-child {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid var(--light-gray);
+    padding-bottom: 1rem;
+  }
+
+  /* Placeholder for empty editor */
+  .writing-editor .milkdown .editor.ProseMirror-empty::before {
+    content: "# Your title here\n\nStart writing your story...";
+    color: var(--soft-gray);
+    font-family: var(--font-writing);
+    position: absolute;
+    pointer-events: none;
+    white-space: pre-wrap;
+  }
+
+  /* Smooth transitions */
+  * {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="writing-container">
+  <!-- Minimal navigation -->
+  <nav class="writer-nav">
+    <div class="writer-nav-content">
+      <a href="/board/" class="writer-logo">Writer's Journey</a>
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <span class="word-count" id="wordCount">0 words</span>
+        <span class="auto-save" id="autoSaveStatus" style="display: none;">Saved</span>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="sunIcon">
+            <path d="M12 7a5 5 0 100 10 5 5 0 000-10zM12 1v4m0 14v4m-9-9h4m14 0h4m-3.05-6.95L19 5l-2.05 2.05M7.05 16.95L5 19l2.05-2.05m9.9 0L19 19l-2.05-2.05M7.05 7.05L5 5l2.05 2.05"/>
+          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="moonIcon" style="display: none;">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Clean header -->
+  <div class="writing-header">
+    <h1 class="writing-title">Write Your Story</h1>
+    <p class="writing-subtitle">Let your thoughts flow. The first heading will become your title.</p>
+  </div>
+
+  <form id="post-form" method="post" action="/board/new">
+    <!-- Minimal meta controls -->
+    <div class="writing-meta">
+      <div class="meta-field">
+        <label class="meta-label" for="category_id">Category</label>
+        <select class="meta-select" id="category_id" name="category_id" required>
+          {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if cat.id==normal_category_id %}selected{% endif %}>
+            {{ cat.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="meta-field">
+        <label class="meta-checkbox">
+          <input type="checkbox" value="true" id="is_private" name="is_private">
+          <span>Private post</span>
+        </label>
+      </div>
+
+      <div class="meta-field">
+        <label class="meta-checkbox">
+          <input type="checkbox" value="true" id="show_title" name="show_title" checked>
+          <span>Show title in lists</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- The main attraction - spacious editor -->
+    <div class="writing-editor-wrapper">
+      <div class="writing-editor">
+        <!-- Color customization toolbar -->
+        <div class="editor-toolbar">
+          <div class="toolbar-group">
+            <span class="toolbar-label">Text Color:</span>
+            <div class="color-presets" id="textColorPresets">
+              <button type="button" class="color-preset active" data-color="default" style="background: linear-gradient(135deg, #1a1a1a, #4a4a4a);" title="Default (Light/Dark adaptive)"></button>
+              <button type="button" class="color-preset" data-color="#000000" style="background: #000000;" title="Black"></button>
+              <button type="button" class="color-preset" data-color="#4a5568" style="background: #4a5568;" title="Gray"></button>
+              <button type="button" class="color-preset" data-color="#3b82f6" style="background: #3b82f6;" title="Blue"></button>
+              <button type="button" class="color-preset" data-color="#10b981" style="background: #10b981;" title="Green"></button>
+              <button type="button" class="color-preset" data-color="#f59e0b" style="background: #f59e0b;" title="Amber"></button>
+              <button type="button" class="color-preset" data-color="#ef4444" style="background: #ef4444;" title="Red"></button>
+              <button type="button" class="color-preset" data-color="#8b5cf6" style="background: #8b5cf6;" title="Purple"></button>
+            </div>
+            <label class="color-picker-btn">
+              <div class="color-swatch" id="textColorSwatch" style="background: #1a1a1a;"></div>
+              <span>Custom</span>
+              <input type="color" id="customTextColor" value="#1a1a1a">
+            </label>
+          </div>
+
+          <div class="toolbar-group">
+            <span class="toolbar-label">Background:</span>
+            <div class="color-presets" id="bgColorPresets">
+              <button type="button" class="color-preset active" data-color="default" style="background: linear-gradient(135deg, #fdfcf8, #f3f4f6);" title="Default (Light/Dark adaptive)"></button>
+              <button type="button" class="color-preset" data-color="#fffbeb" style="background: #fffbeb;" title="Warm"></button>
+              <button type="button" class="color-preset" data-color="#f0fdf4" style="background: #f0fdf4;" title="Mint"></button>
+              <button type="button" class="color-preset" data-color="#eff6ff" style="background: #eff6ff;" title="Sky"></button>
+              <button type="button" class="color-preset" data-color="#fdf2f8" style="background: #fdf2f8;" title="Pink"></button>
+            </div>
+            <label class="color-picker-btn">
+              <div class="color-swatch" id="bgColorSwatch" style="background: #fdfcf8;"></div>
+              <span>Custom</span>
+              <input type="color" id="customBgColor" value="#fdfcf8">
+            </label>
+          </div>
+
+          <button type="button" class="reset-colors-btn" id="resetColors">Reset</button>
+        </div>
+
+        <div id="editor-root" data-draft-id="{{ draft_id }}"></div>
+        <div class="saving-indicator" id="savingIndicator" style="display: none;"></div>
+      </div>
+    </div>
+
+    <!-- Hidden form fields -->
+    <input type="hidden" name="draft_id" id="draft_id" value="{{ draft_id }}">
+    <input type="hidden" name="content" id="content">
+    <input type="hidden" name="content_html" id="content_html">
+
+    <!-- Action buttons -->
+    <div class="writing-actions">
+      <button type="submit" class="btn-primary">Publish Story</button>
+      <button type="button" class="btn-secondary" id="saveDraft">Save Draft</button>
+      <a href="/board/" class="btn-secondary">Cancel</a>
+    </div>
+  </form>
+
+  <!-- Status indicators -->
+  <div class="writing-status">
+    <div class="status-item" id="connectionStatus">
+      <span class="status-dot"></span>
+      <span>Connected</span>
+    </div>
+  </div>
+
+  <!-- Focus mode toggle -->
+  <div class="focus-mode">
+    <button class="focus-toggle" id="focusToggle">Focus</button>
+  </div>
+</div>
+
+<script>
+window.DRAFT_ID = "{{ draft_id }}";
+
+// Theme toggle
+const themeToggle = document.getElementById('themeToggle');
+const sunIcon = document.getElementById('sunIcon');
+const moonIcon = document.getElementById('moonIcon');
+const html = document.documentElement;
+
+// Load saved theme
+const savedTheme = localStorage.getItem('theme') || 'light';
+html.setAttribute('data-theme', savedTheme);
+updateThemeIcon(savedTheme);
+
+themeToggle.addEventListener('click', () => {
+  const currentTheme = html.getAttribute('data-theme');
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+  html.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  updateThemeIcon(newTheme);
+});
+
+function updateThemeIcon(theme) {
+  if (theme === 'dark') {
+    sunIcon.style.display = 'none';
+    moonIcon.style.display = 'block';
+  } else {
+    sunIcon.style.display = 'block';
+    moonIcon.style.display = 'none';
+  }
+}
+
+// Focus mode
+const focusToggle = document.getElementById('focusToggle');
+let focusMode = false;
+
+focusToggle.addEventListener('click', () => {
+  focusMode = !focusMode;
+  document.body.classList.toggle('focus-active', focusMode);
+  focusToggle.textContent = focusMode ? 'Exit Focus' : 'Focus';
+});
+
+// Word count (will be updated by editor)
+function updateWordCount(text) {
+  const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  document.getElementById('wordCount').textContent = `${words} words`;
+}
+
+// Auto-save indicator
+function showAutoSave() {
+  const status = document.getElementById('autoSaveStatus');
+  status.style.display = 'flex';
+  setTimeout(() => {
+    status.style.display = 'none';
+  }, 2000);
+}
+
+// Save draft functionality
+document.getElementById('saveDraft').addEventListener('click', async () => {
+  const content = document.getElementById('content').value;
+  const indicator = document.getElementById('savingIndicator');
+
+  indicator.style.display = 'block';
+
+  // Here you would implement actual draft saving
+  // For now, just show the indicator
+  setTimeout(() => {
+    indicator.style.display = 'none';
+    showAutoSave();
+  }, 1000);
+});
+
+// ============================================
+// Color Customization Functionality
+// ============================================
+
+// Get editor element
+function getEditorElement() {
+  return document.querySelector('.milkdown .ProseMirror');
+}
+
+// Load saved colors
+const savedTextColor = localStorage.getItem('editorTextColor') || 'default';
+const savedBgColor = localStorage.getItem('editorBgColor') || 'default';
+
+// Apply text color
+function applyTextColor(color) {
+  const editor = getEditorElement();
+  if (!editor) {
+    setTimeout(() => applyTextColor(color), 100);
+    return;
+  }
+
+  if (color === 'default') {
+    editor.style.color = '';
+    localStorage.setItem('editorTextColor', 'default');
+  } else {
+    editor.style.color = color + ' !important';
+    editor.style.setProperty('color', color, 'important');
+    localStorage.setItem('editorTextColor', color);
+  }
+
+  // Update swatch
+  document.getElementById('textColorSwatch').style.background = color === 'default' ? '#1a1a1a' : color;
+}
+
+// Apply background color
+function applyBgColor(color) {
+  const editor = getEditorElement();
+  if (!editor) {
+    setTimeout(() => applyBgColor(color), 100);
+    return;
+  }
+
+  const editorWrapper = document.querySelector('.writing-editor .milkdown .editor');
+
+  if (color === 'default') {
+    editor.style.background = '';
+    if (editorWrapper) editorWrapper.style.background = '';
+    localStorage.setItem('editorBgColor', 'default');
+  } else {
+    editor.style.background = color;
+    if (editorWrapper) editorWrapper.style.background = color;
+    localStorage.setItem('editorBgColor', color);
+  }
+
+  // Update swatch
+  document.getElementById('bgColorSwatch').style.background = color === 'default' ? '#fdfcf8' : color;
+}
+
+// Text color presets
+document.querySelectorAll('#textColorPresets .color-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const color = btn.dataset.color;
+
+    // Remove active from all
+    document.querySelectorAll('#textColorPresets .color-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    applyTextColor(color);
+  });
+});
+
+// Background color presets
+document.querySelectorAll('#bgColorPresets .color-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const color = btn.dataset.color;
+
+    // Remove active from all
+    document.querySelectorAll('#bgColorPresets .color-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    applyBgColor(color);
+  });
+});
+
+// Custom text color picker
+document.getElementById('customTextColor').addEventListener('input', (e) => {
+  const color = e.target.value;
+  document.querySelectorAll('#textColorPresets .color-preset').forEach(b => b.classList.remove('active'));
+  applyTextColor(color);
+});
+
+// Custom background color picker
+document.getElementById('customBgColor').addEventListener('input', (e) => {
+  const color = e.target.value;
+  document.querySelectorAll('#bgColorPresets .color-preset').forEach(b => b.classList.remove('active'));
+  applyBgColor(color);
+});
+
+// Reset colors
+document.getElementById('resetColors').addEventListener('click', () => {
+  // Reset to default
+  document.querySelectorAll('#textColorPresets .color-preset').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#bgColorPresets .color-preset').forEach(b => b.classList.remove('active'));
+
+  document.querySelector('#textColorPresets .color-preset[data-color="default"]').classList.add('active');
+  document.querySelector('#bgColorPresets .color-preset[data-color="default"]').classList.add('active');
+
+  applyTextColor('default');
+  applyBgColor('default');
+});
+
+// Apply saved colors on load
+setTimeout(() => {
+  if (savedTextColor !== 'default') {
+    applyTextColor(savedTextColor);
+  }
+  if (savedBgColor !== 'default') {
+    applyBgColor(savedBgColor);
+  }
+}, 500);
+
+// Sync with theme changes
+themeToggle.addEventListener('click', () => {
+  // If using default colors, they will adapt automatically to theme
+  setTimeout(() => {
+    if (savedTextColor !== 'default') {
+      applyTextColor(savedTextColor);
+    }
+    if (savedBgColor !== 'default') {
+      applyBgColor(savedBgColor);
+    }
+  }, 100);
+});
+</script>
+
+<script type="module" src="{{ url_for('static', path='editor/board_new.js') }}?v=4"></script>
+{% endblock %}

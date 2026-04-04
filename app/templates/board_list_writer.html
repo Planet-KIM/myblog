@@ -1,0 +1,535 @@
+{% extends "base.html" %}
+
+{% block title %}Stories{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/writer-journey.css') }}">
+
+<style>
+  /* Board list specific styles */
+  .stories-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .stories-header {
+    margin-bottom: 3rem;
+    text-align: center;
+  }
+
+  .stories-title {
+    font-family: var(--font-reading);
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--ink-black);
+    margin-bottom: 0.5rem;
+  }
+
+  .stories-subtitle {
+    font-family: var(--font-ui);
+    font-size: 1.1rem;
+    color: var(--soft-gray);
+    margin-bottom: 2rem;
+  }
+
+  /* Category filter */
+  .category-filter {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  .category-chip {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    background: var(--light-gray);
+    color: var(--ink-black);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+  }
+
+  .category-chip:hover {
+    background: var(--paper-white);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    transform: translateY(-1px);
+  }
+
+  .category-chip.active {
+    background: var(--accent-blue);
+    color: white;
+  }
+
+  /* Stories grid */
+  .stories-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* Story card */
+  .story-card {
+    background: var(--paper-white);
+    border: 1px solid var(--light-gray);
+    border-radius: 12px;
+    padding: 2rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .story-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--accent-blue);
+    transform: translateX(-3px);
+    transition: transform 0.3s ease;
+  }
+
+  .story-card:hover {
+    box-shadow: 0 8px 24px var(--shadow-color);
+    transform: translateY(-2px);
+  }
+
+  .story-card:hover::before {
+    transform: translateX(0);
+  }
+
+  .story-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+
+  .story-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .story-category {
+    font-size: 0.875rem;
+    color: var(--accent-blue);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .story-date {
+    font-size: 0.875rem;
+    color: var(--soft-gray);
+    font-family: var(--font-writing);
+  }
+
+  .story-badges {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .badge-private {
+    background: var(--accent-amber);
+    color: white;
+  }
+
+  .badge-new {
+    background: var(--accent-green);
+    color: white;
+    animation: fadeIn 0.5s ease;
+  }
+
+  .story-title {
+    font-family: var(--font-reading);
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--ink-black);
+    margin-bottom: 0.75rem;
+    text-decoration: none;
+    display: block;
+    line-height: 1.3;
+  }
+
+  .story-title:hover {
+    color: var(--accent-blue);
+  }
+
+  .story-preview {
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--soft-gray);
+    margin-bottom: 1rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .story-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--light-gray);
+  }
+
+  .story-author {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--soft-gray);
+  }
+
+  .author-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .story-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: var(--soft-gray);
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+    color: var(--light-gray);
+    margin-bottom: 1rem;
+  }
+
+  .empty-title {
+    font-size: 1.5rem;
+    color: var(--soft-gray);
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-message {
+    color: var(--soft-gray);
+    margin-bottom: 2rem;
+  }
+
+  /* New story button */
+  .new-story-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    color: white;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    z-index: 100;
+  }
+
+  .new-story-btn:hover {
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+  }
+
+  /* Search bar */
+  .search-container {
+    margin-bottom: 2rem;
+    position: relative;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 1rem 3rem 1rem 1rem;
+    border: 1px solid var(--light-gray);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: var(--font-ui);
+    background: var(--paper-white);
+    transition: all 0.2s ease;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .search-icon {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--soft-gray);
+  }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 3rem;
+  }
+
+  .page-link {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    background: var(--light-gray);
+    color: var(--ink-black);
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .page-link:hover {
+    background: var(--accent-blue);
+    color: white;
+  }
+
+  .page-link.active {
+    background: var(--accent-blue);
+    color: white;
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .stories-container {
+      padding: 1rem;
+    }
+
+    .stories-title {
+      font-size: 2rem;
+    }
+
+    .story-title {
+      font-size: 1.25rem;
+    }
+
+    .story-card {
+      padding: 1.5rem;
+    }
+
+    .new-story-btn {
+      width: 50px;
+      height: 50px;
+      bottom: 1rem;
+      right: 1rem;
+    }
+  }
+
+  /* Dark theme adjustments */
+  [data-theme="dark"] .story-card {
+    background: var(--dark-surface);
+    border-color: var(--dark-surface);
+  }
+
+  [data-theme="dark"] .story-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  [data-theme="dark"] .search-input {
+    background: var(--dark-surface);
+    border-color: var(--dark-surface);
+    color: var(--dark-ink);
+  }
+
+  [data-theme="dark"] .category-chip {
+    background: var(--dark-surface);
+    color: var(--dark-ink);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stories-container">
+  <!-- Header -->
+  <div class="stories-header">
+    <h1 class="stories-title">Stories</h1>
+    <p class="stories-subtitle">Thoughts from the journey</p>
+  </div>
+
+  <!-- Search -->
+  <div class="search-container">
+    <input
+      type="text"
+      class="search-input"
+      placeholder="Search stories..."
+      id="searchInput"
+    >
+    <span class="search-icon">🔍</span>
+  </div>
+
+  <!-- Category filter -->
+  <div class="category-filter">
+    <a href="/board/" class="category-chip {% if not request.url.query %}active{% endif %}">
+      All
+    </a>
+    {% for category in categories %}
+    <a
+      href="/board/?category={{ category.id }}"
+      class="category-chip {% if request.url.query and category.id|string in request.url.query %}active{% endif %}"
+    >
+      {{ category.name }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Stories -->
+  <div class="stories-grid" id="storiesGrid">
+    {% if posts %}
+      {% for post in posts %}
+      <article class="story-card" onclick="window.location.href='/board/{{ post.id }}'">
+        <div class="story-header">
+          <div class="story-meta">
+            {% if post.category %}
+            <span class="story-category">{{ post.category.name }}</span>
+            {% endif %}
+            <span class="story-date">{{ post.created_at.strftime('%B %d, %Y') }}</span>
+          </div>
+          <div class="story-badges">
+            {% if post.is_private %}
+            <span class="badge badge-private">Private</span>
+            {% endif %}
+            {% if (current_time - post.created_at).days < 1 %}
+            <span class="badge badge-new">New</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <a href="/board/{{ post.id }}" class="story-title">
+          {% if post.show_title != False %}
+            {{ post.title or 'Untitled Story' }}
+          {% else %}
+            Untitled Story
+          {% endif %}
+        </a>
+
+        <p class="story-preview">
+          {{ post.preview | default('No preview available...', true) }}
+        </p>
+
+        <div class="story-footer">
+          <div class="story-author">
+            <span class="author-avatar">{{ post.author[0].upper() }}</span>
+            <span>{{ post.author }}</span>
+          </div>
+          <div class="story-stats">
+            <span class="stat-item">
+              👁 {{ post.stats.views if post.stats else 0 }}
+            </span>
+            <span class="stat-item">
+              📝 {{ post.content.split()|length if post.content else 0 }} words
+            </span>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <h2 class="empty-title">No stories yet</h2>
+        <p class="empty-message">Start writing your first story to begin your journey.</p>
+        <a href="/board/new" class="btn-primary">Write Your First Story</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Pagination (if needed) -->
+  {% if total_pages > 1 %}
+  <div class="pagination">
+    {% if current_page > 1 %}
+    <a href="?page={{ current_page - 1 }}" class="page-link">← Previous</a>
+    {% endif %}
+
+    {% for page in range(1, total_pages + 1) %}
+      {% if page <= 3 or page > total_pages - 3 or (page > current_page - 2 and page < current_page + 2) %}
+      <a href="?page={{ page }}" class="page-link {% if page == current_page %}active{% endif %}">
+        {{ page }}
+      </a>
+      {% elif page == 4 or page == total_pages - 3 %}
+      <span>...</span>
+      {% endif %}
+    {% endfor %}
+
+    {% if current_page < total_pages %}
+    <a href="?page={{ current_page + 1 }}" class="page-link">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Floating new story button -->
+<a href="/board/new" class="new-story-btn" aria-label="Write new story">
+  ✍️
+</a>
+
+<script>
+// Search functionality
+const searchInput = document.getElementById('searchInput');
+const storiesGrid = document.getElementById('storiesGrid');
+
+searchInput.addEventListener('input', (e) => {
+  const searchTerm = e.target.value.toLowerCase();
+  const stories = storiesGrid.querySelectorAll('.story-card');
+
+  stories.forEach(story => {
+    const title = story.querySelector('.story-title').textContent.toLowerCase();
+    const preview = story.querySelector('.story-preview').textContent.toLowerCase();
+    const category = story.querySelector('.story-category')?.textContent.toLowerCase() || '';
+
+    if (title.includes(searchTerm) || preview.includes(searchTerm) || category.includes(searchTerm)) {
+      story.style.display = 'block';
+    } else {
+      story.style.display = 'none';
+    }
+  });
+});
+
+// Theme persistence
+const html = document.documentElement;
+const savedTheme = localStorage.getItem('theme') || 'light';
+html.setAttribute('data-theme', savedTheme);
+</script>
+{% endblock %}

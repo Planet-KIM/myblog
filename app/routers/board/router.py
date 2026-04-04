@@ -1,4 +1,8 @@
 from typing import Optional
+import re
+from uuid import uuid4
+from pathlib import Path
+from datetime import datetime
 
 from fastapi import (
     APIRouter, Depends, Form, HTTPException, Request
@@ -12,6 +16,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app import models
 from app.auth_utils import get_current_user, get_current_user_optional
+from app.routers.upload.router import relocate_draft_files
 
 router = APIRouter(prefix="/board", tags=["board"])
 
@@ -23,21 +28,90 @@ templates = Jinja2Templates(directory="app/templates")
 # ------------------------------------------------------------
 def extract_title_from_markdown(content: str) -> str:
     import re
-    # Remove image tags ![...](...) and link tags [...](...) to extract pure text
+    import markdown
+    import html as html_module
+
     lines = content.splitlines()
     for line in lines:
-        # Remove images
-        clean_line = re.sub(r'!\[.*?\]\(.*?\)', '', line)
-        # Remove links, keeping the link text
-        clean_line = re.sub(r'\[(.*?)\]\(.*?\)', r'\1', clean_line)
-        clean_line = clean_line.strip()
-        
-        if clean_line:
-            if clean_line.startswith("#"):
-                clean_line = clean_line.lstrip("#").strip()
-            return clean_line[:200] if clean_line else "Untitled"
-            
+        line = line.strip()
+        # 이미지나 빈 줄 건너뛰기
+        if not line or line.startswith("!["):
+            continue
+
+        if line.startswith("#"):
+            line = line.lstrip("#").strip()
+
+        # Markdown -> HTML -> Plain Text 로 변환하여 **나 __ 처리
+        raw_html = markdown.markdown(line)
+        plain = re.sub(r'<[^>]+>', '', raw_html)
+        plain = html_module.unescape(plain).strip()
+
+        if plain:
+            return plain[:200]
+
     return "Untitled"
+
+
+# ------------------------------------------------------------
+# HTML 에서 제목 추출 (TipTap용)
+# ------------------------------------------------------------
+def extract_title_from_html(html: str) -> str:
+    """HTML 콘텐츠에서 첫 번째 heading 또는 텍스트를 제목으로 추출."""
+    import html as html_module
+
+    # h1~h3 태그에서 추출 시도
+    heading_match = re.search(r'<h[1-3][^>]*>(.*?)</h[1-3]>', html, re.DOTALL)
+    if heading_match:
+        plain = re.sub(r'<[^>]+>', '', heading_match.group(1))
+        plain = html_module.unescape(plain).strip()
+        if plain:
+            return plain[:200]
+
+    # heading 없으면 첫 번째 <p> 텍스트 사용
+    p_match = re.search(r'<p[^>]*>(.*?)</p>', html, re.DOTALL)
+    if p_match:
+        plain = re.sub(r'<[^>]+>', '', p_match.group(1))
+        plain = html_module.unescape(plain).strip()
+        if plain:
+            return plain[:200]
+
+    return "Untitled"
+
+
+# ------------------------------------------------------------
+# Markdown to plain text preview (마크다운 기호 제거)
+# ------------------------------------------------------------
+def create_preview(content: str, max_length: int = 200) -> str:
+    """마크다운에서 일반 텍스트 미리보기 생성"""
+    import re
+
+    # 제목 제거 (첫 줄이 제목이면)
+    lines = content.splitlines()
+    text = content
+
+    if lines and lines[0].startswith('#'):
+        text = '\n'.join(lines[1:])
+
+    # 마크다운 기호들 제거
+    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)  # 이미지
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)  # 링크
+    text = re.sub(r'```[\s\S]*?```', '', text)  # 코드 블록
+    text = re.sub(r'`([^`]+)`', r'\1', text)  # 인라인 코드
+    text = re.sub(r'#+\s', '', text)  # 헤딩
+    text = re.sub(r'[*_]{1,2}([^*_]+)[*_]{1,2}', r'\1', text)  # Bold, italic
+    text = re.sub(r'^\s*[-*+]\s', '', text, flags=re.MULTILINE)  # 리스트
+    text = re.sub(r'^\s*\d+\.\s', '', text, flags=re.MULTILINE)  # 번호 리스트
+    text = re.sub(r'>\s', '', text)  # 인용구
+
+    # 여러 공백을 하나로
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+
+    # 길이 제한
+    if len(text) > max_length:
+        text = text[:max_length].rsplit(' ', 1)[0] + '...'
+
+    return text if text else 'No preview available...'
 
 
 # ------------------------------------------------------------
@@ -210,14 +284,82 @@ def category_move(
 
 
 # ============================================================
+# ★ 이미지 임시 업로드 폴더 이전 로직
+# ============================================================
+def relocate_draft_images(post: models.BoardPost, draft_id: str, db: Session) -> None:
+    """
+    새 글 작성 시 임시로 YYYY/MM/draft_<draft_id> 에 저장된 이미지를
+    YYYY/MM/<post_id> 로 이동시키고, URL을 업데이트합니다.
+    """
+    if not post.content:
+        return
+
+    # Match: /static/uploads/<user_id>/<YYYY>/<MM>/draft_<draft_id>/<filename>
+    # Note: re.escape ensures draft_id is safe just in case.
+    pattern = re.compile(rf"/static/uploads/({post.user_id})/(\d{{4}}/\d{{2}})/draft_{re.escape(draft_id)}/([^)\s\"']+)")
+    
+    mapping = {}
+    raw_content = post.content or ""
+    raw_html = post.content_html or ""
+    union_text = raw_content + "\n" + raw_html
+    
+    # Path to the uploads directory relative to this file
+    UPLOAD_ROOT = Path(__file__).resolve().parent.parent.parent / "static" / "uploads"
+    
+    for m in pattern.finditer(union_text):
+        old_url = m.group(0)
+        uid = m.group(1)
+        year_month = m.group(2)
+        filename = m.group(3)
+        
+        new_url = f"/static/uploads/{uid}/{year_month}/{post.id}/{filename}"
+        mapping[old_url] = new_url
+        
+        # 파일 이동 처리
+        src_path = UPLOAD_ROOT / uid / year_month / f"draft_{draft_id}" / filename
+        if src_path.exists():
+            dest_dir = UPLOAD_ROOT / uid / year_month / str(post.id)
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_path = dest_dir / filename
+            try:
+                src_path.rename(dest_path)
+            except FileExistsError:
+                pass
+                
+    if mapping:
+        for old, new in sorted(mapping.items(), key=lambda kv: len(kv[0]), reverse=True):
+            raw_content = raw_content.replace(old, new)
+            raw_html = raw_html.replace(old, new)
+        post.content = raw_content
+        post.content_html = raw_html
+        db.commit()
+
+    # draft 폴더 삭제 (이동 후 비어있으면 정리)
+    import shutil
+    for uid in {m.group(1) for m in pattern.finditer(union_text)}:
+        for ym in {m.group(2) for m in pattern.finditer(union_text)}:
+            draft_dir = UPLOAD_ROOT / uid / ym / f"draft_{draft_id}"
+            if draft_dir.exists():
+                shutil.rmtree(draft_dir, ignore_errors=True)
+
+
+# ============================================================
 # ★ 새 글 작성 (/new)
 # ============================================================
 @router.get("/new", response_class=HTMLResponse)
 def board_new(
     request: Request,
+    editor: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    # 에디터 선택 안 했으면 선택 페이지로
+    if editor not in ("milkdown", "tiptap"):
+        return templates.TemplateResponse(
+            "board_select_editor.html",
+            {"request": request, "current_user": current_user},
+        )
+
     normal = ensure_default_category(db)
 
     categories = (
@@ -226,13 +368,16 @@ def board_new(
         .all()
     )
 
+    template_name = "board_new_tiptap.html" if editor == "tiptap" else "board_new_clean.html"
+
     return templates.TemplateResponse(
-        "board_new.html",
+        template_name,
         {
             "request": request,
             "categories": categories,
             "normal_category_id": normal.id,
             "current_user": current_user,
+            "draft_id": str(uuid4()),
         },
     )
 
@@ -243,7 +388,12 @@ def board_create(
     content: str = Form(...),
     content_html: Optional[str] = Form(None),
     is_private: Optional[bool] = Form(False),
+    show_title: Optional[bool] = Form(False),
     category_id: Optional[str] = Form(None),
+    draft_id: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
+    editor_type: Optional[str] = Form("milkdown"),
+    content_blocks: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -264,13 +414,20 @@ def board_create(
     if not category:
         raise HTTPException(400, "Invalid category")
 
-    title = extract_title_from_markdown(content)
+    # TipTap은 HTML 기반이므로 제목 추출 방식 분기
+    if editor_type == "tiptap":
+        title = extract_title_from_html(content_html or content)
+    else:
+        title = extract_title_from_markdown(content)
 
     post = models.BoardPost(
         title=title,
         content=content,
         content_html=content_html,
+        editor_type=editor_type or "milkdown",
+        content_blocks=content_blocks,
         is_private=is_private,
+        show_title=show_title,
         author=current_user.email,
         user_id=current_user.id,
         category_id=category_id_int,
@@ -278,6 +435,30 @@ def board_create(
     db.add(post)
     db.commit()
     db.refresh(post)
+
+    # Process tags if provided
+    if tags:
+        from ..api import process_post_tags
+        tag_list = [t.strip() for t in tags.split(',') if t.strip()]
+        process_post_tags(db, post, tag_list)
+
+    # Create initial statistics record
+    stats = models.PostStats(post_id=post.id, views=0, likes=0)
+    db.add(stats)
+    db.commit()
+
+    if draft_id:
+        relocate_draft_images(post, draft_id, db)
+        relocate_draft_files(post, draft_id, db)
+
+        # Delete draft after successful post creation
+        draft = db.query(models.Draft).filter(
+            models.Draft.id == draft_id,
+            models.Draft.user_id == current_user.id
+        ).first()
+        if draft:
+            db.delete(draft)
+            db.commit()
 
     return RedirectResponse(f"/board/{post.id}", status_code=303)
 
@@ -307,8 +488,10 @@ def board_edit(
         .all()
     )
 
+    template_name = "board_edit_tiptap.html" if post.editor_type == "tiptap" else "board_edit.html"
+
     return templates.TemplateResponse(
-        "board_edit.html",
+        template_name,
         {
             "request": request,
             "post": post,
@@ -326,7 +509,11 @@ def board_update(
     content: str = Form(...),
     content_html: Optional[str] = Form(None),
     is_private: Optional[bool] = Form(False),
+    show_title: Optional[bool] = Form(False),
     category_id: Optional[str] = Form(None),
+    draft_id: Optional[str] = Form(None),
+    editor_type: Optional[str] = Form(None),
+    content_blocks: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -344,14 +531,64 @@ def board_update(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid category ID format")
 
-    post.title = extract_title_from_markdown(content)
+    # 에디터 타입에 따라 제목 추출 분기
+    if editor_type == "tiptap" or post.editor_type == "tiptap":
+        post.title = extract_title_from_html(content_html or content)
+    else:
+        post.title = extract_title_from_markdown(content)
+
     post.content = content
     post.content_html = content_html
     post.is_private = is_private
+    post.show_title = show_title
     post.category_id = category_id_int
 
+    if editor_type:
+        post.editor_type = editor_type
+    if content_blocks:
+        post.content_blocks = content_blocks
+
     db.commit()
+
+    if draft_id:
+        relocate_draft_files(post, draft_id, db)
+
     return RedirectResponse(f"/board/{post_id}", status_code=303)
+
+
+# ============================================================
+# ★ 게시글 삭제
+# ============================================================
+@router.post("/{post_id}/delete")
+def board_delete(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    import shutil
+
+    post = db.query(models.BoardPost).filter_by(id=post_id).first()
+    if not post:
+        raise HTTPException(404, "Post not found")
+
+    if post.user_id != current_user.id:
+        raise HTTPException(403, "Not authorized")
+
+    # 첨부 파일 DB 레코드 삭제 (디스크는 폴더째 삭제)
+    db.query(models.UploadedFile).filter(
+        models.UploadedFile.post_id == post_id
+    ).delete()
+
+    # 업로드 폴더 전체 삭제
+    UPLOAD_ROOT = Path(__file__).resolve().parent.parent.parent / "static" / "uploads"
+    post_folder = UPLOAD_ROOT / str(post.user_id) / "posts" / str(post_id)
+    if post_folder.exists():
+        shutil.rmtree(post_folder, ignore_errors=True)
+
+    db.delete(post)
+    db.commit()
+
+    return RedirectResponse("/board/", status_code=303)
 
 
 # ============================================================
@@ -361,6 +598,7 @@ def board_update(
 def board_list(
     request: Request,
     category_id: Optional[int] = None,
+    q: Optional[str] = None,
     page: int = 1,
     size: int = 10,
     db: Session = Depends(get_db),
@@ -374,19 +612,28 @@ def board_list(
         .all()
     )
 
-    q = db.query(models.BoardPost).options(
+    query = db.query(models.BoardPost).options(
         joinedload(models.BoardPost.category),
-        joinedload(models.BoardPost.user)
+        joinedload(models.BoardPost.user),
+        joinedload(models.BoardPost.stats)
     )
 
     if category_id:
-        q = q.filter(models.BoardPost.category_id == category_id)
+        query = query.filter(models.BoardPost.category_id == category_id)
+
+    if q:
+        query = query.filter(
+            or_(
+                models.BoardPost.title.ilike(f"%{q}%"),
+                models.BoardPost.content.ilike(f"%{q}%")
+            )
+        )
 
     # 로그인 안 했으면 Public만
     if not current_user:
-        q = q.filter(models.BoardPost.is_private == False)
+        query = query.filter(models.BoardPost.is_private == False)
     else:
-        q = q.filter(
+        query = query.filter(
             or_(
                 models.BoardPost.is_private == False,
                 models.BoardPost.user_id == current_user.id,
@@ -394,23 +641,30 @@ def board_list(
         )
 
     # Pagination logic
-    total_posts = q.count()
+    total_posts = query.count()
     total_pages = (total_posts + size - 1) // size if total_posts > 0 else 1
     page = max(1, min(page, total_pages))
     
-    posts = q.order_by(models.BoardPost.created_at.desc()).offset((page - 1) * size).limit(size).all()
+    posts = query.order_by(models.BoardPost.created_at.desc()).offset((page - 1) * size).limit(size).all()
+
+    # Add preview to each post
+    for post in posts:
+        if not hasattr(post, 'preview') or not post.preview:
+            post.preview = create_preview(post.content)
 
     return templates.TemplateResponse(
-        "board_list.html",
+        "board_list_writer.html",
         {
             "request": request,
             "posts": posts,
             "categories": categories,
             "selected_category_id": category_id,
+            "search_query": q,
             "current_user": current_user,
-            "page": page,
+            "current_page": page,
             "total_pages": total_pages,
             "size": size,
+            "current_time": datetime.now(),
         },
     )
 
@@ -434,12 +688,39 @@ def board_detail(
     if post.is_private and (not current_user or post.user_id != current_user.id):
         raise HTTPException(403, "Not authorized")
 
+    # Increment view count
+    stats = db.query(models.PostStats).filter_by(post_id=post_id).first()
+    if not stats:
+        stats = models.PostStats(post_id=post_id, views=0, likes=0)
+        db.add(stats)
+
+    stats.views += 1
+    stats.last_viewed_at = datetime.utcnow()
+    db.commit()
+
+    # Get previous and next posts
+    prev_post = db.query(models.BoardPost).filter(
+        models.BoardPost.id < post_id,
+        models.BoardPost.is_private == False
+    ).order_by(models.BoardPost.id.desc()).first()
+
+    next_post = db.query(models.BoardPost).filter(
+        models.BoardPost.id > post_id,
+        models.BoardPost.is_private == False
+    ).order_by(models.BoardPost.id.asc()).first()
+
+    # editor_type에 따라 다른 상세 템플릿 사용
+    template_name = "board_detail_magazine.html" if post.editor_type == "tiptap" else "board_detail_writer.html"
+
     return templates.TemplateResponse(
-        "board_detail.html",
+        template_name,
         {
             "request": request,
             "post": post,
             "current_user": current_user,
+            "stats": stats,
+            "prev_post": prev_post,
+            "next_post": next_post,
         },
     )
 

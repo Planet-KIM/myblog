@@ -1,0 +1,588 @@
+/* ============================================
+   Traveler Coder - Design System
+   프로그래머 여행자를 위한 디자인 시스템
+   ============================================ */
+
+/* ─────────────────────────────────────────────
+   Terminal + Map Inspired Variables
+   ───────────────────────────────────────────── */
+:root {
+  /* Terminal Green & Travel Blue Palette */
+  --terminal-green: #00ff41;
+  --terminal-green-dim: #00cc33;
+  --matrix-green: #0f9b0f;
+  --travel-blue: #2196f3;
+  --ocean-blue: #0077be;
+  --sunset-orange: #ff6b35;
+  --map-beige: #f4e8c1;
+
+  /* Dark Terminal Background */
+  --terminal-black: #0a0e14;
+  --terminal-dark: #131820;
+  --terminal-surface: #1a1f29;
+  --terminal-border: #2a3441;
+
+  /* Code Editor Colors */
+  --code-comment: #626a73;
+  --code-string: #aad94c;
+  --code-function: #ffb454;
+  --code-keyword: #ff8f40;
+  --code-variable: #39bae6;
+
+  /* Travel Accent Colors */
+  --passport-red: #c41e3a;
+  --stamp-purple: #7c4dff;
+  --pin-yellow: #ffd600;
+  --route-dash: #64b5f6;
+
+  /* Typography */
+  --font-terminal: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-travel: 'Playfair Display', 'Noto Serif KR', serif;
+  --font-body: 'IBM Plex Sans KR', 'Pretendard', sans-serif;
+}
+
+/* ─────────────────────────────────────────────
+   Global Terminal Style
+   ───────────────────────────────────────────── */
+body.traveler-mode {
+  background:
+    linear-gradient(135deg, rgba(10, 14, 20, 0.95) 0%, rgba(26, 31, 41, 0.95) 100%),
+    url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill="none" stroke="%23001f3f" stroke-width="0.5" opacity="0.1"><path d="M0 50h100M50 0v100M0 0l100 100M100 0L0 100"/></g></svg>');
+  background-size: cover, 100px 100px;
+}
+
+/* ─────────────────────────────────────────────
+   Terminal Window Component
+   ───────────────────────────────────────────── */
+.terminal-window {
+  background: var(--terminal-black);
+  border: 1px solid var(--terminal-border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(0, 255, 65, 0.1);
+}
+
+.terminal-header {
+  background: linear-gradient(180deg, #2a3441 0%, #1a1f29 100%);
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--terminal-border);
+  font-family: var(--font-terminal);
+  font-size: 0.75rem;
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.terminal-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--terminal-green-dim);
+}
+
+.terminal-dot.red { background: #ff5f56; }
+.terminal-dot.yellow { background: #ffbd2e; }
+.terminal-dot.green { background: #27c93f; }
+
+.terminal-title {
+  flex: 1;
+  text-align: center;
+  color: var(--code-comment);
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+.terminal-body {
+  padding: 1.5rem;
+  font-family: var(--font-terminal);
+  color: var(--terminal-green);
+  min-height: 200px;
+  position: relative;
+}
+
+/* Terminal Typing Effect */
+.terminal-prompt::before {
+  content: "traveler@earth:~$ ";
+  color: var(--terminal-green-dim);
+}
+
+.terminal-cursor {
+  display: inline-block;
+  width: 10px;
+  height: 20px;
+  background: var(--terminal-green);
+  animation: terminal-blink 1s infinite;
+}
+
+@keyframes terminal-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* ─────────────────────────────────────────────
+   Map/Travel Card Design
+   ───────────────────────────────────────────── */
+.travel-card {
+  background: var(--terminal-surface);
+  border: 1px solid var(--terminal-border);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.travel-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--travel-blue) 0%,
+    var(--sunset-orange) 50%,
+    var(--terminal-green) 100%
+  );
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
+.travel-card:hover::before {
+  transform: scaleX(1);
+}
+
+.travel-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 20px 40px rgba(33, 150, 243, 0.2),
+    0 0 0 1px rgba(0, 255, 65, 0.3);
+}
+
+/* Map Pin Animation */
+.map-pin {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 24px;
+  height: 24px;
+  color: var(--pin-yellow);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  animation: pin-bounce 2s infinite;
+}
+
+@keyframes pin-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ─────────────────────────────────────────────
+   Code Editor Style for Writing
+   ───────────────────────────────────────────── */
+.code-editor-container {
+  background: var(--terminal-black);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, 0.5),
+    inset 0 0 100px rgba(0, 255, 65, 0.02);
+}
+
+.code-editor-tabs {
+  background: var(--terminal-dark);
+  border-bottom: 1px solid var(--terminal-border);
+  display: flex;
+  padding: 0;
+  overflow-x: auto;
+}
+
+.code-tab {
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: var(--code-comment);
+  border: none;
+  border-right: 1px solid var(--terminal-border);
+  cursor: pointer;
+  font-family: var(--font-terminal);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.code-tab::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--terminal-green);
+  transform: scaleX(0);
+  transition: transform 0.2s;
+}
+
+.code-tab:hover {
+  background: rgba(0, 255, 65, 0.05);
+  color: var(--terminal-green);
+}
+
+.code-tab.active {
+  background: var(--terminal-surface);
+  color: var(--terminal-green);
+}
+
+.code-tab.active::after {
+  transform: scaleX(1);
+}
+
+.code-tab-icon {
+  font-size: 1rem;
+}
+
+.file-icon-md { color: var(--travel-blue); }
+.file-icon-js { color: var(--pin-yellow); }
+.file-icon-map { color: var(--sunset-orange); }
+
+/* Line Numbers */
+.code-editor-content {
+  display: flex;
+  background: var(--terminal-black);
+  min-height: 500px;
+}
+
+.line-numbers {
+  background: var(--terminal-dark);
+  padding: 1rem 0.75rem;
+  color: var(--code-comment);
+  font-family: var(--font-terminal);
+  font-size: 0.875rem;
+  line-height: 1.8;
+  user-select: none;
+  border-right: 1px solid var(--terminal-border);
+}
+
+.editor-main-area {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  font-family: var(--font-terminal);
+  line-height: 1.8;
+}
+
+/* ─────────────────────────────────────────────
+   Travel Badge System
+   ───────────────────────────────────────────── */
+.travel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--terminal-surface);
+  border: 1px solid var(--terminal-border);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-family: var(--font-terminal);
+  color: var(--terminal-green);
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.travel-badge::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.travel-badge:hover::before {
+  left: 100%;
+}
+
+.travel-badge:hover {
+  border-color: var(--terminal-green);
+  transform: translateY(-2px);
+}
+
+.badge-icon {
+  font-size: 1rem;
+}
+
+/* Badge Variants */
+.badge-location {
+  border-color: var(--travel-blue);
+  color: var(--travel-blue);
+}
+
+.badge-code {
+  border-color: var(--terminal-green);
+  color: var(--terminal-green);
+}
+
+.badge-date {
+  border-color: var(--sunset-orange);
+  color: var(--sunset-orange);
+}
+
+/* ─────────────────────────────────────────────
+   Passport Stamp Effect
+   ───────────────────────────────────────────── */
+.passport-stamp {
+  position: relative;
+  padding: 1rem;
+  border: 2px solid var(--passport-red);
+  border-radius: 8px;
+  transform: rotate(-2deg);
+  display: inline-block;
+  background: rgba(196, 30, 58, 0.05);
+}
+
+.passport-stamp::after {
+  content: "VISITED";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(15deg);
+  font-family: var(--font-terminal);
+  font-weight: bold;
+  color: var(--passport-red);
+  font-size: 2rem;
+  opacity: 0.2;
+  letter-spacing: 0.2em;
+}
+
+/* ─────────────────────────────────────────────
+   ASCII Art Decorations
+   ───────────────────────────────────────────── */
+.ascii-art {
+  font-family: var(--font-terminal);
+  color: var(--terminal-green-dim);
+  white-space: pre;
+  line-height: 1.2;
+  font-size: 0.7rem;
+  opacity: 0.5;
+  user-select: none;
+}
+
+.ascii-plane {
+  animation: fly-across 10s linear infinite;
+  position: absolute;
+  top: 10px;
+  opacity: 0.3;
+}
+
+@keyframes fly-across {
+  from { left: -100px; }
+  to { left: calc(100% + 100px); }
+}
+
+/* ─────────────────────────────────────────────
+   Travel Route Animation
+   ───────────────────────────────────────────── */
+.travel-route {
+  position: relative;
+  padding: 1rem 0;
+}
+
+.route-line {
+  position: absolute;
+  left: 20px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    var(--travel-blue) 0%,
+    var(--sunset-orange) 100%
+  );
+}
+
+.route-line::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -4px;
+  right: -4px;
+  height: 100%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(33, 150, 243, 0.3) 50%,
+    transparent 100%
+  );
+  animation: route-flow 3s linear infinite;
+}
+
+@keyframes route-flow {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(100%); }
+}
+
+.route-stop {
+  position: relative;
+  padding-left: 3rem;
+  margin-bottom: 2rem;
+}
+
+.route-dot {
+  position: absolute;
+  left: 12px;
+  top: 0.5rem;
+  width: 16px;
+  height: 16px;
+  background: var(--terminal-surface);
+  border: 3px solid var(--travel-blue);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.route-dot.visited {
+  background: var(--terminal-green);
+  border-color: var(--terminal-green);
+  box-shadow: 0 0 10px var(--terminal-green);
+}
+
+/* ─────────────────────────────────────────────
+   Matrix Rain Effect (Background)
+   ───────────────────────────────────────────── */
+.matrix-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.matrix-column {
+  position: absolute;
+  top: -100%;
+  font-family: var(--font-terminal);
+  color: var(--terminal-green);
+  font-size: 20px;
+  animation: matrix-fall linear infinite;
+}
+
+@keyframes matrix-fall {
+  to {
+    transform: translateY(200vh);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Git Commit Style Post List
+   ───────────────────────────────────────────── */
+.commit-list {
+  background: var(--terminal-black);
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: var(--font-terminal);
+}
+
+.commit-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--terminal-border);
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.commit-item:hover {
+  background: rgba(0, 255, 65, 0.05);
+}
+
+.commit-hash {
+  color: var(--code-function);
+  font-size: 0.875rem;
+}
+
+.commit-message {
+  flex: 1;
+  color: var(--terminal-green);
+}
+
+.commit-author {
+  color: var(--code-variable);
+  font-size: 0.875rem;
+}
+
+.commit-date {
+  color: var(--code-comment);
+  font-size: 0.75rem;
+}
+
+/* ─────────────────────────────────────────────
+   Travel Stats Dashboard
+   ───────────────────────────────────────────── */
+.travel-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.stat-card {
+  background: var(--terminal-surface);
+  border: 1px solid var(--terminal-border);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--terminal-green);
+  transform: scaleX(0);
+  animation: stat-load 1s ease forwards;
+}
+
+@keyframes stat-load {
+  to { transform: scaleX(1); }
+}
+
+.stat-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: var(--travel-blue);
+}
+
+.stat-value {
+  font-family: var(--font-terminal);
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--terminal-green);
+  margin-bottom: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--code-comment);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}

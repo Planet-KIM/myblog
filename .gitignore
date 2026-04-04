@@ -72,10 +72,29 @@ lightning_logs/
 tensorboard/
 runs/
 
+# Model weights (large binary files)
 *.ckpt
 *.pt
 *.pth
 *.onnx
+*.safetensors
+*.bin
+
+# Trained model directories
+models/
+
+############################
+# Training Data
+############################
+data/
+*.jsonl
+
+############################
+# Database
+############################
+*.db
+*.sqlite
+*.sqlite3
 
 ############################
 # OS / Editor

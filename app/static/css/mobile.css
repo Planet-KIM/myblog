@@ -1,0 +1,392 @@
+/* ============================================
+   Planet KIM's Travel - Mobile & Responsive Styles
+   ============================================ */
+
+/* ─────────────────────────────────────────────
+   Mobile First Approach - Base styles for mobile
+   ───────────────────────────────────────────── */
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  button,
+  .btn,
+  a.nav-link,
+  .btn-travel {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .toast-close {
+    padding: 0.5rem;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Small devices (landscape phones, 576px and up)
+   ───────────────────────────────────────────── */
+@media (max-width: 575.98px) {
+  /* Navigation improvements */
+  .site-nav .navbar-brand {
+    font-size: 1rem;
+  }
+
+  .site-nav .navbar-brand i {
+    display: none;
+  }
+
+  /* Hero adjustments */
+  .hero {
+    min-height: 350px;
+  }
+
+  .hero-title {
+    font-size: 1.75rem !important;
+  }
+
+  .hero-sub {
+    font-size: 0.9rem;
+  }
+
+  .hero-cta {
+    font-size: 0.85rem;
+    padding: 0.6rem 1.5rem;
+  }
+
+  /* Card adjustments */
+  .travel-card {
+    border-radius: 8px;
+  }
+
+  .travel-card .card-body {
+    padding: 1rem;
+  }
+
+  /* Sidebar becomes full width */
+  .sidebar-card {
+    margin-bottom: 1rem;
+  }
+
+  /* Toast notifications */
+  .toast-container {
+    top: 60px;
+    right: 10px;
+    left: 10px;
+  }
+
+  .toast {
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  /* Modal adjustments */
+  .modal {
+    width: 95%;
+    margin: 1rem;
+  }
+
+  /* Page content */
+  .page-content {
+    padding: 1.5rem 0.5rem;
+  }
+
+  .page-card {
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  /* Table responsive */
+  table {
+    font-size: 0.85rem;
+  }
+
+  /* Hide less important table columns on mobile */
+  @media (max-width: 480px) {
+    .hide-mobile {
+      display: none !important;
+    }
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Medium devices (tablets, 768px and up)
+   ───────────────────────────────────────────── */
+@media (min-width: 576px) and (max-width: 767.98px) {
+  /* Navigation */
+  .site-nav .navbar-brand {
+    font-size: 1.125rem;
+  }
+
+  /* Hero */
+  .hero {
+    min-height: 400px;
+  }
+
+  /* Cards grid */
+  .travel-card {
+    margin-bottom: 1.5rem;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Large devices (desktops, 992px and up)
+   ───────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  /* Content width */
+  .main-wrap,
+  .page-content {
+    max-width: 720px;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Extra large devices (large desktops, 1200px and up)
+   ───────────────────────────────────────────── */
+@media (min-width: 992px) {
+  /* Enhanced hover effects for desktop */
+  .travel-card {
+    transition: all var(--transition-base);
+  }
+
+  .travel-card:hover {
+    transform: translateY(-6px) scale(1.02);
+  }
+
+  /* Parallax effect for hero on desktop */
+  .hero {
+    background-attachment: fixed;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Mobile Navigation Enhancements
+   ───────────────────────────────────────────── */
+
+/* Hamburger menu animation */
+.navbar-toggler {
+  border: none;
+  padding: 4px 8px;
+  transition: transform var(--transition-fast);
+}
+
+.navbar-toggler:focus {
+  box-shadow: none;
+}
+
+.navbar-toggler:active {
+  transform: scale(0.95);
+}
+
+.navbar-toggler-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Mobile menu styling */
+@media (max-width: 991.98px) {
+  .navbar-collapse {
+    background: var(--surface);
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border);
+    transform-origin: top;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+
+  .navbar-collapse:not(.show) {
+    transform: scaleY(0.95);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .navbar-collapse.show {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+
+  .navbar-nav {
+    gap: 0.5rem;
+  }
+
+  .navbar-nav .nav-link {
+    padding: 0.75rem 1rem !important;
+    border-radius: var(--btn-radius);
+    transition: background var(--transition-fast);
+  }
+
+  .navbar-nav .nav-link:hover {
+    background: var(--surface-light);
+  }
+
+  .navbar-nav .btn-nav-write {
+    width: 100%;
+    text-align: center;
+    margin-top: 0.5rem;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Board List - Mobile Card View
+   ───────────────────────────────────────────── */
+
+.post-list-card {
+  display: block;
+  text-decoration: none;
+  color: var(--text-main);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.post-list-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+}
+
+.post-list-card-title {
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.post-list-card-meta {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* ─────────────────────────────────────────────
+   Swipe Gestures Support
+   ───────────────────────────────────────────── */
+
+.swipeable {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.carousel-touch {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.carousel-touch > * {
+  scroll-snap-align: start;
+}
+
+/* Hide scrollbar but keep functionality */
+.carousel-touch::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────
+   Bottom Navigation for Mobile
+   ───────────────────────────────────────────── */
+
+@media (max-width: 767.98px) {
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-around;
+    padding: 0.5rem 0;
+    z-index: var(--z-fixed);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .bottom-nav-item {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.75rem;
+    transition: color var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .bottom-nav-item i {
+    font-size: 1.25rem;
+  }
+
+  .bottom-nav-item.active,
+  .bottom-nav-item:hover {
+    color: var(--primary);
+  }
+
+  /* Add padding to main content to account for bottom nav */
+  main {
+    padding-bottom: 80px !important;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Performance Optimizations
+   ───────────────────────────────────────────── */
+
+/* Reduce animations on mobile for better performance */
+@media (max-width: 767.98px) {
+  * {
+    animation-duration: 0.2s !important;
+  }
+
+  .hero::before {
+    animation: none;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Accessibility - Focus States
+   ───────────────────────────────────────────── */
+
+@media (max-width: 767.98px) {
+  *:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 3px;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Print Styles
+   ───────────────────────────────────────────── */
+
+@media print {
+  .site-nav,
+  .site-footer,
+  .bottom-nav,
+  .hero,
+  .sidebar-card,
+  .btn,
+  .theme-toggle {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+  }
+
+  .travel-card,
+  .page-card {
+    border: 1px solid #ddd;
+    box-shadow: none;
+  }
+}

@@ -1,118 +1,166 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% if published %}
-<div class="alert alert-success" role="alert">
-  새 글을 작성하였습니다.
-</div>
-{% endif %}
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>Board</h2>
-  <div class="d-flex gap-2">
-    {% if current_user %}
-    <a href="/board/categories" class="btn btn-outline-secondary btn-sm">
-      Manage Categories
-    </a>
-    <a href="/board/new" class="btn btn-primary btn-sm">New Post</a>
-    {% else %}
-    <a href="/auth/login?next=/board/new" class="btn btn-outline-primary btn-sm">
-      Login to write
-    </a>
-    {% endif %}
+<div class="page-content">
+  {% if published %}
+  <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="bi bi-check-circle-fill me-1"></i> 새 글을 작성하였습니다.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
   </div>
-</div>
-
-<!-- ✅ 카테고리 필터 -->
-<div class="mb-3">
-  <span class="me-2 fw-semibold">Categories:</span>
-  <a href="/board/"
-    class="badge {% if not selected_category_id %}bg-primary{% else %}bg-light text-dark border{% endif %} text-decoration-none me-1">
-    All
-  </a>
-  {% for cat in categories %}
-  <a href="/board/?category_id={{ cat.id }}"
-    class="badge {% if selected_category_id == cat.id %}bg-primary{% else %}bg-light text-dark border{% endif %} text-decoration-none me-1">
-    {{ cat.name }}
-  </a>
-  {% endfor %}
-  {% if not categories %}
-  <span class="text-muted small">No categories yet.</span>
   {% endif %}
-</div>
 
-<table class="table table-hover align-middle">
-  <thead class="table-light">
-    <tr>
-      <th style="width: 60px;">#</th>
-      <th>Title</th>
-      <th style="width: 160px;">Category</th>
-      <th style="width: 220px;">Author</th>
-      <th style="width: 120px;">Visibility</th>
-      <th style="width: 180px;">Created</th>
-    </tr>
-  </thead>
-  <tbody>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Board</h2>
+    <div class="d-flex gap-2">
+      {% if current_user %}
+      <a href="/board/categories" class="btn btn-outline-secondary btn-sm">
+        Manage Categories
+      </a>
+      <a href="/board/new" class="btn btn-primary btn-sm">New Post</a>
+      {% else %}
+      <a href="/auth/login?next=/board/new" class="btn btn-outline-primary btn-sm">
+        Login to write
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row mb-3 align-items-center">
+    <div class="col-md-7">
+      <span class="me-2 fw-semibold small">Categories:</span>
+      <a href="/board/"
+        class="cat-pill {% if not selected_category_id %}active{% endif %}">
+        All
+      </a>
+      {% for cat in categories %}
+      <a href="/board/?category_id={{ cat.id }}{% if search_query %}&q={{ search_query }}{% endif %}"
+        class="cat-pill {% if selected_category_id == cat.id %}active{% endif %}">
+        {{ cat.name }}
+      </a>
+      {% endfor %}
+      {% if not categories %}
+      <span class="text-muted small">No categories yet.</span>
+      {% endif %}
+    </div>
+
+    <div class="col-md-5 mt-3 mt-md-0">
+      <form action="/board/" method="get">
+        {% if selected_category_id %}
+        <input type="hidden" name="category_id" value="{{ selected_category_id }}">
+        {% endif %}
+        <div class="search-input-wrap">
+          <i class="bi bi-search search-input-icon"></i>
+          <input type="text" name="q" class="form-control form-control-sm search-input"
+            placeholder="Search title or content..."
+            value="{{ search_query or '' }}">
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 모바일 카드 뷰 (md 미만에서 표시) -->
+  <div class="d-md-none post-card-list mb-3">
     {% for post in posts %}
-    <tr>
-      <!-- 순번: 전체 흐름에 맞춰 계산 -->
-      <td>{{ (page - 1) * size + loop.index }}</td>
-      <td>
-        <a href="/board/{{ post.id }}">
-          {{ post.title }}
-        </a>
-      </td>
-      <td>
+    <a href="/board/{{ post.id }}" class="post-list-card">
+      <span class="post-list-card-title">{{ post.title }}</span>
+      <div class="post-list-card-meta">
         {% if post.category %}
-        <span class="badge bg-secondary">{{ post.category.name }}</span>
-        {% else %}
-        <span class="text-muted small">-</span>
+        <span class="badge bg-secondary" style="font-size:0.72rem;">{{ post.category.name }}</span>
         {% endif %}
-      </td>
-      <td>{{ post.author }}</td>
-      <td>
+        <span>{{ post.author.split('@')[0] }}@***.com</span>
+        <span>·</span>
+        <span>{{ post.created_at.strftime("%Y-%m-%d") }}</span>
         {% if post.is_private %}
-        <span class="badge bg-secondary">Private</span>
+        <span class="badge bg-secondary" style="font-size:0.72rem;">Private</span>
         {% else %}
-        <span class="badge bg-success">Public</span>
+        <span class="badge bg-success" style="font-size:0.72rem;">Public</span>
         {% endif %}
-      </td>
-      <td>{{ post.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
-    </tr>
+      </div>
+    </a>
     {% else %}
-    <tr>
-      <td colspan="6">No posts yet.</td>
-    </tr>
+    <div class="empty-state py-4">
+      <i class="bi bi-journal-x empty-state-icon"></i>
+      <p class="empty-state-title">게시글이 없습니다</p>
+    </div>
     {% endfor %}
-  </tbody>
-</table>
+  </div>
 
-<!-- ✅ Pagination Widget -->
-{% if total_pages > 1 %}
-<nav aria-label="Page navigation" class="mt-4">
-  <ul class="pagination justify-content-center">
-    <!-- Previous -->
-    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-      <a class="page-link"
-        href="?page={{ page - 1 }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}"
-        tabindex="-1">Previous</a>
-    </li>
+  <!-- 데스크탑 테이블 (md 이상에서 표시) -->
+  <table class="table table-hover align-middle d-none d-md-table">
+    <thead>
+      <tr>
+        <th style="width: 60px;">#</th>
+        <th>Title</th>
+        <th style="width: 160px;">Category</th>
+        <th style="width: 220px;">Author</th>
+        <th style="width: 120px;">Visibility</th>
+        <th style="width: 180px;">Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for post in posts %}
+      <tr>
+        <!-- 순번: 전체 흐름에 맞춰 계산 -->
+        <td>{{ (page - 1) * size + loop.index }}</td>
+        <td>
+          <a href="/board/{{ post.id }}">
+            {{ post.title }}
+          </a>
+        </td>
+        <td>
+          {% if post.category %}
+          <span class="badge bg-secondary">{{ post.category.name }}</span>
+          {% else %}
+          <span class="text-muted small">-</span>
+          {% endif %}
+        </td>
+        <td>{{ post.author.split('@')[0] }}@***.com</td>
+        <td>
+          {% if post.is_private %}
+          <span class="badge bg-secondary">Private</span>
+          {% else %}
+          <span class="badge bg-success">Public</span>
+          {% endif %}
+        </td>
+        <td>{{ post.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="text-center text-muted py-4">게시글이 없습니다.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 
-    <!-- Page Numbers -->
-    {% for p in range(1, total_pages + 1) %}
-    <li class="page-item {% if p == page %}active{% endif %}">
-      <a class="page-link"
-        href="?page={{ p }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">{{ p }}</a>
-    </li>
-    {% endfor %}
+  <!-- ✅ Pagination Widget -->
+  {% if total_pages > 1 %}
+  <nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+      <!-- Previous -->
+      <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+        <a class="page-link"
+          href="?page={{ page - 1 }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}"
+          tabindex="-1">Previous</a>
+      </li>
 
-    <!-- Next -->
-    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-      <a class="page-link"
-        href="?page={{ page + 1 }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}">Next</a>
-    </li>
-  </ul>
-</nav>
-{% endif %}
+      <!-- Page Numbers -->
+      {% for p in range(1, total_pages + 1) %}
+      <li class="page-item {% if p == page %}active{% endif %}">
+        <a class="page-link"
+          href="?page={{ p }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">{{
+          p
+          }}</a>
+      </li>
+      {% endfor %}
 
+      <!-- Next -->
+      <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+        <a class="page-link"
+          href="?page={{ page + 1 }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}">Next</a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
+
+</div><!-- page-content -->
 {% endblock %}

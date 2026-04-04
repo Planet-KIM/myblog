@@ -1,49 +1,356 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="row">
-  <div class="col-md-8">
-    <h2 class="mb-3">Latest Posts</h2>
-    {% if posts %}
-    <div class="d-flex flex-column gap-3">
-      {% for post in posts %}
-      <article class="card border shadow-sm overflow-hidden">
-        {% if post.thumbnail %}
-        <a href="/board/{{ post.id }}" class="d-block">
-          <img src="{{ post.thumbnail }}" alt="thumbnail"
-            style="width:100%; height:180px; object-fit:cover; display:block;">
-        </a>
-        {% endif %}
-        <div class="card-body">
-          <h5 class="card-title mb-1">
-            <a href="/board/{{ post.id }}" class="text-decoration-none text-dark">{{ post.title }}</a>
-          </h5>
-          <p class="text-muted small mb-1">
-            {{ post.author }} · {{ post.created_at.strftime("%Y-%m-%d %H:%M") }}
-          </p>
-          <p class="text-muted small mb-2">{{ post.preview }}</p>
-          <a href="/board/{{ post.id }}" class="btn btn-sm btn-outline-primary">Read more</a>
-        </div>
-      </article>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p>No posts yet. <a href="/board/new">Write the first post</a>.</p>
-    {% endif %}
+{% block title %}Planet KIM's Travel – 홈{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* ─── Hero ──────────────────────────────────────── */
+  .hero {
+    position: relative;
+    min-height: 480px;
+    background:
+      linear-gradient(135deg,
+        rgba(56, 189, 248, 0.15) 0%,
+        rgba(16, 185, 129, 0.15) 50%,
+        rgba(167, 139, 250, 0.15) 100%),
+      linear-gradient(to bottom,
+        rgba(15, 23, 42, 0.4) 0%,
+        rgba(15, 23, 42, 0.7) 100%),
+      url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80') center/cover no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: white;
+    margin-bottom: 3rem;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+      circle at center,
+      transparent 30%,
+      rgba(56, 189, 248, 0.1) 50%,
+      transparent 70%
+    );
+    animation: rotate 80s linear infinite;
+    pointer-events: none;
+  }
+
+  .hero-body {
+    max-width: 720px;
+    padding: 2rem 1rem;
+    z-index: 1;
+    animation: slideInUp 0.8s ease-out;
+  }
+
+  .hero-title {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    line-height: 1.2;
+    letter-spacing: -1px;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, #fff, #cbd5e1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.95))
+            drop-shadow(0 2px 8px rgba(56, 189, 248, 0.4));
+  }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.5px;
+    margin-bottom: 2rem;
+    font-weight: 300;
+    animation: slideInUp 0.8s ease-out 0.2s backwards;
+  }
+
+  .hero-cta {
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 0.75rem 2.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: transform var(--transition-fast),
+                box-shadow var(--transition-fast);
+    font-family: var(--font-mono);
+    display: inline-block;
+    animation: slideInUp 0.8s ease-out 0.4s backwards;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-cta::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .hero-cta:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(56, 189, 248, 0.4);
+    color: white;
+  }
+
+  .hero-cta:hover::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes slideInUp {
+    from {
+      transform: translateY(30px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* ─── Layout ─────────────────────────────────────── */
+  .main-wrap {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+
+  /* ─── Sidebar ─────────────────────────────────────── */
+  .sidebar-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--shadow-md);
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-main);
+    transition: box-shadow var(--transition-base);
+  }
+
+  .sidebar-card:hover {
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sidebar-title {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-primary);
+    border-bottom: 2px solid;
+    border-image: var(--gradient-primary) 1;
+    padding-bottom: 0.4rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .sidebar-cat-badge {
+    display: inline-block;
+    background: var(--surface-dark);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 20px;
+    padding: 0.25em 0.9em;
+    font-size: 0.78rem;
+    margin: 0.2rem;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    font-family: var(--font-mono);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sidebar-cat-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: var(--gradient-primary);
+    transition: left var(--transition-base);
+    z-index: -1;
+  }
+
+  .sidebar-cat-badge:hover {
+    color: white;
+    border-color: transparent;
+    transform: translateY(-2px);
+  }
+
+  .sidebar-cat-badge:hover::before {
+    left: 0;
+  }
+
+  .sidebar-post-link {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    text-decoration: none;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all var(--transition-fast);
+    position: relative;
+    padding-left: 1rem;
+  }
+
+  .sidebar-post-link::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--primary);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  .sidebar-post-link:hover {
+    color: var(--primary);
+    padding-left: 1.5rem;
+  }
+
+  .sidebar-post-link:hover::before {
+    opacity: 1;
+  }
+
+  .sidebar-post-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ─── Hero Banner ──────────────────────────────── -->
+<section class="hero">
+  <div class="hero-body">
+    <div class="hero-title">세상의 모든 여행을<br>기록합니다</div>
+    <p class="hero-sub">음식, 풍경, 사람 — 여행이 남기는 모든 순간</p>
+    <a href="/board/" class="hero-cta"><i class="bi bi-journal-text me-1"></i>여행 기록 보기</a>
   </div>
-  <div class="col-md-4">
-    <h4>Recent Board Posts</h4>
-    <ul class="list-group mb-3">
-      {% for b in board_posts %}
-      <li class="list-group-item d-flex justify-content-between align-items-center">
-        <a href="/board/{{ b.id }}">{{ b.title }}</a>
-        <span class="badge bg-secondary">{{ b.created_at.strftime("%m-%d") }}</span>
-      </li>
+</section>
+
+<!-- ─── Content ──────────────────────────────────── -->
+<div class="main-wrap">
+  <div class="row g-4">
+
+    <!-- ─── Post Grid (left 8) ───────────────────── -->
+    <div class="col-lg-8">
+      <span class="section-title">Latest Posts</span>
+
+      {% if posts %}
+      <div class="row g-5" id="posts-grid">
+        {% for post in posts %}
+        <div class="col-sm-6">
+          <article class="travel-card h-100">
+            <a href="/board/{{ post.id }}" class="card-link-overlay" aria-label="{{ post.title }}"></a>
+            {% if post.thumbnail %}
+            <img src="{{ post.thumbnail }}" alt="thumbnail"
+              style="width:100%; height:185px; object-fit:cover; display:block;"
+              onerror="this.style.display='none';">
+            {% endif %}
+            <div class="card-body">
+              {% if post.category %}
+              <span class="badge-cat mb-2 d-inline-block">{{ post.category.name }}</span>
+              {% endif %}
+              {% if post.show_title != False %}
+              <h5 class="card-title mb-1">
+                <a href="/board/{{ post.id }}">{{ post.title }}</a>
+              </h5>
+              {% endif %}
+
+              <div class="card-preview mb-2">
+                {{ post.preview }}
+              </div>
+
+              <div class="mt-auto">
+                <div class="card-meta">
+                  <i class="bi bi-person-fill me-1"></i>{{ post.author.split('@')[0] }}@***.com
+                  &nbsp;·&nbsp;
+                  <i class="bi bi-clock me-1"></i>{{ post.created_at.strftime("%Y-%m-%d") }}
+                </div>
+                <a href="/board/{{ post.id }}" class="btn-travel">Read more</a>
+              </div>
+            </div>
+          </article>
+        </div>
+        {% endfor %}
+      </div>
       {% else %}
-      <li class="list-group-item">No board posts yet.</li>
-      {% endfor %}
-    </ul>
-    <a class="btn btn-sm btn-outline-secondary" href="/board/">Go to board</a>
+      <div class="empty-state">
+        <i class="bi bi-compass empty-state-icon"></i>
+        <p class="empty-state-title">아직 여행 기록이 없습니다</p>
+        <p class="empty-state-body">첫 번째 여행을 기록해보세요</p>
+        <a href="/board/new" class="btn-travel">여행 기록 쓰기</a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ─── Sidebar (right 4) ────────────────────── -->
+    <div class="col-lg-4">
+
+      {% if current_user %}
+      <div class="sidebar-card text-center mb-3">
+        <a href="/board/new" class="btn-travel d-block py-2">
+          <i class="bi bi-pencil-fill me-1"></i> 새 여행 기록 쓰기
+        </a>
+      </div>
+      {% endif %}
+
+      {% if categories %}
+      <div class="sidebar-card">
+        <div class="sidebar-title"><i class="bi bi-tags-fill me-1"></i>Categories</div>
+        <a href="/board/" class="sidebar-cat-badge">All</a>
+        {% for cat in categories %}
+        <a href="/board/?category_id={{ cat.id }}" class="sidebar-cat-badge">{{ cat.name }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="sidebar-card">
+        <div class="sidebar-title"><i class="bi bi-clock-history me-1"></i>Recent Posts</div>
+        {% for b in board_posts %}
+        <a href="/board/{{ b.id }}" class="sidebar-post-link">
+          {{ b.title }}
+          <span class="sidebar-post-date d-block">{{ b.created_at.strftime("%m-%d") }}</span>
+        </a>
+        {% else %}
+        <p class="text-muted small">게시글이 없습니다.</p>
+        {% endfor %}
+        <a href="/board/" class="btn-travel d-inline-block mt-2" style="font-size:0.78rem;">
+          전체 보기 <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+      </div>
+
+    </div>
   </div>
 </div>
+
 {% endblock %}

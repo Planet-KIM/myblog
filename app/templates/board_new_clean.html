@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Write{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/writing-enhanced.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
+
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* 글쓰기 페이지: main 컨테이너 전체 너비로 */
+  main.container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Hide default nav */
+  body > nav {
+    display: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="writing-container">
+  <!-- Clean, minimal toolbar -->
+  <div class="clean-toolbar">
+    <div class="toolbar-left">
+      <a href="/board/" style="text-decoration: none; color: inherit; font-weight: 600; font-size: 1rem;">
+        ← Stories
+      </a>
+
+      <div class="word-count-display" id="wordCount">0 words</div>
+    </div>
+
+    <div class="toolbar-right">
+      <!-- Text color -->
+      <div class="color-control">
+        <label>Text</label>
+        <div class="color-input-wrapper">
+          <input type="color" id="textColorPicker" value="#1a1a1a" title="Text color">
+        </div>
+      </div>
+
+      <!-- Background color -->
+      <div class="color-control">
+        <label>Background</label>
+        <div class="color-input-wrapper">
+          <input type="color" id="bgColorPicker" value="#ffffff" title="Background color">
+        </div>
+      </div>
+
+      <!-- Reset -->
+      <button type="button" class="clean-btn clean-btn-secondary" id="resetColors" title="Reset colors">
+        Reset
+      </button>
+
+      <!-- Theme toggle -->
+      <button class="theme-btn" id="themeToggle" title="Toggle dark mode">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="sunIcon">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="moonIcon" style="display: none;">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+
+      <!-- Layout switcher -->
+      <div class="layout-switcher" title="Content layout">
+        <button class="layout-btn" data-layout="left"    title="Left">&#9001;</button>
+        <button class="layout-btn" data-layout="center"  title="Center">&#9632;</button>
+        <button class="layout-btn" data-layout="full"    title="Full width">&#9644;</button>
+        <button class="layout-btn" data-layout="right"   title="Right">&#9002;</button>
+      </div>
+
+      <!-- Focus mode -->
+      <button type="button" class="clean-btn clean-btn-secondary" id="focusToggle">
+        Focus
+      </button>
+    </div>
+  </div>
+
+  <form id="post-form" method="post" action="/board/new">
+    <!-- Minimal meta -->
+    <div class="minimal-meta">
+      <select id="category_id" name="category_id" required>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if cat.id==normal_category_id %}selected{% endif %}>
+          {{ cat.name }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <label>
+        <input type="checkbox" value="true" id="is_private" name="is_private">
+        Private
+      </label>
+
+      <label>
+        <input type="checkbox" value="true" id="show_title" name="show_title" checked>
+        Show title
+      </label>
+    </div>
+
+    <!-- The editor - Pure, spacious, distraction-free -->
+    <div class="writing-editor-wrapper">
+      <div class="writing-editor">
+        <div id="editor-root" data-draft-id="{{ draft_id }}"></div>
+      </div>
+    </div>
+
+    <!-- Hidden fields -->
+    <input type="hidden" name="draft_id" id="draft_id" value="{{ draft_id }}">
+    <input type="hidden" name="content" id="content">
+    <input type="hidden" name="content_html" id="content_html">
+
+    <!-- Fixed action bar at bottom -->
+    <div class="bottom-action-bar">
+      <button type="submit" class="clean-btn clean-btn-primary">Publish</button>
+      <button type="button" class="clean-btn clean-btn-secondary" id="saveDraft">Save Draft</button>
+      <a href="/board/" class="clean-btn clean-btn-secondary" style="text-decoration: none;">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<!-- Focus 모드 종료 버튼 (우측 하단 고정) -->
+<button id="focusExitBtn" title="Focus 모드 종료 (ESC)">
+  ✕ Exit Focus
+</button>
+
+<script>
+window.DRAFT_ID = "{{ draft_id }}";
+
+// ── Layout switcher ─────────────────────────────────
+const LAYOUT_KEY = 'contentLayout';
+const wrapper = () => document.querySelector('.writing-editor-wrapper');
+
+function applyLayout(layout) {
+  const el = wrapper();
+  if (!el) return;
+  el.dataset.layout = layout;
+  document.querySelectorAll('.layout-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.layout === layout);
+  });
+  localStorage.setItem(LAYOUT_KEY, layout);
+}
+
+document.querySelectorAll('.layout-btn').forEach(btn => {
+  btn.addEventListener('click', () => applyLayout(btn.dataset.layout));
+});
+
+// 저장된 레이아웃 복원 (기본값: center)
+applyLayout(localStorage.getItem(LAYOUT_KEY) || 'center');
+
+// Theme management
+const html = document.documentElement;
+const themeToggle = document.getElementById('themeToggle');
+const sunIcon = document.getElementById('sunIcon');
+const moonIcon = document.getElementById('moonIcon');
+
+const savedTheme = localStorage.getItem('theme') || 'light';
+html.setAttribute('data-theme', savedTheme);
+updateThemeIcon(savedTheme);
+
+themeToggle.addEventListener('click', () => {
+  const currentTheme = html.getAttribute('data-theme');
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  updateThemeIcon(newTheme);
+});
+
+function updateThemeIcon(theme) {
+  if (theme === 'dark') {
+    sunIcon.style.display = 'none';
+    moonIcon.style.display = 'block';
+  } else {
+    sunIcon.style.display = 'block';
+    moonIcon.style.display = 'none';
+  }
+}
+
+// Focus mode
+const focusToggle = document.getElementById('focusToggle');
+const focusExitBtn = document.getElementById('focusExitBtn');
+let focusMode = false;
+
+function enterFocus() {
+  focusMode = true;
+  document.body.classList.add('focus-active');
+  focusToggle.textContent = 'Focus';
+  focusExitBtn.style.display = 'flex';
+}
+
+function exitFocus() {
+  focusMode = false;
+  document.body.classList.remove('focus-active');
+  focusToggle.textContent = 'Focus';
+  focusExitBtn.style.display = 'none';
+}
+
+focusToggle.addEventListener('click', () => focusMode ? exitFocus() : enterFocus());
+focusExitBtn.addEventListener('click', exitFocus);
+
+// ESC로 Focus 모드 종료
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && focusMode) exitFocus();
+});
+
+// Word count
+function updateWordCount(text) {
+  const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  document.getElementById('wordCount').textContent = `${words} words`;
+}
+
+// Color management
+const textColorPicker = document.getElementById('textColorPicker');
+const bgColorPicker = document.getElementById('bgColorPicker');
+const resetColorsBtn = document.getElementById('resetColors');
+
+// Get editor element
+function getEditor() {
+  return document.querySelector('.milkdown .ProseMirror');
+}
+
+// Apply text color
+function applyTextColor(color) {
+  setTimeout(() => {
+    const editor = getEditor();
+    if (editor) {
+      editor.style.setProperty('color', color, 'important');
+      localStorage.setItem('editorTextColor', color);
+    }
+  }, 100);
+}
+
+// Apply background color
+function applyBgColor(color) {
+  setTimeout(() => {
+    const editor = getEditor();
+    const editorWrapper = document.querySelector('.writing-editor .milkdown .editor');
+    const writingWrapper = document.querySelector('.writing-editor-wrapper');
+
+    if (editor) {
+      editor.style.setProperty('background', color, 'important');
+      if (editorWrapper) editorWrapper.style.setProperty('background', color, 'important');
+      if (writingWrapper) writingWrapper.style.setProperty('background', color, 'important');
+      localStorage.setItem('editorBgColor', color);
+    }
+  }, 100);
+}
+
+// Color picker events
+textColorPicker.addEventListener('input', (e) => {
+  applyTextColor(e.target.value);
+});
+
+bgColorPicker.addEventListener('input', (e) => {
+  applyBgColor(e.target.value);
+});
+
+// Reset colors
+resetColorsBtn.addEventListener('click', () => {
+  const theme = html.getAttribute('data-theme');
+  const defaultText = theme === 'dark' ? '#e8e6e3' : '#1a1a1a';
+  const defaultBg = theme === 'dark' ? '#1e1e1e' : '#ffffff';
+
+  textColorPicker.value = defaultText;
+  bgColorPicker.value = defaultBg;
+
+  applyTextColor(defaultText);
+  applyBgColor(defaultBg);
+});
+
+// Load saved colors
+const savedTextColor = localStorage.getItem('editorTextColor');
+const savedBgColor = localStorage.getItem('editorBgColor');
+
+if (savedTextColor) {
+  textColorPicker.value = savedTextColor;
+  applyTextColor(savedTextColor);
+}
+
+if (savedBgColor) {
+  bgColorPicker.value = savedBgColor;
+  applyBgColor(savedBgColor);
+}
+
+// Apply colors when editor loads
+setTimeout(() => {
+  if (savedTextColor) applyTextColor(savedTextColor);
+  if (savedBgColor) applyBgColor(savedBgColor);
+}, 500);
+
+// Reapply on editor changes
+setInterval(() => {
+  const editor = getEditor();
+  if (editor && savedTextColor && !editor.style.color.includes(savedTextColor)) {
+    applyTextColor(savedTextColor);
+  }
+  if (editor && savedBgColor && !editor.style.background.includes(savedBgColor)) {
+    applyBgColor(savedBgColor);
+  }
+}, 1000);
+</script>
+
+<script type="module" src="{{ url_for('static', path='editor/board_new.js') }}?v=9"></script>
+{% endblock %}

@@ -1,0 +1,589 @@
+{% extends "base.html" %}
+
+{% block title %}New Story{% endblock %}
+
+{% block extra_head %}
+<style>
+  .editor-select-page {
+    max-width: 900px;
+    margin: 3rem auto;
+    padding: 0 1.5rem;
+  }
+
+  .editor-select-title {
+    text-align: center;
+    margin-bottom: 0.5rem;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .editor-select-subtitle {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 2.5rem;
+    font-size: 0.95rem;
+  }
+
+  .editor-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  /* ── 카드 ──────────────────────────────── */
+  .editor-option {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 0;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .editor-option:hover {
+    border-color: var(--primary);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .editor-option.tiptap:hover {
+    border-color: #f97316;
+    box-shadow: 0 12px 32px rgba(249, 115, 22, 0.15);
+  }
+
+  .editor-option::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  .editor-option.milkdown::before {
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  }
+
+  .editor-option.tiptap::before {
+    background: linear-gradient(90deg, #f97316, #ec4899);
+  }
+
+  .editor-option:hover::before {
+    opacity: 1;
+  }
+
+  /* ── 미리보기 영역 ───────────────────────── */
+  .editor-preview {
+    height: 200px;
+    overflow: hidden;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .editor-preview::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, var(--surface));
+  }
+
+  /* Milkdown 미리보기 */
+  .preview-milkdown {
+    padding: 1rem;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: var(--text-main);
+    font-family: 'Pretendard Variable', sans-serif;
+  }
+
+  .preview-milkdown .pm-h1 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+
+  .preview-milkdown .pm-h2 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0.6rem 0 0.3rem;
+    color: var(--text-primary);
+  }
+
+  .preview-milkdown .pm-p {
+    margin: 0.25rem 0;
+    color: var(--text-muted);
+  }
+
+  .preview-milkdown .pm-code {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 0.5rem 0.6rem;
+    border-radius: 6px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.65rem;
+    margin: 0.4rem 0;
+    display: block;
+    overflow: hidden;
+  }
+
+  .preview-milkdown .pm-code .kw { color: #c792ea; }
+  .preview-milkdown .pm-code .fn { color: #82aaff; }
+  .preview-milkdown .pm-code .str { color: #c3e88d; }
+
+  .preview-milkdown .pm-img {
+    width: 100%;
+    height: 50px;
+    background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+    border-radius: 4px;
+    margin: 0.3rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    color: #94a3b8;
+  }
+
+  /* TipTap 미리보기 */
+  .preview-tiptap {
+    padding: 0.75rem;
+    font-size: 0.68rem;
+    line-height: 1.5;
+    color: var(--text-main);
+  }
+
+  .preview-tiptap .pt-toolbar {
+    display: flex;
+    gap: 2px;
+    padding: 0.3rem 0.4rem;
+    background: var(--surface-dark, #f1f5f9);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .preview-tiptap .pt-toolbar-btn {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.55rem;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .preview-tiptap .pt-toolbar-btn.active {
+    background: #f97316;
+    color: white;
+  }
+
+  .preview-tiptap .pt-toolbar-sep {
+    width: 1px;
+    height: 14px;
+    background: var(--border);
+    margin: 2px 2px;
+  }
+
+  .preview-tiptap .pt-hero {
+    width: 100%;
+    height: 55px;
+    background: linear-gradient(135deg, #fde68a, #fdba74, #fb923c);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .preview-tiptap .pt-hero-text {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: white;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  .preview-tiptap .pt-columns {
+    display: flex;
+    gap: 0.4rem;
+    margin: 0.4rem 0;
+  }
+
+  .preview-tiptap .pt-col {
+    flex: 1;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 0.35rem;
+    min-height: 45px;
+  }
+
+  .preview-tiptap .pt-col-img {
+    width: 100%;
+    height: 30px;
+    background: linear-gradient(135deg, #c4b5fd, #a78bfa);
+    border-radius: 3px;
+    margin-bottom: 0.2rem;
+  }
+
+  .preview-tiptap .pt-col-text {
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .preview-tiptap .pt-text {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    margin: 0.2rem 0;
+  }
+
+  /* ── 카드 하단 정보 영역 ──────────────────── */
+  .editor-info {
+    padding: 1.25rem 1.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .editor-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .editor-icon-milkdown {
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: white;
+  }
+
+  .editor-icon-tiptap {
+    background: linear-gradient(135deg, #f97316, #ec4899);
+    color: white;
+  }
+
+  .editor-option-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    color: var(--text-primary);
+  }
+
+  .editor-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 0.12rem 0.45rem;
+    border-radius: 10px;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+  }
+
+  .badge-stable {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+
+  .badge-new {
+    background: rgba(249, 115, 22, 0.15);
+    color: #f97316;
+  }
+
+  .editor-option-desc {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+  }
+
+  /* ── 기능 리스트 ──────────────────────────── */
+  .editor-features {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem 0.5rem;
+    text-align: left;
+  }
+
+  .editor-feature {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    color: var(--text-main);
+    padding: 0.2rem 0;
+  }
+
+  .editor-feature i {
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+  }
+
+  .milkdown .editor-feature i { color: #3b82f6; }
+  .tiptap .editor-feature i { color: #f97316; }
+
+  /* ── 하단 비교표 ──────────────────────────── */
+  .editor-compare {
+    margin-top: 2.5rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .editor-compare table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+
+  .editor-compare th {
+    padding: 0.7rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    background: var(--surface-dark, #f1f5f9);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .editor-compare th:first-child {
+    width: 40%;
+  }
+
+  .editor-compare th:nth-child(2) {
+    color: #3b82f6;
+    text-align: center;
+  }
+
+  .editor-compare th:nth-child(3) {
+    color: #f97316;
+    text-align: center;
+  }
+
+  .editor-compare td {
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-main);
+  }
+
+  .editor-compare td:nth-child(2),
+  .editor-compare td:nth-child(3) {
+    text-align: center;
+  }
+
+  .editor-compare tr:last-child td {
+    border-bottom: none;
+  }
+
+  .check { color: #22c55e; }
+  .cross { color: #d1d5db; }
+
+  @media (max-width: 640px) {
+    .editor-options {
+      grid-template-columns: 1fr;
+    }
+
+    .editor-select-page {
+      margin: 1.5rem auto;
+    }
+
+    .editor-features {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="editor-select-page">
+  <h1 class="editor-select-title">New Story</h1>
+  <p class="editor-select-subtitle">Choose your writing style</p>
+
+  <div class="editor-options">
+    <!-- ── Milkdown (Markdown) ────────────── -->
+    <a href="/board/new?editor=milkdown" class="editor-option milkdown">
+      <!-- 미리보기 -->
+      <div class="editor-preview">
+        <div class="preview-milkdown">
+          <div class="pm-h1"># Travel to Jeju Island</div>
+          <div class="pm-p">The wind carried salt from the sea as I walked along the olle trail...</div>
+          <div class="pm-h2">## Day 1: Arriving</div>
+          <div class="pm-p">After a short flight from Seoul, the island greeted me with clear skies.</div>
+          <div class="pm-code"><span class="kw">def</span> <span class="fn">hello</span>():<br>&nbsp;&nbsp;<span class="kw">print</span>(<span class="str">"Hello Jeju!"</span>)</div>
+          <div class="pm-img"><i class="bi bi-image"></i> image.jpg</div>
+        </div>
+      </div>
+
+      <!-- 정보 -->
+      <div class="editor-info">
+        <div class="editor-icon editor-icon-milkdown">
+          <i class="bi bi-markdown"></i>
+        </div>
+        <div class="editor-option-title">
+          Markdown
+          <span class="editor-badge badge-stable">Stable</span>
+        </div>
+        <p class="editor-option-desc">
+          Simple and fast writing with Markdown syntax.<br>
+          Best for text-heavy posts, dev blogs, and notes.
+        </p>
+
+        <div class="editor-features">
+          <div class="editor-feature"><i class="bi bi-lightning-fill"></i> Fast writing</div>
+          <div class="editor-feature"><i class="bi bi-markdown-fill"></i> Markdown syntax</div>
+          <div class="editor-feature"><i class="bi bi-code-slash"></i> Code highlighting</div>
+          <div class="editor-feature"><i class="bi bi-image"></i> Image upload</div>
+          <div class="editor-feature"><i class="bi bi-clipboard"></i> Paste images</div>
+          <div class="editor-feature"><i class="bi bi-palette"></i> Text colors</div>
+          <div class="editor-feature"><i class="bi bi-arrows-fullscreen"></i> Focus mode</div>
+          <div class="editor-feature"><i class="bi bi-layout-text-sidebar"></i> Layout options</div>
+        </div>
+      </div>
+    </a>
+
+    <!-- ── TipTap (Magazine) ─────────────── -->
+    <a href="/board/new?editor=tiptap" class="editor-option tiptap">
+      <!-- 미리보기 -->
+      <div class="editor-preview">
+        <div class="preview-tiptap">
+          <div class="pt-toolbar">
+            <div class="pt-toolbar-btn"><b>B</b></div>
+            <div class="pt-toolbar-btn"><i>I</i></div>
+            <div class="pt-toolbar-btn"><u>U</u></div>
+            <div class="pt-toolbar-sep"></div>
+            <div class="pt-toolbar-btn active">H1</div>
+            <div class="pt-toolbar-btn">H2</div>
+            <div class="pt-toolbar-sep"></div>
+            <div class="pt-toolbar-btn"><i class="bi bi-text-left" style="font-size:8px"></i></div>
+            <div class="pt-toolbar-btn"><i class="bi bi-text-center" style="font-size:8px"></i></div>
+            <div class="pt-toolbar-sep"></div>
+            <div class="pt-toolbar-btn"><i class="bi bi-image" style="font-size:8px"></i></div>
+            <div class="pt-toolbar-btn"><i class="bi bi-layout-three-columns" style="font-size:8px"></i></div>
+          </div>
+          <div class="pt-hero">
+            <span class="pt-hero-text">Jeju Island</span>
+          </div>
+          <div class="pt-columns">
+            <div class="pt-col">
+              <div class="pt-col-img"></div>
+              <div class="pt-col-text">Sunrise at Seongsan...</div>
+            </div>
+            <div class="pt-col">
+              <div class="pt-col-img" style="background: linear-gradient(135deg, #6ee7b7, #34d399);"></div>
+              <div class="pt-col-text">Walking the Olle trail...</div>
+            </div>
+          </div>
+          <div class="pt-text">The golden light poured over the volcanic rocks as the waves...</div>
+        </div>
+      </div>
+
+      <!-- 정보 -->
+      <div class="editor-info">
+        <div class="editor-icon editor-icon-tiptap">
+          <i class="bi bi-layout-text-window-reverse"></i>
+        </div>
+        <div class="editor-option-title">
+          Magazine
+          <span class="editor-badge badge-new">New</span>
+        </div>
+        <p class="editor-option-desc">
+          Free layout with photos and text blocks.<br>
+          Best for travel stories, photo essays, and visual content.
+        </p>
+
+        <div class="editor-features">
+          <div class="editor-feature"><i class="bi bi-grip-vertical"></i> Block editing</div>
+          <div class="editor-feature"><i class="bi bi-layout-three-columns"></i> Multi-column</div>
+          <div class="editor-feature"><i class="bi bi-image-fill"></i> Image gallery</div>
+          <div class="editor-feature"><i class="bi bi-type-bold"></i> Rich formatting</div>
+          <div class="editor-feature"><i class="bi bi-text-center"></i> Text alignment</div>
+          <div class="editor-feature"><i class="bi bi-palette-fill"></i> Text & highlight colors</div>
+          <div class="editor-feature"><i class="bi bi-clipboard"></i> Paste images</div>
+          <div class="editor-feature"><i class="bi bi-code-slash"></i> Code blocks</div>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <!-- ── 비교표 ────────────────────────────── -->
+  <div class="editor-compare">
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th><i class="bi bi-markdown me-1"></i>Markdown</th>
+          <th><i class="bi bi-layout-text-window-reverse me-1"></i>Magazine</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Writing speed</td>
+          <td><span class="check"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i></span></td>
+          <td><span class="check"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i></span></td>
+        </tr>
+        <tr>
+          <td>Layout freedom</td>
+          <td><span class="check"><i class="bi bi-star-fill"></i></span></td>
+          <td><span class="check"><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i><i class="bi bi-star-fill"></i></span></td>
+        </tr>
+        <tr>
+          <td>Multi-column layout</td>
+          <td><span class="cross"><i class="bi bi-x-lg"></i></span></td>
+          <td><span class="check"><i class="bi bi-check-lg"></i></span></td>
+        </tr>
+        <tr>
+          <td>Text alignment</td>
+          <td><span class="cross"><i class="bi bi-x-lg"></i></span></td>
+          <td><span class="check"><i class="bi bi-check-lg"></i></span></td>
+        </tr>
+        <tr>
+          <td>Highlight colors</td>
+          <td><span class="cross"><i class="bi bi-x-lg"></i></span></td>
+          <td><span class="check"><i class="bi bi-check-lg"></i></span></td>
+        </tr>
+        <tr>
+          <td>Markdown syntax</td>
+          <td><span class="check"><i class="bi bi-check-lg"></i></span></td>
+          <td><span class="cross"><i class="bi bi-x-lg"></i></span></td>
+        </tr>
+        <tr>
+          <td>Code highlighting</td>
+          <td><span class="check"><i class="bi bi-check-lg"></i></span></td>
+          <td><span class="check"><i class="bi bi-check-lg"></i></span></td>
+        </tr>
+        <tr>
+          <td>Image upload / paste</td>
+          <td><span class="check"><i class="bi bi-check-lg"></i></span></td>
+          <td><span class="check"><i class="bi bi-check-lg"></i></span></td>
+        </tr>
+        <tr>
+          <td>Focus mode</td>
+          <td><span class="check"><i class="bi bi-check-lg"></i></span></td>
+          <td><span class="cross"><i class="bi bi-x-lg"></i></span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
