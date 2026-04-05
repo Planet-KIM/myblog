@@ -638,7 +638,8 @@ function _scGetTarget() {
   if (!blockWithSel?.editor) return null;
   const editor = blockWithSel.editor;
   const { from, to } = editor.state.selection;
-  const text = editor.state.doc.textBetween(from, to, ' ');
+  // '\n' 으로 단락 경계를 보존 — ' ' 이면 모든 줄이 한 문장으로 합쳐짐
+  const text = editor.state.doc.textBetween(from, to, '\n');
   return { editor, text, from, to };
 }
 
@@ -650,7 +651,14 @@ function _scRemovePopup() {
 function _scApply(correctedText) {
   const { editor, from, to } = _scState;
   if (!editor) return;
-  editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, correctedText).run();
+  // \n 이 포함된 경우 줄별로 paragraph 노드로 분리해서 삽입
+  // insertContentAt에 plain string을 넘기면 \n이 무시되므로 노드 스펙 배열 사용
+  const lines = correctedText.split('\n');
+  const content = lines.map(line => ({
+    type: 'paragraph',
+    content: line ? [{ type: 'text', text: line }] : [],
+  }));
+  editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, content).run();
   _scRemovePopup();
 }
 
@@ -675,7 +683,7 @@ function _scShowPopup({ loading, original, corrected, error }) {
   if (loading) {
     popup.innerHTML = `
       <div style="font-weight:600;margin-bottom:14px;">맞춤법 검사</div>
-      <div style="background:#f9fafb;border-radius:8px;padding:12px;font-size:0.88rem;color:#374151;margin-bottom:14px;word-break:break-all;">${_scEscapeHtml(original)}</div>
+      <div style="background:#f9fafb;border-radius:8px;padding:12px;font-size:0.88rem;color:#374151;margin-bottom:14px;word-break:break-all;white-space:pre-wrap;">${_scEscapeHtml(original)}</div>
       <div style="text-align:center;color:#6b7280;font-size:0.9rem;padding:8px 0;">검사 중...</div>`;
   } else if (error) {
     popup.innerHTML = `
@@ -695,11 +703,11 @@ function _scShowPopup({ loading, original, corrected, error }) {
       <div style="font-weight:600;margin-bottom:14px;">맞춤법 검사 결과</div>
       <div style="margin-bottom:10px;">
         <div style="font-size:0.75rem;color:#9ca3af;margin-bottom:4px;">원본</div>
-        <div style="background:#f9fafb;border-radius:8px;padding:10px;font-size:0.88rem;color:#374151;word-break:break-all;">${_scEscapeHtml(original)}</div>
+        <div style="background:#f9fafb;border-radius:8px;padding:10px;font-size:0.88rem;color:#374151;word-break:break-all;white-space:pre-wrap;">${_scEscapeHtml(original)}</div>
       </div>
       <div style="margin-bottom:18px;">
         <div style="font-size:0.75rem;color:#9ca3af;margin-bottom:4px;">교정</div>
-        <div style="background:${isSame ? '#f9fafb' : '#f0fdf4'};border-radius:8px;padding:10px;font-size:0.88rem;color:${isSame ? '#9ca3af' : '#15803d'};word-break:break-all;">
+        <div style="background:${isSame ? '#f9fafb' : '#f0fdf4'};border-radius:8px;padding:10px;font-size:0.88rem;color:${isSame ? '#9ca3af' : '#15803d'};word-break:break-all;white-space:pre-wrap;">
           ${isSame ? '오류가 발견되지 않았습니다.' : _scEscapeHtml(corrected)}
         </div>
       </div>`;
