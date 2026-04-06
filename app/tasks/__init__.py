@@ -39,9 +39,11 @@ celery_app.conf.update(
     # 결과 보존 시간: 10분 (맞춤법 결과는 짧게 유지)
     result_expires=600,
 
-    # 태스크 타임아웃: 30초 (모델 추론이 느릴 때 무한 대기 방지)
-    task_soft_time_limit=30,
-    task_time_limit=35,
+    # 태스크 타임아웃
+    # coedit(780M) 첫 추론은 60~90초 소요 가능 (모델 워밍업)
+    # 이후 요청은 10~20초 수준
+    task_soft_time_limit=120,
+    task_time_limit=130,
 
     # 워커당 처리 후 프로세스 재시작 (메모리 누수 방지)
     # 100개 처리 후 워커 프로세스 재시작

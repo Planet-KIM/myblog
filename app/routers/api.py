@@ -114,35 +114,28 @@ async def _check_rate_limit(user_id: int) -> None:
 # Celery 디스패치 (fallback: ThreadPoolExecutor)
 # ─────────────────────────────────────────────
 
-async def _run_spellcheck_celery_or_fallback(loop: asyncio.AbstractEventLoop, text: str) -> str:
+async def _run_spellcheck(
+    loop: asyncio.AbstractEventLoop, text: str, en_variant: str = "vennify"
+) -> str:
     """
-    Celery 워커가 살아있으면 태스크로 디스패치하고 결과를 기다립니다.
-    Redis / Celery 미실행 상태면 ThreadPoolExecutor로 직접 추론합니다.
-
-    Celery 경로:
-      run_spellcheck.delay(text)  →  Redis 큐  →  워커 추론  →  AsyncResult.get()
-
-    Fallback 경로:
-      run_in_executor(_spellcheck_executor, correct, text)
+    Celery 워커에 태스크를 전달하고 결과를 기다립니다.
+    웹서버는 모델을 들고 있지 않으므로 Celery가 반드시 실행 중이어야 합니다.
+    Celery가 없으면 503 반환.
     """
     try:
         from app.tasks.spellcheck_task import run_spellcheck
 
-        # AsyncResult.get() 은 블로킹 → executor에서 실행
         def _dispatch_and_wait():
-            task = run_spellcheck.delay(text)
-            # timeout=30: 30초 안에 워커 응답 없으면 예외
-            result = task.get(timeout=30)
+            task = run_spellcheck.delay(text, en_variant)
+            # coedit은 첫 추론 시 워밍업으로 60~90초 소요 가능
+            timeout = 120 if en_variant == "coedit" else 60
+            result = task.get(timeout=timeout)
             return result["corrected"]
 
-        corrected = await loop.run_in_executor(_spellcheck_executor, _dispatch_and_wait)
-        return corrected
+        return await loop.run_in_executor(_spellcheck_executor, _dispatch_and_wait)
 
-    except Exception as celery_err:
-        # Celery / Redis 미실행 → 직접 추론으로 fallback
-        print(f"[SpellCheck] Celery 미사용, 직접 추론으로 전환: {celery_err}")
-        from app.services.spellcheck import correct
-        return await loop.run_in_executor(_spellcheck_executor, correct, text)
+    except Exception as e:
+        raise RuntimeError(f"Celery 워커에 연결할 수 없습니다. 워커가 실행 중인지 확인하세요. ({e})")
 
 
 # ─────────────────────────────────────────────
@@ -179,7 +172,8 @@ class StatsUpdateRequest(BaseModel):
 
 class SpellCheckRequest(BaseModel):
     text: str
-    lang: Optional[str] = None  # "ko" | "en" | None (자동 감지)
+    lang: Optional[str] = None        # "ko" | "en" | None (자동 감지)
+    en_variant: Optional[str] = None  # "vennify" | "coedit" | None (기본값 사용)
 
 
 class SpellCheckResponse(BaseModel):
@@ -344,8 +338,9 @@ async def check_spelling(
     semaphore: asyncio.Semaphore = http_request.app.state.spellcheck_semaphore
 
     try:
-        # 10초 내에 슬롯 확보 못하면 서버 과부하로 429 반환
-        await asyncio.wait_for(semaphore.acquire(), timeout=10.0)
+        # coedit은 추론이 오래 걸리므로 슬롯 대기 시간도 길게
+        wait_timeout = 30.0 if (sc_request.en_variant == "coedit") else 10.0
+        await asyncio.wait_for(semaphore.acquire(), timeout=wait_timeout)
     except asyncio.TimeoutError:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -355,13 +350,14 @@ async def check_spelling(
     try:
         from app.services.spellcheck import detect_lang, model_info
         loop = asyncio.get_event_loop()
-        result = await _run_spellcheck_celery_or_fallback(loop, text)
+        en_variant = sc_request.en_variant or settings.SPELLCHECK_EN_DEFAULT_VARIANT
+        result = await _run_spellcheck(loop, text, en_variant)
         lang = sc_request.lang or detect_lang(text)
         return SpellCheckResponse(
             original=text,
             corrected=result,
             lang=lang,
-            model=model_info(text),
+            model=model_info(text, en_variant),
         )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))

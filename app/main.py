@@ -20,32 +20,19 @@ Base.metadata.create_all(bind=engine)
 async def lifespan(app: FastAPI):
     """
     서버 시작 시:
-      1. 맞춤법 모델 두 개를 별도 스레드에서 미리 로드 (Eager Loading)
-         → 첫 요청 지연(20~30초) 제거
-      2. 동시 추론 제한용 asyncio.Semaphore 초기화
-         → 설정값: SPELLCHECK_MAX_CONCURRENT (기본 2)
-
-    서버 종료 시:
-      별도 정리 작업 없음 (모델은 프로세스 종료와 함께 해제됨)
+      - 맞춤법 모델은 웹서버에 로드하지 않음
+        → 모델은 Celery 워커 프로세스에서만 로드 (메모리 중복 방지)
+        → 웹서버는 task를 Celery에 전달하고 결과만 받음
+      - 동시 추론 제한용 asyncio.Semaphore 초기화
     """
-    print(f"[Startup] 맞춤법 모델 로딩 시작 (백그라운드 스레드)...")
-
-    loop = asyncio.get_event_loop()
-    try:
-        from app.services.spellcheck import load_all
-        # 모델 로드는 블로킹 IO → run_in_executor 로 이벤트루프 막지 않음
-        await loop.run_in_executor(None, load_all)
-    except Exception as e:
-        # 모델 로드 실패해도 서버는 기동 (맞춤법 API만 503 반환)
-        print(f"[Startup] 모델 로딩 실패 (맞춤법 API 비활성화): {e}")
-
     # 동시 추론 세마포어 — api.py에서 req.app.state.spellcheck_semaphore 로 접근
     app.state.spellcheck_semaphore = asyncio.Semaphore(
         settings.SPELLCHECK_MAX_CONCURRENT
     )
     print(
         f"[Startup] 준비 완료 "
-        f"(동시 추론 최대 {settings.SPELLCHECK_MAX_CONCURRENT}개, "
+        f"(맞춤법은 Celery 워커 전담, "
+        f"동시 태스크 최대 {settings.SPELLCHECK_MAX_CONCURRENT}개, "
         f"유저당 {settings.SPELLCHECK_RATE_LIMIT}회/{settings.SPELLCHECK_RATE_WINDOW}s)"
     )
 

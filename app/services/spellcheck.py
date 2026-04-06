@@ -3,30 +3,32 @@
 
 언어별로 이미 fine-tuned된 모델을 사용합니다:
   - 한국어: j5ng/et5-typos-corrector          (T5 기반, 한국어 오타 교정 전용)
-  - 영어:   vennify/t5-base-grammar-correction (T5 기반, 영어 철자 + 문법 교정)
+  - 영어:   vennify/t5-base-grammar-correction (기본) 또는 grammarly/coedit-large (고품질)
+
+== 영어 모델 선택 ==
+  .env 또는 환경변수로 선택:
+
+  SPELLCHECK_EN_VARIANT=vennify   # 기본값, ~250M, 빠름
+  SPELLCHECK_EN_VARIANT=coedit    # grammarly/coedit-large, ~780M, 고품질
+
+  또는 HuggingFace 경로 / 로컬 경로 직접 지정:
+  SPELLCHECK_EN_MODEL=models/my-en-model
+
+  우선순위: SPELLCHECK_EN_MODEL > SPELLCHECK_EN_VARIANT
+
+  모델별 프리픽스:
+    vennify  → "grammar: {text}"
+    coedit   → "Fix grammatical errors in this sentence: {text}"
 
 == 이전 영어 모델 (학습용으로 보존) ==
   oliverguhr/spelling-correction-english-base  (BERT2BERT, 철자 교정 전용)
   교체 이유: 문법 오류(시제, 주어-동사 일치 등)를 교정하지 못함
-  환경변수로 되돌리기: SPELLCHECK_EN_MODEL=oliverguhr/spelling-correction-english-base
 
 == 서버 시작 시 사전 로드 ==
   app/main.py의 lifespan에서 load_all()을 호출하여 서버 시작 시 모델을 미리 로드합니다.
-  최초 요청 지연 (20~30초) 없이 즉시 응답 가능합니다.
-
-== Celery 워커에서도 동일하게 사용 ==
-  app/tasks/spellcheck_task.py의 worker_process_init 시그널에서
-  load_all()을 호출하여 워커 시작 시 미리 로드합니다.
-
-== 모델 아키텍처 열람/수정 ==
-    from transformers import T5ForConditionalGeneration
-    model = T5ForConditionalGeneration.from_pretrained("j5ng/et5-typos-corrector")
-    print(model)                                          # 전체 레이어 구조
-    model.encoder.block[0].layer[0].SelfAttention.q.weight  # 특정 레이어 접근
 
 == 환경변수로 custom 모델 교체 ==
     SPELLCHECK_KO_MODEL=models/blog-spellcheck/best
-    SPELLCHECK_EN_MODEL=models/my-en-model
 """
 
 import os
@@ -34,15 +36,21 @@ import re
 import threading
 
 KO_MODEL = os.environ.get("SPELLCHECK_KO_MODEL", "j5ng/et5-typos-corrector")
-EN_MODEL = os.environ.get("SPELLCHECK_EN_MODEL", "vennify/t5-base-grammar-correction")
 
-# 이전 영어 모델 — 삭제하지 않고 보존 (학습/비교 용도)
-# EN_MODEL_LEGACY = "oliverguhr/spelling-correction-english-base"
-# 직접 뜯어보려면:
-#   from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-#   tok = AutoTokenizer.from_pretrained(EN_MODEL_LEGACY)
-#   mdl = AutoModelForSeq2SeqLM.from_pretrained(EN_MODEL_LEGACY)
-#   print(mdl)  # EncoderDecoderModel(BERT2BERT) 구조 확인
+# ── 영어 모델 variant 매핑 ─────────────────────────────────
+# 두 모델 모두 서버 시작 시 로드, 요청마다 variant로 선택
+_EN_VARIANTS: dict = {
+    "vennify": {
+        "model": "vennify/t5-base-grammar-correction",
+        "prefix": "grammar: ",
+        "max_tokens": 390,  # prefix ~10토큰 감안
+    },
+    "coedit": {
+        "model": "grammarly/coedit-large",
+        "prefix": "Fix grammatical errors in this sentence: ",
+        "max_tokens": 380,  # prefix ~15토큰 감안
+    },
+}
 
 
 def detect_lang(text: str) -> str:
@@ -247,31 +255,27 @@ class _KoSpellChecker:
 
 class _EnSpellChecker:
     """
-    영어 문법+맞춤법 교정기 — vennify/t5-base-grammar-correction
-    T5ForConditionalGeneration 기반 seq2seq 모델
+    영어 문법+맞춤법 교정기 — variant별 독립 인스턴스.
 
-    한국어 모델(j5ng/et5-typos-corrector)과 동일한 T5 아키텍처라서
-    scripts/train_spellcheck.py 로 fine-tuning 가능합니다.
+      vennify — vennify/t5-base-grammar-correction, ~250M, T5-base, 빠름
+        prefix: "grammar: {text}"
 
-    교정 범위:
-      - 철자 오류:   recieve → receive
-      - 시제 오류:   She go → She went / buyed → bought
-      - 주어-동사:   I am agree → I agree
-      - 관사:        a apple → an apple
+      coedit  — grammarly/coedit-large, ~780M, T5-large (Apache 2.0), 고품질
+        prefix: "Fix grammatical errors in this sentence: {text}"
+        논문: CoEdIT (ACL 2023), fine-tuning/reproduce 가능
 
-    뜯어보기:
-      from transformers import T5ForConditionalGeneration
-      m = T5ForConditionalGeneration.from_pretrained("vennify/t5-base-grammar-correction")
-      print(m)                                    # 전체 레이어 구조
-      print(sum(p.numel() for p in m.parameters()))  # 파라미터 수 (~242M)
-
-    이전 모델(oliverguhr, BERT2BERT) 비교 학습:
-      from transformers import AutoModelForSeq2SeqLM
-      old = AutoModelForSeq2SeqLM.from_pretrained("oliverguhr/spelling-correction-english-base")
-      print(old)  # EncoderDecoderModel 구조 — T5와 구조 차이 확인 가능
+    교정 범위 (coedit이 더 넓음):
+      - 철자/시제/주어-동사: 두 모델 모두 가능
+      - 전치사:   married with → married to  (coedit만)
+      - 형용사:   I am boring → I am bored   (coedit만)
     """
 
-    def __init__(self):
+    def __init__(self, variant: str):
+        cfg = _EN_VARIANTS[variant]
+        self._variant = variant
+        self._model_id = cfg["model"]
+        self._prefix = cfg["prefix"]
+        self._max_tokens = cfg["max_tokens"]
         self._model = None
         self._tokenizer = None
         self._device = None
@@ -286,24 +290,20 @@ class _EnSpellChecker:
                 return
             try:
                 from transformers import AutoTokenizer, T5ForConditionalGeneration
-                import torch
-                print(f"[EnSpellChecker] 로딩 중: {EN_MODEL}")
-                self._tokenizer = AutoTokenizer.from_pretrained(EN_MODEL)
-                self._model = T5ForConditionalGeneration.from_pretrained(EN_MODEL)
-                # vennify/t5-base-grammar-correction 은 T5 기반이라 MPS 지원
+                print(f"[EnSpellChecker:{self._variant}] 로딩 중: {self._model_id}")
+                self._tokenizer = AutoTokenizer.from_pretrained(self._model_id)
+                self._model = T5ForConditionalGeneration.from_pretrained(self._model_id)
                 self._device = _get_device()
                 self._model = self._model.to(self._device)
                 self._model.eval()
                 self._loaded = True
-                print("[EnSpellChecker] 로딩 완료")
+                print(f"[EnSpellChecker:{self._variant}] 로딩 완료")
             except ImportError:
                 raise RuntimeError("pip install transformers torch 를 실행하세요.")
 
     def _correct_chunk(self, text: str) -> str:
-        """단일 청크 교정 — max_tokens 이하의 텍스트만 받음"""
         import torch
-        # vennify 모델은 "grammar: " 프리픽스를 붙여야 교정 모드로 동작
-        prefixed = f"grammar: {text}"
+        prefixed = f"{self._prefix}{text}"
         inputs = self._tokenizer(
             prefixed, return_tensors="pt", max_length=512,
             truncation=True, padding=True
@@ -319,48 +319,55 @@ class _EnSpellChecker:
         return self._tokenizer.decode(outputs[0], skip_special_tokens=True)
 
     def correct(self, text: str) -> str:
-        """
-        긴 텍스트를 청크로 분할해 교정 후 원래 구조로 복원.
-        단락(\\n)과 문장 경계를 보존하며 분할하므로 결과가 잘리지 않음.
-        프리픽스 'grammar: '는 청크별로 독립 적용됨.
-        """
         self._load()
-        chunks = _split_into_chunks(text, self._tokenizer, max_tokens=390)
-        # 영어 모델은 "grammar: " 프리픽스(약 10토큰)가 추가되므로 390으로 더 보수적으로
+        chunks = _split_into_chunks(text, self._tokenizer, max_tokens=self._max_tokens)
         corrected_parts = [self._correct_chunk(chunk) + delim for chunk, delim in chunks]
         return ''.join(corrected_parts)
 
     @property
     def model_path(self) -> str:
-        return EN_MODEL
+        return self._model_id
 
 
-# 싱글톤 인스턴스 (웹 프로세스 & Celery 워커 모두 공유)
+# ── 싱글톤 인스턴스 ───────────────────────────────────────
+# 웹 프로세스 & Celery 워커 모두 공유
 _ko = _KoSpellChecker()
-_en = _EnSpellChecker()
+_en_vennify = _EnSpellChecker("vennify")
+_en_coedit  = _EnSpellChecker("coedit")
+
+_EN_CHECKERS = {
+    "vennify": _en_vennify,
+    "coedit":  _en_coedit,
+}
 
 
 def load_all() -> None:
     """
-    두 모델 모두 미리 로드.
+    모든 모델 미리 로드 (한국어 + 영어 vennify + 영어 coedit).
     - 웹 서버: app/main.py lifespan startup 에서 호출
     - Celery 워커: app/tasks/spellcheck_task.py worker_process_init 에서 호출
-    첫 요청 지연을 없애기 위한 함수.
     """
-    print("[SpellCheck] 모델 사전 로딩 시작...")
+    print("[SpellCheck] 모델 사전 로딩 시작 (ko + en-vennify + en-coedit)...")
     _ko._load()
-    _en._load()
+    _en_vennify._load()
+    _en_coedit._load()
     print("[SpellCheck] 모델 사전 로딩 완료 ✓")
 
 
-def correct(text: str) -> str:
-    """언어 감지 후 적절한 모델로 교정"""
+def correct(text: str, en_variant: str = "vennify") -> str:
+    """
+    언어 감지 후 적절한 모델로 교정.
+    영어인 경우 en_variant("vennify" | "coedit")로 모델 선택.
+    """
     lang = detect_lang(text)
     if lang == "ko":
         return _ko.correct(text)
-    return _en.correct(text)
+    checker = _EN_CHECKERS.get(en_variant, _en_vennify)
+    return checker.correct(text)
 
 
-def model_info(text: str) -> str:
+def model_info(text: str, en_variant: str = "vennify") -> str:
     """사용된 모델 경로 반환"""
-    return KO_MODEL if detect_lang(text) == "ko" else EN_MODEL
+    if detect_lang(text) == "ko":
+        return KO_MODEL
+    return _EN_CHECKERS.get(en_variant, _en_vennify).model_path

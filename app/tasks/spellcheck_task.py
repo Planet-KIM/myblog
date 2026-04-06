@@ -21,29 +21,34 @@
          --max-memory-per-child=3145728
 """
 
-from celery.signals import worker_process_init
+from celery.signals import worker_ready
 from app.tasks import celery_app
 
 
-@worker_process_init.connect
+@worker_ready.connect
 def preload_models(**kwargs):
     """
-    Celery 워커 프로세스 시작 직후 모델을 미리 로드.
-    첫 번째 태스크 실행 전에 완료되므로 태스크 지연 없음.
+    Celery 워커 준비 완료 시 모델 미리 로드.
 
-    MPS 강제 비활성화:
-      Celery는 ForkPoolWorker(fork된 자식 프로세스)로 실행됨.
-      macOS에서 fork 이후 MPS(Metal GPU)에 접근하면
-      MTLCompilerService 연결이 차단되어 RuntimeError 발생.
-      → SPELLCHECK_DEVICE=cpu 로 강제해서 CPU 추론 사용.
+    --pool=solo 사용 시 fork가 발생하지 않으므로:
+      - worker_process_init 대신 worker_ready 시그널 사용
+      - MPS fork 충돌 문제 없음 (단일 프로세스)
+      - 그러나 macOS CPU를 명시 지정해 안전하게 실행
+
+    == 왜 --pool=solo 를 쓰는가 ==
+      prefork(기본값)는 요청마다 자식 프로세스를 fork함.
+      fork 시 부모 메모리(모델 2.4GB)가 COW로 복사 시도 →
+      여유 RAM 부족 시 OS가 SIGKILL.
+      solo는 단일 프로세스에서 순차 실행 → fork 없음 → OOM 없음.
+      맞춤법 워커는 concurrency=1 이므로 solo와 동일한 처리량.
     """
     import os
     os.environ["SPELLCHECK_DEVICE"] = "cpu"
-    print("[CeleryWorker] MPS 비활성화 (fork 프로세스 제한) → CPU 사용")
+    print("[CeleryWorker] CPU 모드 고정 (solo pool)")
 
     try:
         from app.services.spellcheck import load_all
-        print("[CeleryWorker] 맞춤법 모델 사전 로딩...")
+        print("[CeleryWorker] 모든 맞춤법 모델 로딩 (ko + vennify + coedit)...")
         load_all()
         print("[CeleryWorker] 모델 로딩 완료 ✓")
     except Exception as e:
@@ -56,27 +61,20 @@ def preload_models(**kwargs):
     max_retries=1,
     default_retry_delay=2,
 )
-def run_spellcheck(self, text: str) -> dict:
+def run_spellcheck(self, text: str, en_variant: str = "vennify") -> dict:
     """
     맞춤법 교정 태스크.
-
-    bind=True : self로 태스크 인스턴스 접근 (재시도 등)
-    max_retries=1 : 추론 오류 시 1회 재시도
-    soft_time_limit=30s : 설정은 __init__.py에서 전역 적용
-
-    반환값:
-      {"original": str, "corrected": str, "lang": str, "model": str}
+    en_variant: "vennify" | "coedit" — 영어 모델 선택 (두 모델 모두 사전 로드됨)
     """
     from app.services.spellcheck import correct, detect_lang, model_info
     try:
         lang = detect_lang(text)
-        corrected = correct(text)
+        corrected = correct(text, en_variant=en_variant)
         return {
             "original": text,
             "corrected": corrected,
             "lang": lang,
-            "model": model_info(text),
+            "model": model_info(text, en_variant),
         }
     except Exception as exc:
-        # 일시적 오류면 재시도, 아니면 그대로 예외 전파
         raise self.retry(exc=exc)

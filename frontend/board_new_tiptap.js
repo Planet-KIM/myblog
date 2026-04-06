@@ -28,6 +28,7 @@ let selectedId = null;
 let dragInfo = null;
 let resizeInfo = null;
 let panInfo = null;
+const _scSplitActive = new Set(); // block ids with spell-preview panel open
 
 function uid() { return 'b' + (++idCounter); }
 
@@ -175,6 +176,7 @@ function removeBlock(id) {
   if (idx === -1) return;
   const b = blocks[idx];
   if (b.editor) b.editor.destroy();
+  _scSplitActive.delete(id);
   document.querySelector(`[data-bid="${id}"]`)?.remove();
   blocks.splice(idx, 1);
   if (selectedId === id) selectedId = null;
@@ -279,6 +281,17 @@ function renderBlock(block) {
   hdr.appendChild(colorSwatch);
   hdr.appendChild(widthSel);
   hdr.appendChild(radiusSel);
+
+  if (block.type === 'text') {
+    const scBtn = mkBtn(
+      '<span style="font-size:0.7rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>',
+      '블록 맞춤법 미리보기',
+      () => _scBlockPreviewToggle(block.id),
+    );
+    scBtn.classList.add('fb-sc-preview-btn');
+    scBtn.style.cssText = 'width:auto;padding:0 6px;';
+    hdr.appendChild(scBtn);
+  }
 
   const del = mkBtn('<i class="bi bi-x-lg"></i>', 'Delete', () => removeBlock(block.id));
   del.classList.add('fb-del');
@@ -623,6 +636,7 @@ function togglePreview() {
 
 // ── Spell Check ───────────────────────────────────────────
 let _scState = { editor: null, from: 0, to: 0 };
+let _scEnVariant = 'vennify'; // 글로벌 팝업 모델 선택 상태
 
 function _scEscapeHtml(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -662,7 +676,7 @@ function _scApply(correctedText) {
   _scRemovePopup();
 }
 
-function _scShowPopup({ loading, original, corrected, error }) {
+function _scShowPopup({ selectModel, original, error }) {
   _scRemovePopup();
 
   const overlay = document.createElement('div');
@@ -676,88 +690,285 @@ function _scShowPopup({ loading, original, corrected, error }) {
     'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);',
     'background:#fff;border-radius:12px;padding:20px 22px;',
     'box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:9999;',
-    'min-width:300px;max-width:500px;width:90%;font-family:inherit;',
+    'min-width:320px;max-width:520px;width:90%;font-family:inherit;',
   ].join('');
   popup.addEventListener('click', e => e.stopPropagation());
 
-  if (loading) {
-    popup.innerHTML = `
-      <div style="font-weight:600;margin-bottom:14px;">맞춤법 검사</div>
-      <div style="background:#f9fafb;border-radius:8px;padding:12px;font-size:0.88rem;color:#374151;margin-bottom:14px;word-break:break-all;white-space:pre-wrap;">${_scEscapeHtml(original)}</div>
-      <div style="text-align:center;color:#6b7280;font-size:0.9rem;padding:8px 0;">검사 중...</div>`;
-  } else if (error) {
-    popup.innerHTML = `
-      <div style="font-weight:600;margin-bottom:14px;">맞춤법 검사</div>
+  if (error) {
+    // 오류 표시 (선택 오류 등)
+    popup.innerHTML = `<div style="font-weight:600;margin-bottom:12px;">맞춤법 검사</div>
       <div style="color:#ef4444;font-size:0.9rem;margin-bottom:16px;">${_scEscapeHtml(error)}</div>`;
-    const closeBtn = document.createElement('div');
-    closeBtn.style.cssText = 'text-align:right;';
     const btn = document.createElement('button');
     btn.type = 'button'; btn.textContent = '닫기';
-    btn.style.cssText = 'padding:6px 18px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#fff;font-size:0.88rem;';
+    btn.style.cssText = 'float:right;padding:6px 18px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#fff;font-size:0.88rem;';
     btn.addEventListener('click', _scRemovePopup);
-    closeBtn.appendChild(btn);
-    popup.appendChild(closeBtn);
+    popup.appendChild(btn);
   } else {
-    const isSame = original === corrected;
-    popup.innerHTML = `
-      <div style="font-weight:600;margin-bottom:14px;">맞춤법 검사 결과</div>
-      <div style="margin-bottom:10px;">
-        <div style="font-size:0.75rem;color:#9ca3af;margin-bottom:4px;">원본</div>
-        <div style="background:#f9fafb;border-radius:8px;padding:10px;font-size:0.88rem;color:#374151;word-break:break-all;white-space:pre-wrap;">${_scEscapeHtml(original)}</div>
-      </div>
-      <div style="margin-bottom:18px;">
-        <div style="font-size:0.75rem;color:#9ca3af;margin-bottom:4px;">교정</div>
-        <div style="background:${isSame ? '#f9fafb' : '#f0fdf4'};border-radius:8px;padding:10px;font-size:0.88rem;color:${isSame ? '#9ca3af' : '#15803d'};word-break:break-all;white-space:pre-wrap;">
-          ${isSame ? '오류가 발견되지 않았습니다.' : _scEscapeHtml(corrected)}
-        </div>
-      </div>`;
+    // 모델 선택 → 검사 시작 UI
+    popup.innerHTML = `<div style="font-weight:600;margin-bottom:14px;">맞춤법 검사</div>`;
+
+    // 모델 선택 행
+    const modelRow = document.createElement('div');
+    modelRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:16px;';
+    const modelLabel = document.createElement('span');
+    modelLabel.style.cssText = 'font-size:0.82rem;color:#6b7280;';
+    modelLabel.textContent = '모델:';
+    modelRow.appendChild(modelLabel);
+
+    const activeStyle = 'padding:4px 14px;font-size:0.82rem;border-radius:5px;cursor:pointer;background:#3b82f6;color:#fff;border:1px solid #3b82f6;font-weight:600;';
+    const inactiveStyle = 'padding:4px 14px;font-size:0.82rem;border-radius:5px;cursor:pointer;background:#fff;color:#6b7280;border:1px solid #d1d5db;';
+    const variantBtns = {};
+    ['vennify', 'coedit'].forEach(v => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = v === 'vennify' ? '빠름' : '고품질';
+      btn.title = v === 'vennify' ? 'vennify/t5-base-grammar-correction' : 'grammarly/coedit-large';
+      btn.style.cssText = v === _scEnVariant ? activeStyle : inactiveStyle;
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        _scEnVariant = v;
+        Object.entries(variantBtns).forEach(([key, b]) => { b.style.cssText = key === v ? activeStyle : inactiveStyle; });
+      });
+      variantBtns[v] = btn;
+      modelRow.appendChild(btn);
+    });
+    popup.appendChild(modelRow);
+
+    // 원본 텍스트 미리보기
+    const previewBox = document.createElement('div');
+    previewBox.style.cssText = 'background:#f9fafb;border-radius:8px;padding:10px 12px;font-size:0.85rem;color:#374151;max-height:140px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin-bottom:16px;';
+    previewBox.textContent = original;
+    popup.appendChild(previewBox);
+
+    // 결과 영역 (처음엔 숨김)
+    const resultArea = document.createElement('div');
+    resultArea.style.cssText = 'display:none;margin-bottom:16px;';
+    resultArea.innerHTML = `
+      <div style="font-size:0.75rem;color:#9ca3af;margin-bottom:4px;">교정 결과</div>
+      <div class="sc-result-box" style="background:#f0fdf4;border-radius:8px;padding:10px 12px;font-size:0.85rem;color:#15803d;max-height:140px;overflow:auto;white-space:pre-wrap;word-break:break-all;"></div>`;
+    popup.appendChild(resultArea);
+
+    // 버튼 행
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+
     const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button'; cancelBtn.textContent = '취소';
+    cancelBtn.type = 'button'; cancelBtn.textContent = '닫기';
     cancelBtn.style.cssText = 'padding:6px 18px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#fff;font-size:0.88rem;';
     cancelBtn.addEventListener('click', _scRemovePopup);
+
+    const runBtn = document.createElement('button');
+    runBtn.type = 'button'; runBtn.textContent = '검사 시작';
+    runBtn.style.cssText = 'padding:6px 18px;border:none;border-radius:6px;cursor:pointer;background:#10b981;color:#fff;font-size:0.88rem;font-weight:600;';
+
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button'; applyBtn.textContent = '적용하기';
+    applyBtn.style.cssText = 'display:none;padding:6px 18px;border:none;border-radius:6px;cursor:pointer;background:#3b82f6;color:#fff;font-size:0.88rem;';
+
     actions.appendChild(cancelBtn);
-    if (!isSame) {
-      const applyBtn = document.createElement('button');
-      applyBtn.type = 'button'; applyBtn.textContent = '적용하기';
-      applyBtn.style.cssText = 'padding:6px 18px;border:none;border-radius:6px;cursor:pointer;background:#3b82f6;color:#fff;font-size:0.88rem;';
-      applyBtn.addEventListener('click', () => _scApply(corrected));
-      actions.appendChild(applyBtn);
-    }
+    actions.appendChild(runBtn);
+    actions.appendChild(applyBtn);
     popup.appendChild(actions);
+
+    // 검사 실행
+    runBtn.addEventListener('click', async e => {
+      e.stopPropagation();
+      runBtn.disabled = true; runBtn.textContent = '검사 중...';
+      applyBtn.style.display = 'none';
+      resultArea.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/spellcheck', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: original, en_variant: _scEnVariant }),
+        });
+        if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `서버 오류 (${res.status})`); }
+        const data = await res.json();
+        const corrected = data.corrected;
+        const isSame = original === corrected;
+
+        const resultBox = resultArea.querySelector('.sc-result-box');
+        resultArea.style.display = 'block';
+
+        if (isSame) {
+          resultBox.style.background = '#f9fafb'; resultBox.style.color = '#9ca3af';
+          resultBox.textContent = '오류가 발견되지 않았습니다.';
+        } else {
+          resultBox.style.background = '#f0fdf4'; resultBox.style.color = '#15803d';
+          resultBox.textContent = corrected;
+          applyBtn.style.display = '';
+          applyBtn.onclick = () => { _scApply(corrected); };
+        }
+        runBtn.textContent = '다시 검사';
+      } catch (err) {
+        const resultBox = resultArea.querySelector('.sc-result-box');
+        resultArea.style.display = 'block';
+        resultBox.style.background = '#fef2f2'; resultBox.style.color = '#ef4444';
+        resultBox.textContent = err.message || '오류가 발생했습니다.';
+        runBtn.textContent = '다시 검사';
+      } finally {
+        runBtn.disabled = false;
+      }
+    });
   }
 
   document.body.appendChild(overlay);
   document.body.appendChild(popup);
-
   const onEsc = e => { if (e.key === 'Escape') { _scRemovePopup(); document.removeEventListener('keydown', onEsc); } };
   document.addEventListener('keydown', onEsc);
 }
 
-async function triggerSpellCheck() {
+function triggerSpellCheck() {
   const target = _scGetTarget();
   if (!target) {
     _scShowPopup({ error: '텍스트 블록에서 검사할 텍스트를 드래그로 선택한 후 실행하세요.' });
     return;
   }
   _scState = { editor: target.editor, from: target.from, to: target.to };
-  _scShowPopup({ loading: true, original: target.text });
-  try {
-    const res = await fetch('/api/spellcheck', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: target.text }),
+  // 모델 선택 화면 먼저 표시 — 검사는 사용자가 버튼 클릭 시 실행
+  _scShowPopup({ selectModel: true, original: target.text });
+}
+
+// ── Block-level spell preview (split panel) ───────────────
+function _scBlockPreviewOpen(blockId) {
+  const block = blocks.find(b => b.id === blockId);
+  if (!block || !block.editor) return;
+  const el = document.querySelector(`[data-bid="${blockId}"]`);
+  if (!el) return;
+
+  _scSplitActive.add(blockId);
+  el.querySelector('.fb-sc-preview-btn')?.classList.add('fb-btn-active');
+
+  // Split body into two panes
+  const body = el.querySelector('.fb-body');
+  body.style.cssText += 'display:flex;flex-direction:row;';
+  const edEl = body.querySelector('.fb-editor');
+  edEl.style.cssText += 'width:50%;height:100%;overflow:auto;border-right:1px solid #e5e7eb;box-sizing:border-box;';
+
+  // Build preview panel
+  const panel = document.createElement('div');
+  panel.className = 'fb-spell-preview';
+  panel.style.cssText = 'width:50%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;padding:8px 10px;background:#fafafa;';
+
+  // Header: title + close
+  const panelHdr = document.createElement('div');
+  panelHdr.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-shrink:0;';
+  const panelTitle = document.createElement('span');
+  panelTitle.style.cssText = 'font-size:0.75rem;font-weight:600;color:#6b7280;flex:1;';
+  panelTitle.textContent = '맞춤법 미리보기';
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button'; closeBtn.innerHTML = '<i class="bi bi-x"></i>';
+  closeBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:0.9rem;color:#9ca3af;padding:0 2px;line-height:1;';
+  closeBtn.addEventListener('click', e => { e.stopPropagation(); _scBlockPreviewClose(blockId); });
+  panelHdr.appendChild(panelTitle); panelHdr.appendChild(closeBtn);
+  panel.appendChild(panelHdr);
+
+  // Model selector
+  let selectedVariant = 'vennify';
+  const modelWrap = document.createElement('div');
+  modelWrap.style.cssText = 'display:flex;gap:6px;margin-bottom:12px;flex-shrink:0;align-items:center;';
+  const modelLabel = document.createElement('span');
+  modelLabel.style.cssText = 'font-size:0.75rem;color:#9ca3af;';
+  modelLabel.textContent = '모델 선택:';
+  modelWrap.appendChild(modelLabel);
+
+  const variantBtns = {};
+  ['vennify', 'coedit'].forEach(v => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = v === 'vennify' ? '빠름' : '고품질';
+    btn.title = v === 'vennify' ? 'vennify/t5-base-grammar-correction' : 'grammarly/coedit-large';
+    const activeStyle = 'padding:3px 12px;font-size:0.8rem;border-radius:4px;cursor:pointer;background:#3b82f6;color:#fff;border:1px solid #3b82f6;font-weight:600;';
+    const inactiveStyle = 'padding:3px 12px;font-size:0.8rem;border-radius:4px;cursor:pointer;background:#fff;color:#6b7280;border:1px solid #d1d5db;';
+    btn.style.cssText = v === 'vennify' ? activeStyle : inactiveStyle;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      selectedVariant = v;
+      Object.entries(variantBtns).forEach(([key, b]) => {
+        b.style.cssText = key === v ? activeStyle : inactiveStyle;
+      });
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `서버 오류 (${res.status})`);
+    variantBtns[v] = btn;
+    modelWrap.appendChild(btn);
+  });
+  panel.appendChild(modelWrap);
+
+  // Run button
+  const runBtn = document.createElement('button');
+  runBtn.type = 'button'; runBtn.textContent = '검사 시작';
+  runBtn.style.cssText = 'padding:6px 16px;border:none;border-radius:6px;cursor:pointer;background:#10b981;color:#fff;font-size:0.85rem;font-weight:600;align-self:flex-start;flex-shrink:0;margin-bottom:12px;';
+  panel.appendChild(runBtn);
+
+  // Content area
+  const content = document.createElement('div');
+  content.className = 'fb-spell-preview-text';
+  content.style.cssText = 'flex:1;font-size:0.88rem;line-height:1.6;color:#9ca3af;white-space:pre-wrap;word-break:break-all;overflow:auto;';
+  content.textContent = '모델을 선택하고 검사 시작을 눌러주세요.';
+  panel.appendChild(content);
+
+  body.appendChild(panel);
+
+  // Run button click → fetch
+  runBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    const fullText = block.editor.state.doc.textBetween(0, block.editor.state.doc.content.size, '\n');
+    if (!fullText.trim()) { content.style.color = '#9ca3af'; content.textContent = '내용이 없습니다.'; return; }
+
+    runBtn.disabled = true; runBtn.textContent = '검사 중...';
+    content.style.color = '#9ca3af'; content.textContent = '검사 중...';
+
+    // 이전 적용 버튼 제거
+    panel.querySelector('.fb-spell-apply-btn')?.remove();
+
+    try {
+      const res = await fetch('/api/spellcheck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: fullText, en_variant: selectedVariant }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `서버 오류 (${res.status})`); }
+      const data = await res.json();
+      const corrected = data.corrected;
+      const isSame = fullText === corrected;
+      if (isSame) {
+        content.style.color = '#9ca3af'; content.textContent = '오류가 발견되지 않았습니다.';
+      } else {
+        content.style.color = '#15803d'; content.textContent = corrected;
+        const applyBtn = document.createElement('button');
+        applyBtn.type = 'button'; applyBtn.textContent = '적용하기';
+        applyBtn.className = 'fb-spell-apply-btn';
+        applyBtn.style.cssText = 'margin-top:8px;padding:5px 14px;border:none;border-radius:6px;cursor:pointer;background:#3b82f6;color:#fff;font-size:0.82rem;align-self:flex-end;flex-shrink:0;';
+        applyBtn.addEventListener('click', () => {
+          const lines = corrected.split('\n');
+          const nodes = lines.map(line => ({ type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] }));
+          block.editor.commands.setContent(nodes);
+          _scBlockPreviewClose(blockId);
+        });
+        panel.appendChild(applyBtn);
+      }
+    } catch (err) {
+      content.style.color = '#ef4444'; content.textContent = err.message || '오류가 발생했습니다.';
+    } finally {
+      runBtn.disabled = false; runBtn.textContent = '다시 검사';
     }
-    const data = await res.json();
-    _scShowPopup({ original: target.text, corrected: data.corrected });
-  } catch (e) {
-    _scShowPopup({ error: e.message || '맞춤법 검사 중 오류가 발생했습니다.' });
-  }
+  });
+}
+
+function _scBlockPreviewClose(blockId) {
+  _scSplitActive.delete(blockId);
+  const el = document.querySelector(`[data-bid="${blockId}"]`);
+  if (!el) return;
+  el.querySelector('.fb-sc-preview-btn')?.classList.remove('fb-btn-active');
+  el.querySelector('.fb-spell-preview')?.remove();
+  const body = el.querySelector('.fb-body');
+  if (body) { body.style.display = ''; body.style.flexDirection = ''; }
+  const edEl = el.querySelector('.fb-editor');
+  if (edEl) { edEl.style.width = ''; edEl.style.height = ''; edEl.style.overflow = ''; edEl.style.borderRight = ''; }
+}
+
+function _scBlockPreviewToggle(blockId) {
+  _scSplitActive.has(blockId) ? _scBlockPreviewClose(blockId) : _scBlockPreviewOpen(blockId);
 }
 
 // ── Toolbar ───────────────────────────────────────────────

@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # 요청당 최대 글자 수
     SPELLCHECK_MAX_CHARS: int = 10000
 
+    # 영어 교정 모델 — 두 모델 모두 시작 시 로드, 요청마다 선택 가능
+    # vennify : vennify/t5-base-grammar-correction (~250M, 빠름)
+    # coedit  : grammarly/coedit-large             (~780M, 고품질)
+    SPELLCHECK_EN_DEFAULT_VARIANT: str = "vennify"  # API 요청에 variant 미지정 시 기본값
+
     # Celery 워커 메모리 상한 (KB 단위)
     # 한국어 모델 1.2GB + 영어 모델 0.4GB + 여유 → 3GB
     # M4 32GB에선 넉넉하게 설정
