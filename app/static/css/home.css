@@ -1,0 +1,482 @@
+/* ============================================================
+   home.css — Main page (index) styles
+   Libraries: AOS (MIT), Typed.js (MIT)
+   Fonts: Noto Serif KR (Apache 2.0)
+   Depends on: theme.css (CSS variables), components.css
+   ============================================================ */
+
+/* ─── Keyframe Animations ─────────────────────────────────── */
+@keyframes hero-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes hero-slide-up {
+  from { transform: translateY(28px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes hero-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scroll-bounce {
+  0%, 100% { transform: rotate(45deg) translateY(0);   }
+  50%       { transform: rotate(45deg) translateY(5px); }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ─── Hero ────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  min-height: 540px;
+  background:
+    linear-gradient(135deg,
+      rgba(56, 189, 248, 0.18) 0%,
+      rgba(16, 185, 129, 0.12) 50%,
+      rgba(167, 139, 250, 0.18) 100%),
+    linear-gradient(to bottom,
+      rgba(15, 23, 42, 0.30) 0%,
+      rgba(15, 23, 42, 0.78) 100%),
+    url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80')
+      center / cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: white;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle at center,
+    transparent 30%,
+    rgba(56, 189, 248, 0.07) 50%,
+    transparent 70%
+  );
+  animation: hero-rotate 90s linear infinite;
+  pointer-events: none;
+}
+
+.hero-body {
+  max-width: 760px;
+  padding: 3rem 1.5rem 5rem;
+  z-index: 1;
+}
+
+.hero-eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--primary);
+  font-family: var(--font-mono);
+  margin-bottom: 1rem;
+  animation: hero-slide-up 0.6s ease-out both;
+}
+
+.hero-title {
+  font-family: 'Noto Serif KR', 'Pretendard Variable', serif;
+  font-weight: 700;
+  font-size: clamp(2.2rem, 5.5vw, 3.8rem);
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  margin-bottom: 1.2rem;
+  background: linear-gradient(135deg, #ffffff 30%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.85));
+  animation: hero-slide-up 0.7s ease-out 0.1s both;
+}
+
+.hero-typed-wrap {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 2rem;
+  min-height: 1.8rem;
+  animation: hero-slide-up 0.7s ease-out 0.2s both;
+}
+
+/* Typed.js cursor override */
+.typed-cursor {
+  color: var(--primary);
+  font-weight: 300;
+  animation: cursor-blink 0.7s step-end infinite;
+}
+
+/* ─── Hero Stats Row ──────────────────────────────────────── */
+.hero-stats {
+  display: flex;
+  gap: 2.5rem;
+  justify-content: center;
+  margin-bottom: 2.2rem;
+  animation: hero-slide-up 0.7s ease-out 0.3s both;
+}
+
+.hero-stat-item { text-align: center; }
+
+.hero-stat-num {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.hero-stat-label {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 0.3rem;
+  font-family: var(--font-mono);
+}
+
+/* ─── Hero CTA Button ─────────────────────────────────────── */
+.hero-cta {
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 0.82rem 2.8rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  display: inline-block;
+  font-family: var(--font-mono);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  animation: hero-slide-up 0.7s ease-out 0.4s both;
+}
+
+.hero-cta::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transform: translate(-50%, -50%);
+  transition: width 0.55s ease, height 0.55s ease;
+}
+
+.hero-cta:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 36px rgba(56, 189, 248, 0.45);
+  color: white;
+}
+
+.hero-cta:hover::before {
+  width: 340px;
+  height: 340px;
+}
+
+/* ─── Scroll Indicator ────────────────────────────────────── */
+.hero-scroll-indicator {
+  position: absolute;
+  bottom: 1.8rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgba(255, 255, 255, 0.32);
+  font-size: 0.62rem;
+  font-family: var(--font-mono);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  pointer-events: none;
+  animation: hero-fade-in 1.5s ease-out 1.2s both;
+}
+
+.scroll-arrow {
+  width: 18px;
+  height: 18px;
+  border-right: 1.5px solid rgba(255, 255, 255, 0.32);
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.32);
+  transform: rotate(45deg);
+  animation: scroll-bounce 1.8s ease-in-out infinite;
+}
+
+/* ─── Main Wrap ───────────────────────────────────────────── */
+.main-wrap {
+  max-width: 1200px;
+  margin: 3rem auto 0;
+  padding: 0 1.2rem;
+}
+
+/* ─── Section Header ──────────────────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.section-header .section-title {
+  margin-bottom: 0;
+}
+
+/* ─── Bento Grid ──────────────────────────────────────────── */
+/*
+  Desktop (3-col) layout:
+  ┌──────────────────────────┬────────────────┐
+  │  Featured post (2 × 2)  │ Category widget│
+  │                          ├────────────────┤
+  │                          │ Recent Posts   │
+  ├─────────┬────────────────┴────────────────┤
+  │  Post   │  Post  │  Post  │  ...          │
+  └─────────┴─────────────────────────────────┘
+*/
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 3rem;
+}
+
+/* Featured: 2 columns wide, 2 rows tall */
+.bento-featured {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.bento-featured .travel-card {
+  height: 100%;
+  min-height: 420px;
+}
+
+.bento-featured .card-img {
+  height: 240px;
+}
+
+.bento-featured .travel-card .card-title a {
+  font-size: 1.28rem;
+}
+
+.bento-featured .card-no-img {
+  height: 240px;
+}
+
+/* ─── Bento Widget Cells ──────────────────────────────────── */
+.bento-widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-md);
+  padding: 1.25rem;
+  transition: box-shadow 0.25s ease;
+}
+
+.bento-widget:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.bento-widget-title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  border-bottom: 2px solid;
+  border-image: var(--gradient-primary) 1;
+  padding-bottom: 0.4rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Category badges inside widget */
+.cat-badge {
+  display: inline-block;
+  background: var(--surface-dark);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 20px;
+  padding: 0.25em 0.9em;
+  font-size: 0.75rem;
+  margin: 0.2rem;
+  text-decoration: none;
+  font-family: var(--font-mono);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.cat-badge:hover {
+  background: var(--gradient-primary);
+  color: white;
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Recent posts list inside widget */
+.recent-post-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  transition: padding-left 0.15s ease;
+  gap: 0.5rem;
+}
+
+.recent-post-item:last-child {
+  border-bottom: none;
+}
+
+.recent-post-item:hover {
+  padding-left: 0.5rem;
+}
+
+.recent-post-item .rp-title {
+  font-size: 0.82rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  transition: color 0.15s ease;
+}
+
+.recent-post-item:hover .rp-title {
+  color: var(--primary);
+}
+
+.recent-post-item .rp-date {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+/* ─── Card Image Zoom ─────────────────────────────────────── */
+.card-img-wrap {
+  overflow: hidden;
+}
+
+.card-img {
+  width: 100%;
+  height: 185px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.travel-card:hover .card-img {
+  transform: scale(1.05);
+}
+
+/* Gradient placeholder when no thumbnail */
+.card-no-img {
+  height: 185px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    var(--surface-dark) 0%,
+    rgba(56, 189, 248, 0.07) 100%
+  );
+  color: var(--text-disabled);
+  font-size: 2.2rem;
+}
+
+/* ─── Empty State ─────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 5rem 1rem;
+  color: var(--text-muted);
+}
+
+.empty-state-icon {
+  font-size: 3.5rem;
+  display: block;
+  margin-bottom: 1.2rem;
+  opacity: 0.35;
+}
+
+.empty-state-title {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.empty-state-body {
+  font-size: 0.88rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ─── Responsive Breakpoints ──────────────────────────────── */
+@media (max-width: 991px) {
+  .bento-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Featured stays 2-col wide but collapses to 1 row */
+  .bento-featured {
+    grid-column: span 2;
+    grid-row: span 1;
+  }
+
+  .bento-featured .travel-card {
+    min-height: auto;
+  }
+
+  .bento-featured .card-img {
+    height: 220px;
+  }
+
+  .bento-featured .card-no-img {
+    height: 220px;
+  }
+
+  .hero-stats {
+    gap: 2rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .bento-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bento-featured {
+    grid-column: span 1;
+  }
+
+  .hero-stats {
+    gap: 1.5rem;
+  }
+
+  .hero-title {
+    font-size: clamp(1.8rem, 8vw, 2.4rem);
+  }
+
+  .main-wrap {
+    padding: 0 1rem;
+  }
+}

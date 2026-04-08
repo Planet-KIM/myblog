@@ -61,20 +61,27 @@ def preload_models(**kwargs):
     max_retries=1,
     default_retry_delay=2,
 )
-def run_spellcheck(self, text: str, en_variant: str = "vennify") -> dict:
+def run_spellcheck(
+    self,
+    text: str,
+    en_variant: str = "vennify",
+    ko_variant: str = "et5",
+) -> dict:
     """
     맞춤법 교정 태스크.
-    en_variant: "vennify" | "coedit" — 영어 모델 선택 (두 모델 모두 사전 로드됨)
+      en_variant: "vennify" (빠름) | "coedit" (고품질)
+      ko_variant: "et5"    (빠름) | "pko"    (고품질)
+    두 언어 4개 모델 모두 워커 시작 시 사전 로드됨.
     """
     from app.services.spellcheck import correct, detect_lang, model_info
     try:
         lang = detect_lang(text)
-        corrected = correct(text, en_variant=en_variant)
+        corrected = correct(text, en_variant=en_variant, ko_variant=ko_variant)
         return {
             "original": text,
             "corrected": corrected,
             "lang": lang,
-            "model": model_info(text, en_variant),
+            "model": model_info(text, en_variant, ko_variant),
         }
     except Exception as exc:
         raise self.retry(exc=exc)

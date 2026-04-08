@@ -611,6 +611,141 @@ function _scEscapeHtml(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function _scWordDiff(orig, corr) {
+  // 단일 줄(문자열) 내 word-level LCS diff → { html, changes }
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const tok = s => s.match(/\S+|\s+/g) || [];
+  const a = tok(orig), b = tok(corr);
+  if (a.length > 400 || b.length > 400) {
+    return { html: `<span style="background:#dcfce7;color:#166534;border-radius:2px;padding:0 1px;">${esc(corr)}</span>`, changes: 1 };
+  }
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Int16Array(n + 1));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+  const ops = []; let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1] === b[j-1]) { ops.push([0, a[i-1]]); i--; j--; }
+    else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { ops.push([1, b[j-1]]); j--; }
+    else { ops.push([-1, a[i-1]]); i--; }
+  }
+  ops.reverse();
+  let html = '', changes = 0, k = 0;
+  while (k < ops.length) {
+    if (ops[k][0] === 0) { html += esc(ops[k][1]); k++; continue; }
+    let dels = [], ins = [];
+    while (k < ops.length && ops[k][0] !== 0) {
+      (ops[k][0] === -1 ? dels : ins).push(ops[k][1]); k++;
+    }
+    changes++;
+    if (dels.length) html += `<span style="background:#fee2e2;color:#b91c1c;text-decoration:line-through;border-radius:2px;padding:0 1px;">${esc(dels.join(''))}</span>`;
+    if (ins.length)  html += `<span style="background:#dcfce7;color:#166534;border-radius:2px;padding:0 1px;">${esc(ins.join(''))}</span>`;
+  }
+  return { html, changes };
+}
+
+function _scDiffHtml(orig, corr) {
+  // 항상 줄(\n) 단위로 처리 — _scWordDiff(orig, corr) 전체 텍스트 호출 절대 없음
+  // 줄 수가 달라도 zip으로 처리 (추가된 줄 → 초록, 삭제된 줄 → 빨강)
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const DEL = 'background:#fee2e2;color:#b91c1c;text-decoration:line-through;border-radius:2px;padding:0 1px;';
+  const INS = 'background:#dcfce7;color:#166534;border-radius:2px;padding:0 1px;';
+
+  const origLines = orig.split('\n');
+  const corrLines = corr.split('\n');
+  const maxLen = Math.max(origLines.length, corrLines.length);
+
+  let totalChanges = 0;
+  const parts = [];
+
+  for (let li = 0; li < maxLen; li++) {
+    if (li > 0) parts.push('<br>');
+
+    const hasO = li < origLines.length;
+    const hasC = li < corrLines.length;
+    const oLine = hasO ? origLines[li] : '';
+    const cLine = hasC ? corrLines[li] : '';
+
+    if (!hasO) {
+      // 교정본에만 있는 줄 (추가)
+      totalChanges++;
+      parts.push(`<span style="${INS}">${esc(cLine)}</span>`);
+    } else if (!hasC) {
+      // 원본에만 있는 줄 (삭제)
+      totalChanges++;
+      parts.push(`<span style="${DEL}">${esc(oLine)}</span>`);
+    } else if (oLine === cLine) {
+      // 변경 없음
+      parts.push(esc(oLine));
+    } else {
+      // 변경 있음: 줄 내부에서 마침표(. ! ? 。) 기준으로 문장 분리 후 word diff
+      // 마침표 뒤 공백이 있을 때만 분리 (소수점 3.14 등 제외)
+      const oSents = oLine.split(/(?<=[.!?。])\s+/).filter(Boolean);
+      const cSents = cLine.split(/(?<=[.!?。])\s+/).filter(Boolean);
+
+      if (oSents.length === cSents.length && oSents.length > 1) {
+        // 문장 단위로 쪼개서 각 문장 내에서만 word diff
+        const sentParts = [];
+        for (let si = 0; si < oSents.length; si++) {
+          if (si > 0) sentParts.push(' ');
+          if (oSents[si] === cSents[si]) {
+            sentParts.push(esc(oSents[si]));
+          } else {
+            const r = _scWordDiff(oSents[si], cSents[si]);
+            totalChanges += r.changes;
+            sentParts.push(r.html);
+          }
+        }
+        parts.push(sentParts.join(''));
+      } else {
+        // 단일 문장 줄: 줄 전체 word diff
+        const r = _scWordDiff(oLine, cLine);
+        totalChanges += r.changes;
+        parts.push(r.html);
+      }
+    }
+  }
+
+  return { html: parts.join(''), changes: totalChanges };
+}
+
+function _scDiffLegend(changes) {
+  return `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:0.69rem;color:#94a3b8;flex:1;font-weight:500;">${changes}개 수정됨</span>
+    <span style="background:#fee2e2;color:#b91c1c;border-radius:3px;padding:1px 7px;font-size:0.68rem;font-weight:500;text-decoration:line-through;">삭제</span>
+    <span style="background:#dcfce7;color:#166534;border-radius:3px;padding:1px 7px;font-size:0.68rem;font-weight:500;">추가</span>
+  </div>`;
+}
+
+// 애니메이션 CSS 즉시 주입
+;(function() {
+  if (document.getElementById('sc-spin-style')) return;
+  const s = document.createElement('style'); s.id = 'sc-spin-style';
+  s.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes scShimmer{from{background-position:200% 0}to{background-position:-200% 0}}';
+  (document.head || document.documentElement).appendChild(s);
+})();
+
+function _scBtnLoad(btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,0.35);border-top-color:#fff;border-radius:50%;animation:spin 0.65s linear infinite;vertical-align:middle;margin-right:8px;"></span>검사 중...';
+  btn.style.opacity = '0.7';
+  btn.style.cursor = 'not-allowed';
+}
+function _scBtnReady(btn) {
+  btn.disabled = false;
+  btn.textContent = '다시 검사';
+  btn.style.opacity = '';
+  btn.style.cursor = '';
+}
+
+const _scSpinnerBtn = '';
+
+function _scLoadingHtml() {
+  const bar = (w, d) => `<div style="height:13px;background:linear-gradient(90deg,#e2e8f0 25%,#f8fafc 50%,#e2e8f0 75%);background-size:200% 100%;animation:scShimmer 1.4s ease-in-out infinite;animation-delay:${d}s;border-radius:4px;width:${w}%;"></div>`;
+  return `<div style="display:flex;flex-direction:column;gap:10px;padding:2px 0;">${bar(88,0)}${bar(73,0.15)}${bar(81,0.3)}${bar(65,0.45)}</div>`;
+}
+
 function _scGetTarget() {
   // isFocused 대신 selection 상태로 탐지 (버튼 클릭 시 포커스 잃어도 selection은 유지됨)
   const blockWithSel = blocks.find(b => {
@@ -734,45 +869,59 @@ function _scShowPopup({ selectModel, original, error }) {
 
     runBtn.addEventListener('click', async e => {
       e.stopPropagation();
-      runBtn.disabled = true; runBtn.textContent = '검사 중...';
+      _scBtnLoad(runBtn);
       applyBtn.style.display = 'none';
-      resultArea.style.display = 'none';
+      // 로딩 shimmer 즉시 표시
+      const resultBox = resultArea.querySelector('.sc-result-box');
+      resultArea.style.display = 'block';
+      resultBox.style.cssText = 'background:#f8fafc;border-radius:8px;padding:10px 12px;font-size:0.85rem;max-height:140px;overflow:auto;line-height:1.6;';
+      resultBox.innerHTML = _scLoadingHtml();
+      const _scCtrl = new AbortController();
+      const _scTimer = setTimeout(() => _scCtrl.abort(), 150000);
       try {
         const res = await fetch('/api/spellcheck', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: original, en_variant: _scEnVariant }),
+          body: JSON.stringify({ text: original, en_variant: _scEnVariant, ko_variant: 'et5' }),
+          signal: _scCtrl.signal,
         });
         if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `서버 오류 (${res.status})`); }
         const data = await res.json();
         const corrected = data.corrected;
         const isSame = original === corrected;
-        const resultBox = resultArea.querySelector('.sc-result-box');
         resultArea.style.display = 'block';
         if (isSame) {
-          resultBox.style.background = '#f9fafb'; resultBox.style.color = '#9ca3af';
-          resultBox.textContent = '오류가 발견되지 않았습니다.';
+          resultBox.style.cssText = 'background:#f9fafb;border-radius:8px;padding:10px 12px;font-size:0.85rem;max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:#9ca3af;';
+          resultBox.innerHTML = '<i class="bi bi-check-circle-fill" style="color:#10b981;margin-right:6px;"></i>오류가 발견되지 않았습니다.';
         } else {
-          resultBox.style.background = '#f0fdf4'; resultBox.style.color = '#15803d';
-          resultBox.textContent = corrected;
+          resultBox.style.cssText = 'background:#f8fafc;border-radius:8px;padding:10px 12px;font-size:0.85rem;max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;line-height:1.6;';
+          const diff = _scDiffHtml(original, corrected);
+          resultBox.innerHTML = diff.html + _scDiffLegend(diff.changes);
           applyBtn.style.display = '';
           applyBtn.onclick = () => { _scApply(corrected); };
         }
-        runBtn.textContent = '다시 검사';
       } catch (err) {
-        const resultBox = resultArea.querySelector('.sc-result-box');
         resultArea.style.display = 'block';
-        resultBox.style.background = '#fef2f2'; resultBox.style.color = '#ef4444';
-        resultBox.textContent = err.message || '오류가 발생했습니다.';
-        runBtn.textContent = '다시 검사';
+        resultBox.style.cssText = 'background:#fef2f2;border-radius:8px;padding:10px 12px;font-size:0.85rem;max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:#991b1b;';
+        const msg = err.name === 'AbortError' ? '요청 시간 초과 (2분 30초). 모델 로딩 중이면 잠시 후 다시 시도해주세요.' : (err.message || '오류가 발생했습니다.');
+        resultBox.innerHTML = `<i class="bi bi-exclamation-circle-fill" style="margin-right:6px;"></i>${msg}`;
       } finally {
-        runBtn.disabled = false;
+        clearTimeout(_scTimer);
+        _scBtnReady(runBtn);
       }
     });
   }
 
   document.body.appendChild(overlay);
   document.body.appendChild(popup);
+
+  if (!document.getElementById('sc-spin-style')) {
+    const s = document.createElement('style');
+    s.id = 'sc-spin-style';
+    s.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes scShimmer{from{background-position:200% 0}to{background-position:-200% 0}}';
+    document.head.appendChild(s);
+  }
+
   const onEsc = e => { if (e.key === 'Escape') { _scRemovePopup(); document.removeEventListener('keydown', onEsc); } };
   document.addEventListener('keydown', onEsc);
 }
@@ -803,97 +952,107 @@ function _scBlockPreviewOpen(blockId) {
   const edEl = body.querySelector('.fb-editor');
   edEl.style.cssText += 'width:50%;height:100%;overflow:auto;border-right:1px solid #e5e7eb;box-sizing:border-box;';
 
-  // Build preview panel
+  // ── 패널 ─────────────────────────────────────────────────
   const panel = document.createElement('div');
   panel.className = 'fb-spell-preview';
-  panel.style.cssText = 'width:50%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;padding:8px 10px;background:#fafafa;';
+  panel.style.cssText = [
+    'width:50%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;',
+    'background:#f8fafc;border-left:1px solid #e2e8f0;',
+  ].join('');
 
-  // Header: title + close
+  // 헤더
   const panelHdr = document.createElement('div');
-  panelHdr.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-shrink:0;';
-  const panelTitle = document.createElement('span');
-  panelTitle.style.cssText = 'font-size:0.75rem;font-weight:600;color:#6b7280;flex:1;';
-  panelTitle.textContent = '맞춤법 미리보기';
+  panelHdr.style.cssText = [
+    'display:flex;align-items:center;gap:6px;padding:10px 14px;flex-shrink:0;',
+    'background:#fff;border-bottom:1px solid #e2e8f0;',
+  ].join('');
+  panelHdr.innerHTML = `<i class="bi bi-spell-check" style="color:#6366f1;font-size:0.9rem;"></i>
+    <span style="font-size:0.78rem;font-weight:700;color:#334155;letter-spacing:-0.2px;flex:1;">맞춤법 미리보기</span>`;
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button'; closeBtn.innerHTML = '<i class="bi bi-x"></i>';
-  closeBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:0.9rem;color:#9ca3af;padding:0 2px;line-height:1;';
+  closeBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:0.95rem;color:#94a3b8;padding:2px 4px;line-height:1;border-radius:4px;';
   closeBtn.addEventListener('click', e => { e.stopPropagation(); _scBlockPreviewClose(blockId); });
-  panelHdr.appendChild(panelTitle); panelHdr.appendChild(closeBtn);
+  panelHdr.appendChild(closeBtn);
   panel.appendChild(panelHdr);
 
-  // Model selector
+  // 모델 선택
   let selectedVariant = 'vennify';
-  const modelWrap = document.createElement('div');
-  modelWrap.style.cssText = 'display:flex;gap:6px;margin-bottom:12px;flex-shrink:0;align-items:center;';
-  const modelLabel = document.createElement('span');
-  modelLabel.style.cssText = 'font-size:0.75rem;color:#9ca3af;';
-  modelLabel.textContent = '모델 선택:';
-  modelWrap.appendChild(modelLabel);
+  const modelSection = document.createElement('div');
+  modelSection.style.cssText = 'padding:12px 14px 10px;flex-shrink:0;border-bottom:1px solid #e2e8f0;background:#fff;';
+  const modelTopLabel = document.createElement('div');
+  modelTopLabel.style.cssText = 'font-size:0.68rem;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;';
+  modelTopLabel.textContent = '모델 선택';
+  modelSection.appendChild(modelTopLabel);
 
+  const modelGrid = document.createElement('div');
+  modelGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;';
+  const activeStyle = 'padding:7px 10px;border-radius:8px;cursor:pointer;border:2px solid #6366f1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-align:left;';
+  const inactiveStyle = 'padding:7px 10px;border-radius:8px;cursor:pointer;border:1.5px solid #e2e8f0;background:#fff;color:#475569;text-align:left;';
   const variantBtns = {};
-  ['vennify', 'coedit'].forEach(v => {
+  [{ v: 'vennify', label: '빠름', sub: 'KO: et5 · EN: T5-base' }, { v: 'coedit', label: '고품질', sub: 'KO: et5 · EN: CoEdIT' }].forEach(({ v, label, sub }) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = v === 'vennify' ? '빠름' : '고품질';
-    btn.title = v === 'vennify' ? 'vennify/t5-base-grammar-correction' : 'grammarly/coedit-large';
-    const activeStyle = 'padding:3px 12px;font-size:0.8rem;border-radius:4px;cursor:pointer;background:#3b82f6;color:#fff;border:1px solid #3b82f6;font-weight:600;';
-    const inactiveStyle = 'padding:3px 12px;font-size:0.8rem;border-radius:4px;cursor:pointer;background:#fff;color:#6b7280;border:1px solid #d1d5db;';
     btn.style.cssText = v === 'vennify' ? activeStyle : inactiveStyle;
+    btn.innerHTML = `<div style="font-size:0.8rem;font-weight:600;margin-bottom:1px;">${label}</div><div style="font-size:0.67rem;opacity:0.7;">${sub}</div>`;
     btn.addEventListener('click', e => {
-      e.stopPropagation();
-      selectedVariant = v;
-      Object.entries(variantBtns).forEach(([key, b]) => {
-        b.style.cssText = key === v ? activeStyle : inactiveStyle;
-      });
+      e.stopPropagation(); selectedVariant = v;
+      Object.entries(variantBtns).forEach(([key, b]) => { b.style.cssText = key === v ? activeStyle : inactiveStyle; });
     });
-    variantBtns[v] = btn;
-    modelWrap.appendChild(btn);
+    variantBtns[v] = btn; modelGrid.appendChild(btn);
   });
-  panel.appendChild(modelWrap);
+  modelSection.appendChild(modelGrid);
 
-  // Run button
+  // 검사 시작 버튼
   const runBtn = document.createElement('button');
   runBtn.type = 'button'; runBtn.textContent = '검사 시작';
-  runBtn.style.cssText = 'padding:6px 16px;border:none;border-radius:6px;cursor:pointer;background:#10b981;color:#fff;font-size:0.85rem;font-weight:600;align-self:flex-start;flex-shrink:0;margin-bottom:12px;';
-  panel.appendChild(runBtn);
+  runBtn.style.cssText = 'margin-top:10px;width:100%;padding:8px;border:none;border-radius:8px;cursor:pointer;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:0.82rem;font-weight:600;letter-spacing:-0.2px;';
+  modelSection.appendChild(runBtn);
+  panel.appendChild(modelSection);
 
-  // Content area
+  // 결과 영역
   const content = document.createElement('div');
   content.className = 'fb-spell-preview-text';
-  content.style.cssText = 'flex:1;font-size:0.88rem;line-height:1.6;color:#9ca3af;white-space:pre-wrap;word-break:break-all;overflow:auto;';
+  content.style.cssText = 'flex:1;padding:14px;font-size:0.875rem;line-height:1.7;color:#94a3b8;white-space:pre-wrap;word-break:break-all;overflow:auto;';
   content.textContent = '모델을 선택하고 검사 시작을 눌러주세요.';
   panel.appendChild(content);
 
   body.appendChild(panel);
 
-  // Run button click → fetch
+  // 검사 실행
   runBtn.addEventListener('click', async e => {
     e.stopPropagation();
     const fullText = block.editor.state.doc.textBetween(0, block.editor.state.doc.content.size, '\n');
-    if (!fullText.trim()) { content.style.color = '#9ca3af'; content.textContent = '내용이 없습니다.'; return; }
+    if (!fullText.trim()) { content.style.color = '#94a3b8'; content.textContent = '내용이 없습니다.'; return; }
 
-    runBtn.disabled = true; runBtn.textContent = '검사 중...';
-    content.style.color = '#9ca3af'; content.textContent = '검사 중...';
+    _scBtnLoad(runBtn);
     panel.querySelector('.fb-spell-apply-btn')?.remove();
+    content.style.color = '';
+    content.innerHTML = _scLoadingHtml();
 
+    const _scCtrl2 = new AbortController();
+    const _scTimer2 = setTimeout(() => _scCtrl2.abort(), 150000);
     try {
       const res = await fetch('/api/spellcheck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: fullText, en_variant: selectedVariant }),
+        body: JSON.stringify({ text: fullText, en_variant: selectedVariant, ko_variant: 'et5' }),
+        signal: _scCtrl2.signal,
       });
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `서버 오류 (${res.status})`); }
       const data = await res.json();
       const corrected = data.corrected;
       const isSame = fullText === corrected;
       if (isSame) {
-        content.style.color = '#9ca3af'; content.textContent = '오류가 발견되지 않았습니다.';
+        content.style.color = '#94a3b8';
+        content.innerHTML = '<i class="bi bi-check-circle-fill" style="color:#10b981;margin-right:6px;"></i>오류가 발견되지 않았습니다.';
       } else {
-        content.style.color = '#15803d'; content.textContent = corrected;
+        content.style.color = '';
+        const diff = _scDiffHtml(fullText, corrected);
+        content.innerHTML = diff.html + _scDiffLegend(diff.changes);
         const applyBtn = document.createElement('button');
         applyBtn.type = 'button'; applyBtn.textContent = '적용하기';
         applyBtn.className = 'fb-spell-apply-btn';
-        applyBtn.style.cssText = 'margin-top:8px;padding:5px 14px;border:none;border-radius:6px;cursor:pointer;background:#3b82f6;color:#fff;font-size:0.82rem;align-self:flex-end;flex-shrink:0;';
+        applyBtn.style.cssText = 'margin:10px 14px 14px;padding:8px 18px;border:none;border-radius:8px;cursor:pointer;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:0.82rem;font-weight:600;align-self:flex-end;flex-shrink:0;display:block;width:calc(100% - 28px);';
         applyBtn.addEventListener('click', () => {
           const lines = corrected.split('\n');
           const nodes = lines.map(line => ({ type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] }));
@@ -903,9 +1062,12 @@ function _scBlockPreviewOpen(blockId) {
         panel.appendChild(applyBtn);
       }
     } catch (err) {
-      content.style.color = '#ef4444'; content.textContent = err.message || '오류가 발생했습니다.';
+      content.style.color = '#991b1b';
+      const msg = err.name === 'AbortError' ? '요청 시간 초과 (2분 30초). 모델 로딩 중이면 잠시 후 다시 시도해주세요.' : (err.message || '오류가 발생했습니다.');
+      content.innerHTML = `<i class="bi bi-exclamation-circle-fill" style="margin-right:6px;"></i>${msg}`;
     } finally {
-      runBtn.disabled = false; runBtn.textContent = '다시 검사';
+      clearTimeout(_scTimer2);
+      _scBtnReady(runBtn);
     }
   });
 }

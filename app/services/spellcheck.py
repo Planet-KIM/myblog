@@ -35,7 +35,23 @@ import os
 import re
 import threading
 
-KO_MODEL = os.environ.get("SPELLCHECK_KO_MODEL", "j5ng/et5-typos-corrector")
+# ── 한국어 모델 variant 매핑 ──────────────────────────────
+# 두 모델 모두 서버 시작 시 로드, 요청마다 variant로 선택
+_KO_VARIANTS: dict = {
+    "et5": {
+        "model": os.environ.get("SPELLCHECK_KO_FAST_MODEL", "j5ng/et5-typos-corrector"),
+        "prefix": "",          # et5는 prefix 없이 원문 그대로 입력
+        "max_tokens": 400,
+    },
+    "pko": {
+        "model": os.environ.get("SPELLCHECK_KO_QUALITY_MODEL", "paust/pko-t5-large"),
+        "prefix": "맞춤법 교정: ",   # fine-tuning 시 이 prefix로 학습
+        "max_tokens": 380,
+    },
+}
+
+# 하위 호환 (환경변수 SPELLCHECK_KO_MODEL 단독 지정 시 et5에 적용)
+KO_MODEL = _KO_VARIANTS["et5"]["model"]
 
 # ── 영어 모델 variant 매핑 ─────────────────────────────────
 # 두 모델 모두 서버 시작 시 로드, 요청마다 variant로 선택
@@ -51,6 +67,63 @@ _EN_VARIANTS: dict = {
         "max_tokens": 380,  # prefix ~15토큰 감안
     },
 }
+
+
+def _filter_ko_hallucinations(original: str, corrected: str) -> str:
+    """
+    한국어 교정 결과에서 hallucination(엉뚱한 단어 치환)을 제거.
+
+    판단 기준: 같은 위치 음절의 초성(첫 자음)이 바뀌면 hallucination.
+      갓다  → 갔다  : 가(ㄱ)→갔(ㄱ)  초성 동일 → 교정 허용
+      그는  → 나는  : 그(ㄱ)→나(ㄴ)  초성 변경 → 원본 복원
+      그녀는 → 그들은: 녀(ㄴ)→들(ㄷ) 초성 변경 → 원본 복원
+
+    토큰 수가 달라지는 경우(띄어쓰기 교정 등)는 교정 결과 그대로 반환.
+    """
+    _BASE = 0xAC00
+
+    def chosung(ch: str) -> int:
+        code = ord(ch) - _BASE
+        if code < 0 or code > 11171:
+            return -1          # 한국어 음절 아님
+        return code // (21 * 28)
+
+    def is_hallucination(ow: str, cw: str) -> bool:
+        if ow == cw:
+            return False
+        # 구두점 제거
+        import string
+        punct = string.punctuation + '.,!?;:()[]"\'"\'。'
+        oc = ow.strip(punct)
+        cc = cw.strip(punct)
+        if not oc or not cc:
+            return False
+        # 길이 차이가 2 초과 → 단어 자체가 바뀐 것
+        if abs(len(oc) - len(cc)) > 2:
+            return True
+        # 같은 위치 음절의 초성 비교
+        for a, b in zip(oc, cc):
+            ca, cb = chosung(a), chosung(b)
+            if ca >= 0 and cb >= 0 and ca != cb:
+                return True
+        return False
+
+    orig_tokens = re.findall(r'\S+|\s+', original)
+    corr_tokens = re.findall(r'\S+|\s+', corrected)
+
+    if len(orig_tokens) != len(corr_tokens):
+        # 토큰 수 불일치(띄어쓰기 교정 등) → 교정 결과 그대로
+        return corrected
+
+    result = []
+    for ot, ct in zip(orig_tokens, corr_tokens):
+        if not ot.strip():          # 공백 토큰
+            result.append(ct)
+        elif is_hallucination(ot, ct):
+            result.append(ot)       # hallucination → 원본 복원
+        else:
+            result.append(ct)       # 정상 교정 적용
+    return ''.join(result)
 
 
 def detect_lang(text: str) -> str:
@@ -192,11 +265,26 @@ def _get_device():
 
 class _KoSpellChecker:
     """
-    한국어 맞춤법 교정기 — j5ng/et5-typos-corrector
-    T5ForConditionalGeneration 기반 seq2seq 모델
+    한국어 맞춤법 교정기 — variant별 독립 인스턴스.
+
+      et5 — j5ng/et5-typos-corrector, ~250M, 빠름 (현재 사용 중)
+        prefix: "" (원문 그대로)
+
+      pko — paust/pko-t5-large, ~780M, T5-large (Apache 2.0), 고품질
+        prefix: "맞춤법 교정: {text}"
+        fine-tuning 후 coedit 수준 기대 가능 (AI Hub 한국어 문법오류 데이터)
+
+    교정 범위:
+      - et5:  오타 교정 위주 (j5ng 모델 특성)
+      - pko:  fine-tuning 전: 기본 생성만 / 후: 문법+맞춤법+띄어쓰기 가능
     """
 
-    def __init__(self):
+    def __init__(self, variant: str):
+        cfg = _KO_VARIANTS[variant]
+        self._variant = variant
+        self._model_id = cfg["model"]
+        self._prefix = cfg["prefix"]
+        self._max_tokens = cfg["max_tokens"]
         self._model = None
         self._tokenizer = None
         self._device = None
@@ -211,29 +299,44 @@ class _KoSpellChecker:
                 return
             try:
                 from transformers import AutoTokenizer, T5ForConditionalGeneration
-                print(f"[KoSpellChecker] 로딩 중: {KO_MODEL}")
-                self._tokenizer = AutoTokenizer.from_pretrained(KO_MODEL)
-                self._model = T5ForConditionalGeneration.from_pretrained(KO_MODEL)
+                print(f"[KoSpellChecker:{self._variant}] 로딩 중: {self._model_id}")
+                self._tokenizer = AutoTokenizer.from_pretrained(self._model_id)
+                self._model = T5ForConditionalGeneration.from_pretrained(self._model_id)
                 self._device = _get_device()
                 self._model = self._model.to(self._device)
                 self._model.eval()
                 self._loaded = True
-                print("[KoSpellChecker] 로딩 완료")
+                print(f"[KoSpellChecker:{self._variant}] 로딩 완료")
             except ImportError:
                 raise RuntimeError("pip install transformers torch sentencepiece 를 실행하세요.")
 
     def _correct_chunk(self, text: str) -> str:
-        """단일 청크 교정 — max_tokens 이하의 텍스트만 받음"""
+        """
+        단일 청크 교정.
+
+        생성 파라미터 설명:
+          num_beams=3          : beam 5→3 으로 줄임. beam이 클수록 모델이
+                                 "더 그럴듯한" 문장으로 치환하려는 경향 증가.
+          no_repeat_ngram_size=3 : 3-gram 반복 방지 → 루프 출력 제거.
+          repetition_penalty=1.3 : 이미 생성한 토큰 재사용 패널티 →
+                                   단어 치환 hallucination 억제.
+          length_penalty=1.0   : 짧은 출력에 불이익 없음 (교정이므로
+                                  입력과 길이가 비슷해야 함).
+        """
         import torch
+        prefixed = f"{self._prefix}{text}" if self._prefix else text
         inputs = self._tokenizer(
-            text, return_tensors="pt", max_length=512, truncation=True
+            prefixed, return_tensors="pt", max_length=512, truncation=True
         )
         inputs = {k: v.to(self._device) for k, v in inputs.items()}
         with torch.no_grad():
             outputs = self._model.generate(
                 **inputs,
                 max_new_tokens=512,
-                num_beams=5,
+                num_beams=3,
+                no_repeat_ngram_size=3,
+                repetition_penalty=1.3,
+                length_penalty=1.0,
                 early_stopping=True,
             )
         return self._tokenizer.decode(outputs[0], skip_special_tokens=True)
@@ -242,15 +345,20 @@ class _KoSpellChecker:
         """
         긴 텍스트를 청크로 분할해 교정 후 원래 구조로 복원.
         단락(\\n)과 문장 경계를 보존하며 분할하므로 결과가 잘리지 않음.
+        교정 후 hallucination 필터 적용 (초성 바뀐 단어 복원).
         """
         self._load()
-        chunks = _split_into_chunks(text, self._tokenizer, max_tokens=400)
-        corrected_parts = [self._correct_chunk(chunk) + delim for chunk, delim in chunks]
+        chunks = _split_into_chunks(text, self._tokenizer, max_tokens=self._max_tokens)
+        corrected_parts = []
+        for chunk, delim in chunks:
+            raw = self._correct_chunk(chunk)
+            filtered = _filter_ko_hallucinations(chunk, raw)
+            corrected_parts.append(filtered + delim)
         return ''.join(corrected_parts)
 
     @property
     def model_path(self) -> str:
-        return KO_MODEL
+        return self._model_id
 
 
 class _EnSpellChecker:
@@ -331,10 +439,15 @@ class _EnSpellChecker:
 
 # ── 싱글톤 인스턴스 ───────────────────────────────────────
 # 웹 프로세스 & Celery 워커 모두 공유
-_ko = _KoSpellChecker()
+_ko_et5 = _KoSpellChecker("et5")
+_ko_pko  = _KoSpellChecker("pko")
 _en_vennify = _EnSpellChecker("vennify")
 _en_coedit  = _EnSpellChecker("coedit")
 
+_KO_CHECKERS = {
+    "et5": _ko_et5,
+    "pko": _ko_pko,
+}
 _EN_CHECKERS = {
     "vennify": _en_vennify,
     "coedit":  _en_coedit,
@@ -343,31 +456,35 @@ _EN_CHECKERS = {
 
 def load_all() -> None:
     """
-    모든 모델 미리 로드 (한국어 + 영어 vennify + 영어 coedit).
-    - 웹 서버: app/main.py lifespan startup 에서 호출
-    - Celery 워커: app/tasks/spellcheck_task.py worker_process_init 에서 호출
+    빠른 모델만 사전 로드 (ko-et5 + en-vennify).
+
+    고품질 모델(pko / coedit)은 첫 요청 시 lazy 로드됩니다.
+    이유: pko-t5-large(780MB) + coedit(780MB) 미리 다운로드 시
+         Celery 워커 시작이 수분 이상 블로킹되고 OOM 위험이 있음.
+    첫 '고품질' 요청은 모델 로드 시간이 걸리지만 이후 요청은 빠릅니다.
     """
-    print("[SpellCheck] 모델 사전 로딩 시작 (ko + en-vennify + en-coedit)...")
-    _ko._load()
+    print("[SpellCheck] 빠른 모델 사전 로딩 시작 (ko-et5 + en-vennify)...")
+    _ko_et5._load()
     _en_vennify._load()
-    _en_coedit._load()
-    print("[SpellCheck] 모델 사전 로딩 완료 ✓")
+    print("[SpellCheck] 모델 로딩 완료 ✓  (pko / coedit 은 첫 요청 시 자동 로드)")
 
 
-def correct(text: str, en_variant: str = "vennify") -> str:
+def correct(text: str, en_variant: str = "vennify", ko_variant: str = "et5") -> str:
     """
     언어 감지 후 적절한 모델로 교정.
-    영어인 경우 en_variant("vennify" | "coedit")로 모델 선택.
+      ko_variant: "et5" (빠름) | "pko" (고품질)
+      en_variant: "vennify" (빠름) | "coedit" (고품질)
     """
     lang = detect_lang(text)
     if lang == "ko":
-        return _ko.correct(text)
+        checker = _KO_CHECKERS.get(ko_variant, _ko_et5)
+        return checker.correct(text)
     checker = _EN_CHECKERS.get(en_variant, _en_vennify)
     return checker.correct(text)
 
 
-def model_info(text: str, en_variant: str = "vennify") -> str:
+def model_info(text: str, en_variant: str = "vennify", ko_variant: str = "et5") -> str:
     """사용된 모델 경로 반환"""
     if detect_lang(text) == "ko":
-        return KO_MODEL
+        return _KO_CHECKERS.get(ko_variant, _ko_et5).model_path
     return _EN_CHECKERS.get(en_variant, _en_vennify).model_path

@@ -115,7 +115,10 @@ async def _check_rate_limit(user_id: int) -> None:
 # ─────────────────────────────────────────────
 
 async def _run_spellcheck(
-    loop: asyncio.AbstractEventLoop, text: str, en_variant: str = "vennify"
+    loop: asyncio.AbstractEventLoop,
+    text: str,
+    en_variant: str = "vennify",
+    ko_variant: str = "et5",
 ) -> str:
     """
     Celery 워커에 태스크를 전달하고 결과를 기다립니다.
@@ -126,9 +129,10 @@ async def _run_spellcheck(
         from app.tasks.spellcheck_task import run_spellcheck
 
         def _dispatch_and_wait():
-            task = run_spellcheck.delay(text, en_variant)
-            # coedit은 첫 추론 시 워밍업으로 60~90초 소요 가능
-            timeout = 120 if en_variant == "coedit" else 60
+            task = run_spellcheck.delay(text, en_variant, ko_variant)
+            # 대형 모델(coedit/pko)은 첫 추론 시 워밍업으로 60~90초 소요 가능
+            is_large = en_variant == "coedit" or ko_variant == "pko"
+            timeout = 120 if is_large else 60
             result = task.get(timeout=timeout)
             return result["corrected"]
 
@@ -174,6 +178,7 @@ class SpellCheckRequest(BaseModel):
     text: str
     lang: Optional[str] = None        # "ko" | "en" | None (자동 감지)
     en_variant: Optional[str] = None  # "vennify" | "coedit" | None (기본값 사용)
+    ko_variant: Optional[str] = None  # "et5" (빠름) | "pko" (고품질) | None (기본값 사용)
 
 
 class SpellCheckResponse(BaseModel):
@@ -337,9 +342,13 @@ async def check_spelling(
     # ── Layer 2: Semaphore (서버 전체 동시 추론 제한) ─────
     semaphore: asyncio.Semaphore = http_request.app.state.spellcheck_semaphore
 
+    en_variant = sc_request.en_variant or settings.SPELLCHECK_EN_DEFAULT_VARIANT
+    ko_variant = sc_request.ko_variant or "et5"
+    is_large = en_variant == "coedit" or ko_variant == "pko"
+
     try:
-        # coedit은 추론이 오래 걸리므로 슬롯 대기 시간도 길게
-        wait_timeout = 30.0 if (sc_request.en_variant == "coedit") else 10.0
+        # 대형 모델(coedit/pko)은 추론이 오래 걸리므로 슬롯 대기 시간도 길게
+        wait_timeout = 30.0 if is_large else 10.0
         await asyncio.wait_for(semaphore.acquire(), timeout=wait_timeout)
     except asyncio.TimeoutError:
         raise HTTPException(
@@ -350,14 +359,13 @@ async def check_spelling(
     try:
         from app.services.spellcheck import detect_lang, model_info
         loop = asyncio.get_event_loop()
-        en_variant = sc_request.en_variant or settings.SPELLCHECK_EN_DEFAULT_VARIANT
-        result = await _run_spellcheck(loop, text, en_variant)
+        result = await _run_spellcheck(loop, text, en_variant, ko_variant)
         lang = sc_request.lang or detect_lang(text)
         return SpellCheckResponse(
             original=text,
             corrected=result,
             lang=lang,
-            model=model_info(text, en_variant),
+            model=model_info(text, en_variant, ko_variant),
         )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
