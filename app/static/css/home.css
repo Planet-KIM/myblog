@@ -31,6 +31,13 @@
   50%       { opacity: 0; }
 }
 
+/* ─── Bootstrap container override (home page only) ──────── */
+main.container {
+  max-width: 100% !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 /* ─── Hero ────────────────────────────────────────────────── */
 .hero {
   position: relative;
@@ -56,10 +63,8 @@
 .hero::before {
   content: '';
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
   background: radial-gradient(
     circle at center,
     transparent 30%,
@@ -110,7 +115,6 @@
   animation: hero-slide-up 0.7s ease-out 0.2s both;
 }
 
-/* Typed.js cursor override */
 .typed-cursor {
   color: var(--primary);
   font-weight: 300;
@@ -166,10 +170,8 @@
 .hero-cta::before {
   content: '';
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.25);
   transform: translate(-50%, -50%);
@@ -207,8 +209,7 @@
 }
 
 .scroll-arrow {
-  width: 18px;
-  height: 18px;
+  width: 18px; height: 18px;
   border-right: 1.5px solid rgba(255, 255, 255, 0.32);
   border-bottom: 1.5px solid rgba(255, 255, 255, 0.32);
   transform: rotate(45deg);
@@ -217,9 +218,8 @@
 
 /* ─── Main Wrap ───────────────────────────────────────────── */
 .main-wrap {
-  max-width: 1200px;
-  margin: 3rem auto 0;
-  padding: 0 1.2rem;
+  margin-top: 3rem;
+  padding: 0 2rem;
 }
 
 /* ─── Section Header ──────────────────────────────────────── */
@@ -234,59 +234,66 @@
   margin-bottom: 0;
 }
 
-/* ─── Bento Grid ──────────────────────────────────────────── */
+/* ─── Home Layout: bento grid + sidebar ──────────────────── */
+.home-layout {
+  display: grid;
+  grid-template-columns: 1fr 290px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* ─── Sidebar ─────────────────────────────────────────────── */
+.home-sidebar {
+  position: sticky;
+  top: 5.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ─── Bento Grid (posts only) ─────────────────────────────── */
 /*
-  Desktop (3-col) layout:
-  ┌──────────────────────────┬────────────────┐
-  │  Featured post (2 × 2)  │ Category widget│
-  │                          ├────────────────┤
-  │                          │ Recent Posts   │
-  ├─────────┬────────────────┴────────────────┤
-  │  Post   │  Post  │  Post  │  ...          │
-  └─────────┴─────────────────────────────────┘
+  Gap-free random layouts — each row always sums to exactly 3 cols:
+    bento-full → grid-column: 1/-1  (3 cols, full row)
+    bento-2    → grid-column: span 2 (2 cols, paired with bento-1)
+    bento-1    → grid-column: span 1 (1 col, default)
+
+  No row-spanning items → no gaps possible.
+  grid-auto-flow: row (default) places items in order.
+  grid-auto-rows: minmax(220px, auto) gives each card
+  enough height to show title + preview + button.
 */
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: minmax(220px, auto);
   gap: 1.25rem;
-  margin-bottom: 3rem;
 }
 
-/* Featured: 2 columns wide, 2 rows tall */
-.bento-featured {
-  grid-column: span 2;
-  grid-row: span 2;
-}
+/* Full-width row (always starts at col 1) */
+.bento-full { grid-column: 1 / -1; }
 
-.bento-featured .travel-card {
-  height: 100%;
-  min-height: 420px;
-}
+/* Wide card (2 cols) */
+.bento-2 { grid-column: span 2; }
 
-.bento-featured .card-img {
-  height: 240px;
-}
-
-.bento-featured .travel-card .card-title a {
-  font-size: 1.28rem;
-}
-
-.bento-featured .card-no-img {
-  height: 240px;
-}
-
-/* ─── Bento Widget Cells ──────────────────────────────────── */
+/* ─── Bento Widget Cells (sidebar) ───────────────────────── */
 .bento-widget {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--card-radius);
-  box-shadow: var(--shadow-md);
+  border: none;
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.06);
   padding: 1.25rem;
   transition: box-shadow 0.25s ease;
 }
 
 .bento-widget:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 12px 30px rgba(0, 0, 0, 0.08);
 }
 
 .bento-widget-title {
@@ -303,7 +310,7 @@
   gap: 0.4rem;
 }
 
-/* Category badges inside widget */
+/* ─── Category badges ─────────────────────────────────────── */
 .cat-badge {
   display: inline-block;
   background: var(--surface-dark);
@@ -331,7 +338,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* Recent posts list inside widget */
+/* ─── Recent posts list (sidebar) ────────────────────────── */
 .recent-post-item {
   display: flex;
   justify-content: space-between;
@@ -343,13 +350,9 @@
   gap: 0.5rem;
 }
 
-.recent-post-item:last-child {
-  border-bottom: none;
-}
+.recent-post-item:last-child { border-bottom: none; }
 
-.recent-post-item:hover {
-  padding-left: 0.5rem;
-}
+.recent-post-item:hover { padding-left: 0.5rem; }
 
 .recent-post-item .rp-title {
   font-size: 0.82rem;
@@ -361,9 +364,7 @@
   transition: color 0.15s ease;
 }
 
-.recent-post-item:hover .rp-title {
-  color: var(--primary);
-}
+.recent-post-item:hover .rp-title { color: var(--primary); }
 
 .recent-post-item .rp-date {
   font-size: 0.7rem;
@@ -373,36 +374,21 @@
 }
 
 /* ─── Card Image Zoom ─────────────────────────────────────── */
-.card-img-wrap {
-  overflow: hidden;
-}
+.card-img-wrap { overflow: hidden; }
 
 .card-img {
   width: 100%;
-  height: 185px;
   object-fit: cover;
   display: block;
   transition: transform 0.4s ease;
 }
 
-.travel-card:hover .card-img {
-  transform: scale(1.05);
-}
+/* Image height per card size — always shows image properly */
+.bento-1 .card-img { height: 150px; }
+.bento-2 .card-img { height: 190px; }
+.bento-full .card-img { height: 260px; }
 
-/* Gradient placeholder when no thumbnail */
-.card-no-img {
-  height: 185px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(
-    135deg,
-    var(--surface-dark) 0%,
-    rgba(56, 189, 248, 0.07) 100%
-  );
-  color: var(--text-disabled);
-  font-size: 2.2rem;
-}
+.travel-card:hover .card-img { transform: scale(1.05); }
 
 /* ─── Empty State ─────────────────────────────────────────── */
 .empty-state {
@@ -431,52 +417,190 @@
 }
 
 /* ─── Responsive Breakpoints ──────────────────────────────── */
-@media (max-width: 991px) {
+
+/* Narrow desktop / large tablet */
+@media (max-width: 1100px) {
+  .home-layout {
+    grid-template-columns: 1fr 250px;
+  }
+}
+
+/* Tablet: sidebar goes below bento grid */
+@media (max-width: 900px) {
+  .home-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .home-sidebar {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
   .bento-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  /* Featured stays 2-col wide but collapses to 1 row */
-  .bento-featured {
-    grid-column: span 2;
-    grid-row: span 1;
-  }
-
-  .bento-featured .travel-card {
-    min-height: auto;
-  }
-
-  .bento-featured .card-img {
-    height: 220px;
-  }
-
-  .bento-featured .card-no-img {
-    height: 220px;
-  }
-
-  .hero-stats {
-    gap: 2rem;
+  /* bento-full: 2-col grid에서도 전체폭 유지 */
+  .bento-full {
+    grid-column: 1 / -1;
   }
 }
 
-@media (max-width: 639px) {
+/* Mobile */
+@media (max-width: 600px) {
   .bento-grid {
     grid-template-columns: 1fr;
   }
 
-  .bento-featured {
+  .bento-2,
+  .bento-full {
     grid-column: span 1;
+    grid-row: span 1;
   }
 
-  .hero-stats {
-    gap: 1.5rem;
+  .home-sidebar {
+    grid-template-columns: 1fr;
   }
+
+  .hero-stats { gap: 1.5rem; }
 
   .hero-title {
     font-size: clamp(1.8rem, 8vw, 2.4rem);
   }
 
-  .main-wrap {
-    padding: 0 1rem;
-  }
+  .main-wrap { padding: 0 1rem; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Modern Card Overrides — bento-grid scope
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Shadow-only cards, no border ───────────────────────── */
+.bento-grid .travel-card {
+  border: none;
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  height: 100%;
+}
+
+.bento-grid .travel-card:hover {
+  transform: translateY(-5px);
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.15),
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 16px 40px rgba(0, 0, 0, 0.10);
+}
+
+/* Keep top accent on hover */
+.bento-grid .travel-card::before {
+  top: 0;
+  bottom: auto;
+  height: 3px;
+  border-radius: 18px 18px 0 0;
+}
+
+/* ── Card body padding ──────────────────────────────────── */
+.bento-grid .travel-card .card-body {
+  padding: 1.3rem 1.5rem 1.2rem;
+}
+
+/* ── Category badge: tight uppercase chip ───────────────── */
+.bento-grid .travel-card .badge-cat {
+  font-size: 0.60rem;
+  letter-spacing: 0.9px;
+  padding: 0.2em 0.65em;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+/* ── Title: Noto Serif KR, size varies with card size ───── */
+.bento-grid .travel-card .card-title a {
+  font-family: 'Noto Serif KR', serif;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.2px;
+  text-decoration: none;
+}
+
+.bento-1 .travel-card .card-title a { font-size: 1.0rem; }
+.bento-2 .travel-card .card-title a { font-size: 1.15rem; }
+.bento-full .travel-card .card-title a { font-size: 1.5rem; line-height: 1.3; }
+
+/* ── Preview: relaxed, muted ────────────────────────────── */
+.bento-grid .travel-card .card-preview {
+  font-size: 0.82rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+}
+
+/* Large card shows more preview text */
+.bento-full .travel-card .card-preview {
+  font-size: 0.88rem;
+  max-height: none;
+}
+
+/* ── Meta: small and understated ───────────────────────── */
+.bento-grid .travel-card .card-meta {
+  font-size: 0.70rem;
+  opacity: 0.58;
+  margin-bottom: 0.85rem;
+}
+
+/* ── Read more: outline pill ────────────────────────────── */
+.bento-grid .travel-card .btn-travel {
+  background: transparent;
+  color: var(--primary);
+  border: 1.5px solid currentColor;
+  box-shadow: none;
+  font-size: 0.75rem;
+  padding: 0.28rem 0.85rem;
+  border-radius: 20px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+.bento-grid .travel-card .btn-travel::before {
+  display: none;
+}
+
+.bento-grid .travel-card .btn-travel:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  transform: none;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.28);
+}
+
+/* ── Large card (bento-full): gradient bg when no image ─────── */
+.bento-full .travel-card:not(:has(.card-img-wrap)) {
+  background: linear-gradient(
+    150deg,
+    var(--surface) 0%,
+    rgba(56, 189, 248, 0.07) 55%,
+    rgba(167, 139, 250, 0.06) 100%
+  );
+}
+
+/* ── Light mode: stronger visible shadows ───────────────── */
+[data-theme="light"] .bento-grid .travel-card,
+[data-theme="light"] .bento-widget {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 2px 6px rgba(0, 0, 0, 0.05),
+    0 8px 24px rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="light"] .bento-grid .travel-card:hover {
+  box-shadow:
+    0 0 0 1px rgba(14, 165, 233, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 16px 40px rgba(0, 0, 0, 0.09);
 }

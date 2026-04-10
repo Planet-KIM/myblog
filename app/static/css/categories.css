@@ -1,0 +1,225 @@
+/* ============================================
+   Board Categories Page
+   ============================================ */
+
+/* ── Page Header ────────────────────────────── */
+.categories-hero {
+  padding: 2.5rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+}
+
+.categories-hero-title {
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.categories-hero-title .hero-icon {
+  color: var(--primary);
+  font-size: 1.6rem;
+}
+
+.categories-hero-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+  font-family: var(--font-mono);
+}
+
+/* ── Tree Container ─────────────────────────── */
+.category-tree {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-md);
+  padding: 1rem;
+  max-height: 560px;
+  overflow-y: auto;
+}
+
+.category-tree-root,
+.category-tree-root ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.category-tree-root { padding-left: 0.5rem; }
+
+/* ── Tree Nodes ─────────────────────────────── */
+.cat-tree-node { margin: 3px 0; }
+
+.cat-item-container {
+  display: flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-drag: element;
+  border: 2px solid transparent;
+}
+
+.cat-item-container:active { cursor: grabbing; }
+.cat-item-container:hover  { background: var(--surface-dark); }
+
+.cat-item-container.active {
+  background: var(--surface-dark);
+  font-weight: 600;
+}
+
+.cat-item-container.dragging  { opacity: 0.45; }
+
+.cat-item-container.drag-over {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+/* ── Root Drop Zone ─────────────────────────── */
+.root-dropzone {
+  border: 2px dashed transparent;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  transition: all 0.15s;
+  font-size: 0.85rem;
+}
+
+.root-dropzone.drag-over {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--primary);
+}
+
+/* ── Toggle Arrows ──────────────────────────── */
+.tree-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-right: 0.4rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.tree-toggle:hover { color: var(--primary); }
+.tree-toggle.disabled { opacity: 0.2; cursor: default; }
+
+/* ── Label ──────────────────────────────────── */
+.cat-label {
+  cursor: pointer;
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.cat-icon  { color: var(--text-muted); font-size: 1rem; flex-shrink: 0; }
+.cat-name  { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-meta  { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+
+/* ── Inline Rename Input ────────────────────── */
+.cat-rename-input {
+  flex-grow: 1;
+  background: var(--surface-dark);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  color: var(--text-main);
+  font-size: 0.88rem;
+  padding: 0.1rem 0.4rem;
+  outline: none;
+  min-width: 80px;
+}
+
+/* ── Action Buttons ─────────────────────────── */
+.cat-actions {
+  display: none;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+  margin-left: 0.4rem;
+}
+
+.cat-item-container:hover .cat-actions,
+.cat-item-container.active .cat-actions {
+  display: flex;
+}
+
+.cat-action-btn {
+  background: none;
+  border: none;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+
+.cat-action-btn:hover        { background: var(--border); color: var(--text-primary); }
+.cat-action-btn.delete:hover { color: #ef4444; }
+
+/* ── Collapse Animation ─────────────────────── */
+.cat-tree-children {
+  overflow: hidden;
+  max-height: 2000px;
+  opacity: 1;
+  transition: max-height 0.25s ease-out, opacity 0.2s ease;
+}
+
+.cat-tree-children.collapsed {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* ── Help Box ───────────────────────────────── */
+.category-tree-help {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  background: var(--surface-dark);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: 0.85rem 1rem;
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+/* ── Empty State ────────────────────────────── */
+.cat-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Delete Modal ───────────────────────────── */
+.modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.modal-header,
+.modal-footer {
+  border-color: var(--border);
+}

@@ -4,6 +4,7 @@ import re
 import html as html_module
 import markdown
 import copy
+import random
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -105,6 +106,8 @@ def read_index(
     """홈(/) 페이지: 비로그인=public, 로그인=public+내 private"""
     q = db.query(models.BoardPost)
 
+    HOME_LIMIT = 6   # 3-column grid, 3 rows of guaranteed gap-free layout
+
     if current_user:
         posts = (
             q.filter(
@@ -114,21 +117,46 @@ def read_index(
                 )
             )
             .order_by(models.BoardPost.created_at.desc())
+            .limit(HOME_LIMIT)
             .all()
         )
     else:
         posts = (
             q.filter(models.BoardPost.is_private == False)
             .order_by(models.BoardPost.created_at.desc())
+            .limit(HOME_LIMIT)
             .all()
         )
 
     board_posts = posts[:5]
 
-    # 각 post에 plain-text 회데 미리보기 주입
+    # 각 post에 plain-text 미리보기 주입
     for post in posts:
         post.preview = markdown_to_plain(post.content or '')
         post.thumbnail = extract_first_image(post.content or '')
+
+    # Gap-free 랜덤 레이아웃 — 3-column 그리드를 완전히 채우는 패턴만 사용
+    # 규칙: 각 행의 col-span 합 = 3
+    #   bento-full           → 한 행 전체 (3칸)
+    #   bento-2 + bento-1    → 한 행 전체 (2+1칸)
+    #   bento-1 × 3          → 한 행 전체 (1+1+1칸)
+    _LAYOUTS = [
+        # A · B · C  (전체폭 · 와이드+일반 · 일반×3)
+        ['bento-full', 'bento-2', 'bento-1', 'bento-1', 'bento-1', 'bento-1'],
+        # A · C · B
+        ['bento-full', 'bento-1', 'bento-1', 'bento-1', 'bento-2', 'bento-1'],
+        # B · A · C
+        ['bento-2', 'bento-1', 'bento-full', 'bento-1', 'bento-1', 'bento-1'],
+        # B · B · B  (와이드+일반 3행 반복)
+        ['bento-2', 'bento-1', 'bento-2', 'bento-1', 'bento-2', 'bento-1'],
+        # B · C · A
+        ['bento-2', 'bento-1', 'bento-1', 'bento-1', 'bento-1', 'bento-full'],
+        # C · A · B
+        ['bento-1', 'bento-1', 'bento-1', 'bento-full', 'bento-2', 'bento-1'],
+        # C · B · A
+        ['bento-1', 'bento-1', 'bento-1', 'bento-2', 'bento-1', 'bento-full'],
+    ]
+    card_sizes = random.choice(_LAYOUTS)[:len(posts)]
 
     categories = db.query(models.BoardCategory).order_by(models.BoardCategory.id).all()
 
@@ -140,6 +168,7 @@ def read_index(
             "board_posts": board_posts,
             "categories": categories,
             "current_user": current_user,
+            "card_sizes": card_sizes,
         },
     )
 

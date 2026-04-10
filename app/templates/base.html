@@ -11,9 +11,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <!-- Pretendard Font for Korean -->
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/variable/pretendardvariable-dynamic-subset.css" />
-  <!-- Google Fonts: Developer Dark Theme -->
+  <!-- Google Fonts: Developer Dark Theme + Noto Serif KR (Apache 2.0) -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap"
     rel="stylesheet">
   <!-- Enhanced Theme System -->
   <link rel="stylesheet" href="{{ url_for('static', path='css/theme.css') }}">
@@ -362,6 +362,11 @@
           <li class="nav-item">
             <a class="nav-link" href="/board/"><i class="bi bi-journal-text me-1"></i>Board</a>
           </li>
+          {% if current_user %}
+          <li class="nav-item">
+            <a class="nav-link" href="/board/categories"><i class="bi bi-folder2 me-1"></i>Categories</a>
+          </li>
+          {% endif %}
           <li class="nav-item">
             <a class="nav-link" href="/main"><i class="bi bi-person me-1"></i>About</a>
           </li>
@@ -397,7 +402,7 @@
   </nav>
 
   <!-- ─── Main Content ───────────────────────────── -->
-  <main class="container" style="max-width:1200px;">
+  <main class="container" style="max-width:1400px;">
     {% block content %}{% endblock %}
   </main>
 
@@ -416,6 +421,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="{{ url_for('static', path='js/app.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
 </body>
 
 </html>

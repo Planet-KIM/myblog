@@ -10,7 +10,7 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -137,25 +137,34 @@ def ensure_default_category(db: Session):
 @router.get("/categories", response_class=HTMLResponse)
 def category_list(
     request: Request,
+    created: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     ensure_default_category(db)
 
-    # parent, children 관계를 사용하기 위해 전부 로드
     categories = (
         db.query(models.BoardCategory)
         .order_by(models.BoardCategory.created_at.asc())
         .all()
     )
 
+    count_rows = (
+        db.query(models.BoardPost.category_id, func.count(models.BoardPost.id))
+        .group_by(models.BoardPost.category_id)
+        .all()
+    )
+    post_count_map = {row[0]: row[1] for row in count_rows}
+
     return templates.TemplateResponse(
         "board_categories.html",
         {
             "request": request,
             "categories": categories,
+            "post_count_map": post_count_map,
             "current_user": current_user,
             "error": None,
+            "success": "Category created successfully!" if created else None,
         },
     )
 
@@ -223,13 +232,20 @@ def category_create(
             .order_by(models.BoardCategory.created_at.asc())
             .all()
         )
+        count_rows = (
+            db.query(models.BoardPost.category_id, func.count(models.BoardPost.id))
+            .group_by(models.BoardPost.category_id)
+            .all()
+        )
         return templates.TemplateResponse(
             "board_categories.html",
             {
                 "request": request,
                 "categories": categories,
+                "post_count_map": {row[0]: row[1] for row in count_rows},
                 "current_user": current_user,
                 "error": error,
+                "success": None,
             },
         )
 
@@ -244,7 +260,7 @@ def category_create(
     db.add(category)
     db.commit()
 
-    return RedirectResponse("/board/categories", status_code=303)
+    return RedirectResponse("/board/categories?created=1", status_code=303)
 
 
 # ============================================================
@@ -281,6 +297,101 @@ def category_move(
     category.parent_id = req.new_parent_id
     db.commit()
     return {"status": "success"}
+
+
+# ============================================================
+# ★ 카테고리 삭제
+# ============================================================
+@router.post("/categories/{category_id}/delete")
+def category_delete(
+    category_id: int,
+    reassign_to: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    category = db.query(models.BoardCategory).filter(
+        models.BoardCategory.id == category_id
+    ).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    if category.name == "normal":
+        raise HTTPException(status_code=400, detail="Cannot delete the default category")
+
+    post_count = db.query(models.BoardPost).filter(
+        models.BoardPost.category_id == category_id
+    ).count()
+
+    if post_count > 0:
+        if not reassign_to:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Category has {post_count} post(s). Provide reassign_to.",
+            )
+        try:
+            reassign_id = int(reassign_to)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid reassign_to value")
+
+        target = db.query(models.BoardCategory).filter(
+            models.BoardCategory.id == reassign_id
+        ).first()
+        if not target:
+            raise HTTPException(status_code=400, detail="Reassign target not found")
+        if target.id == category_id:
+            raise HTTPException(status_code=400, detail="Cannot reassign to the same category")
+
+        db.query(models.BoardPost).filter(
+            models.BoardPost.category_id == category_id
+        ).update({"category_id": reassign_id})
+
+    # 자식 카테고리를 삭제 카테고리의 부모로 re-parent (고아 방지)
+    db.query(models.BoardCategory).filter(
+        models.BoardCategory.parent_id == category_id
+    ).update({"parent_id": category.parent_id})
+    db.flush()
+
+    db.delete(category)
+    db.commit()
+    return {"status": "success", "deleted_id": category_id}
+
+
+# ============================================================
+# ★ 카테고리 이름 변경
+# ============================================================
+class CategoryRenameRequest(BaseModel):
+    name: str
+
+
+@router.post("/categories/{category_id}/rename")
+def category_rename(
+    category_id: int,
+    req: CategoryRenameRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if len(name) > 100:
+        raise HTTPException(status_code=400, detail="Name too long (max 100 chars)")
+
+    category = db.query(models.BoardCategory).filter(
+        models.BoardCategory.id == category_id
+    ).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    existing = db.query(models.BoardCategory).filter(
+        models.BoardCategory.name == name,
+        models.BoardCategory.id != category_id,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Category name already exists")
+
+    category.name = name
+    db.commit()
+    return {"status": "success", "id": category_id, "name": category.name}
 
 
 # ============================================================
