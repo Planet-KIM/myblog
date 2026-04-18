@@ -4,11 +4,12 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/categories.css') }}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
 {% endblock %}
 
 {% block content %}
 
-<!-- ── Page Hero ─────────────────────────────────── -->
+<!-- ── Hero ─────────────────────────────────────── -->
 <div class="categories-hero">
   <h1 class="categories-hero-title">
     <i class="bi bi-folder2-open hero-icon"></i>Board Categories
@@ -28,13 +29,71 @@
 </script>
 {% endif %}
 
+<!-- Chart data (parsed by categories.js) -->
+<script id="cat-chart-data" type="application/json">
+{"labels":{{ categories | map(attribute='name') | list | tojson }},"counts":[{% for cat in categories %}{{ post_count_map.get(cat.id, 0) }}{% if not loop.last %},{% endif %}{% endfor %}]}
+</script>
+
+<!-- ── Stats Section ─────────────────────────────── -->
+{% if categories %}
+<div class="cat-stats-section mb-4">
+  <div class="cat-stat-pills">
+    <div class="cat-stat-pill">
+      <i class="bi bi-folder2"></i>
+      <span class="cat-stat-value">{{ categories | length }}</span>
+      <span class="cat-stat-label">Categories</span>
+    </div>
+    <div class="cat-stat-pill">
+      <i class="bi bi-file-text"></i>
+      <span class="cat-stat-value" id="stat-total-posts">—</span>
+      <span class="cat-stat-label">Posts</span>
+    </div>
+    <div class="cat-stat-pill">
+      <i class="bi bi-trophy"></i>
+      <span class="cat-stat-value cat-stat-top" id="stat-top-cat">—</span>
+      <span class="cat-stat-label">Top category</span>
+    </div>
+  </div>
+  <div class="cat-chart-tabs">
+    <ul class="nav cat-chart-nav mb-2" id="catChartTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="chart-tab-overview" data-bs-toggle="tab"
+                data-bs-target="#chart-pane-overview" type="button" role="tab">
+          <i class="bi bi-bar-chart-fill me-1"></i>Overview
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="chart-tab-breakdown" data-bs-toggle="tab"
+                data-bs-target="#chart-pane-breakdown" type="button" role="tab">
+          <i class="bi bi-diagram-3-fill me-1"></i>Breakdown
+        </button>
+      </li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="chart-pane-overview" role="tabpanel">
+        <div id="stats-chart-container" class="cat-chart-container">
+          <canvas id="stats-chart"></canvas>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="chart-pane-breakdown" role="tabpanel">
+        <div id="breakdown-chart-container" class="cat-chart-container">
+          <canvas id="breakdown-chart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Main Layout ───────────────────────────────── -->
 <div class="row">
 
-  <!-- ── Left: Create Form ─────────────────────── -->
+  <!-- Left: Create Form -->
   <div class="col-md-5 mb-4">
     <div class="card" style="background:var(--surface);border:1px solid var(--border);">
       <div class="card-header"
-           style="background:var(--surface-dark);border-bottom:1px solid var(--border);font-family:var(--font-mono);font-weight:600;">
+           style="background:var(--surface-dark);border-bottom:1px solid var(--border);
+                  font-family:var(--font-mono);font-weight:600;">
         <i class="bi bi-plus-circle me-2" style="color:var(--primary)"></i>New Category
       </div>
       <div class="card-body">
@@ -74,23 +133,27 @@
       <i class="bi bi-info-circle mt-1" style="color:var(--primary);flex-shrink:0"></i>
       <div>
         <p class="mb-1">Click <i class="bi bi-chevron-down mx-1"></i> to expand / collapse a folder.</p>
-        <p class="mb-1"><strong>Drag</strong> a category onto another to nest it inside.</p>
-        <p class="mb-1">Click a name to <strong>auto-select it</strong> as parent in the form.</p>
-        <p class="mb-0">
-          Use <i class="bi bi-pencil mx-1"></i> to rename,
-          <i class="bi bi-trash mx-1"></i> to delete.
-        </p>
+        <p class="mb-1"><strong>Drag</strong> the <i class="bi bi-grip-vertical mx-1"></i> handle to nest categories.</p>
+        <p class="mb-1">Click a name to <strong>auto-select</strong> it as parent in the form.</p>
+        <p class="mb-0"><strong>Right-click</strong> a category for quick actions.</p>
       </div>
     </div>
   </div>
 
-  <!-- ── Right: Tree ───────────────────────────── -->
+  <!-- Right: Tree -->
   <div class="col-md-7">
-    <div class="mb-3 d-flex justify-content-between align-items-center">
+    <div class="mb-3 d-flex justify-content-between align-items-center gap-2">
       <h5 class="mb-0" style="font-family:var(--font-mono);">Manage Categories</h5>
-      <a href="/board/" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Back to Board
-      </a>
+      <div class="d-flex gap-2 align-items-center">
+        <div class="cat-search-wrapper">
+          <i class="bi bi-search cat-search-icon"></i>
+          <input type="text" id="categorySearch" class="form-control cat-search-input"
+                 placeholder="Search…" autocomplete="off" />
+        </div>
+        <a href="/board/" class="btn btn-sm btn-outline-secondary flex-shrink-0">
+          <i class="bi bi-arrow-left me-1"></i>Back
+        </a>
+      </div>
     </div>
 
     <!-- Hidden data parsed by categories.js -->
@@ -107,22 +170,18 @@
     </div>
 
     <div id="category-tree" class="category-tree">
-      <div id="root-dropzone" class="root-dropzone d-none">
-        <i class="bi bi-box-arrow-in-down me-1"></i>Drop here to move to top level
-      </div>
       <div id="tree-content"></div>
     </div>
   </div>
 
 </div>
 
-<!-- ── Delete Confirmation Modal ──────────────── -->
-<div class="modal fade" id="deleteCategoryModal" tabindex="-1"
-     aria-labelledby="deleteCategoryModalLabel" aria-modal="true" role="dialog">
+<!-- ── Delete Modal ───────────────────────────────── -->
+<div class="modal fade" id="deleteCategoryModal" tabindex="-1" aria-modal="true" role="dialog">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="deleteCategoryModalLabel">
+        <h5 class="modal-title">
           <i class="bi bi-trash text-danger me-2"></i>Delete Category
         </h5>
         <button type="button" class="btn-close btn-close-white"
@@ -151,8 +210,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary"
-                data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
         <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
           <i class="bi bi-trash me-1"></i>Delete
         </button>
@@ -161,8 +219,26 @@
   </div>
 </div>
 
+<!-- ── Right-click Context Menu ──────────────────── -->
+<div id="cat-ctx-menu" class="cat-context-menu">
+  <div class="ctx-item" data-action="rename">
+    <i class="bi bi-pencil me-2"></i>Rename
+  </div>
+  <div class="ctx-item" data-action="new-child">
+    <i class="bi bi-folder-plus me-2"></i>New child category
+  </div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item danger" data-action="delete">
+    <i class="bi bi-trash me-2"></i>Delete
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', path='js/categories.js') }}"></script>
 {% endblock %}
