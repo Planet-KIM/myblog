@@ -646,6 +646,9 @@
     <span class="meta-item">
       {{ stats.views if stats else 0 }} views
     </span>
+    <span class="meta-item">
+      {{ stats.likes if stats else 0 }} likes
+    </span>
     {% if post.is_private %}
     <span class="meta-item" style="color: #f97316;">
       <i class="bi bi-lock-fill"></i> Private
@@ -696,6 +699,12 @@
     </div>
 
     <div class="action-right">
+      <button class="btn-action btn-action-share" id="detail-like-btn" onclick="toggleDetailLike()" title="좋아요">
+        <i class="bi bi-hand-thumbs-up"></i> <span id="detail-like-count">{{ stats.likes if stats else 0 }}</span>
+      </button>
+      <button class="btn-action btn-action-share" id="detail-bookmark-btn" onclick="toggleDetailBookmark()" title="북마크">
+        <i class="bi bi-bookmark"></i>
+      </button>
       <button class="btn-action btn-action-share" onclick="copyLink()" title="Copy link">
         <i class="bi bi-link-45deg"></i>
       </button>
@@ -916,6 +925,57 @@ function shareTwitter() {
   window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`);
 }
 
+async function postAction(url) {
+  const response = await fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      alert('로그인이 필요합니다.');
+      return null;
+    }
+    alert('요청 처리에 실패했습니다.');
+    return null;
+  }
+  return response.json();
+}
+
+async function toggleDetailLike() {
+  const result = await postAction('/api/posts/{{ post.id }}/like');
+  if (!result) return;
+  const likeCount = document.getElementById('detail-like-count');
+  const icon = document.querySelector('#detail-like-btn i');
+  if (likeCount) likeCount.textContent = String(result.likes ?? 0);
+  if (icon) icon.className = result.active ? 'bi bi-hand-thumbs-up-fill' : 'bi bi-hand-thumbs-up';
+}
+
+async function toggleDetailBookmark() {
+  const result = await postAction('/api/posts/{{ post.id }}/bookmark');
+  if (!result) return;
+  const icon = document.querySelector('#detail-bookmark-btn i');
+  if (icon) icon.className = result.active ? 'bi bi-bookmark-check-fill' : 'bi bi-bookmark';
+}
+
+function saveRecentPost() {
+  const entry = {
+    id: {{ post.id }},
+    title: {{ (post.title or 'Untitled Story')|tojson }},
+    url: '/board/{{ post.id }}',
+    date: {{ post.created_at.strftime('%m/%d')|tojson }}
+  };
+  let list = [];
+  try {
+    list = JSON.parse(localStorage.getItem('recentPosts') || '[]');
+  } catch (e) {
+    list = [];
+  }
+  list = list.filter(item => item.id !== entry.id);
+  list.unshift(entry);
+  localStorage.setItem('recentPosts', JSON.stringify(list.slice(0, 15)));
+}
+
 // Theme
 const html = document.documentElement;
 const savedTheme = localStorage.getItem('theme') || 'light';
@@ -923,6 +983,8 @@ html.setAttribute('data-theme', savedTheme);
 
 // Syntax highlighting
 document.addEventListener('DOMContentLoaded', () => {
+  saveRecentPost();
+
   document.querySelectorAll('pre code').forEach((block) => {
     hljs.highlightElement(block);
   });

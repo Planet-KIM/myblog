@@ -1,223 +1,35 @@
 {% extends "base.html" %}
 
 {% block extra_head %}
-<style>
-  /* ---------- Theme variables ---------- */
-  :root {
-    --bg-body: #f8f9fa;
-    --bg-card: #ffffff;
-    --border-color: #e9ecef;
-    --text-color: #212529;
-    --muted-color: #6c757d;
-    --badge-border: rgba(0, 0, 0, 0.03);
-    --badge-text-color: #212529;
-    --timeline-line: #dee2e6;
-    --hero-gradient: linear-gradient(135deg, #0d6efd0d, #0d6efd15);
-  }
-
-  .theme-dark {
-    --bg-body: #121212;
-    --bg-card: #1e1e1e;
-    --border-color: #343a40;
-    --text-color: #f8f9fa;
-    --muted-color: #ced4da;
-    --badge-border: rgba(255, 255, 255, 0.08);
-    --badge-text-color: #212529;
-    --timeline-line: #495057;
-    --hero-gradient: linear-gradient(135deg, #0d6efd22, #0d6efd33);
-  }
-
-  body {
-    background-color: var(--bg-body);
-    color: var(--text-color);
-  }
-
-  .text-muted {
-    color: var(--muted-color) !important;
-  }
-
-  /* ---------- CV layout ---------- */
-  .cv-hero {
-    background: var(--hero-gradient);
-    border-radius: 1rem;
-    border: 1px solid var(--border-color);
-  }
-  .cv-name {
-    font-size: 2rem;
-    font-weight: 700;
-  }
-  .cv-role {
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--muted-color);
-  }
-  .cv-meta {
-    font-size: 0.9rem;
-    color: var(--muted-color);
-  }
-  .cv-contact a {
-    text-decoration: none;
-  }
-  .cv-contact a:hover {
-    text-decoration: underline;
-  }
-  .cv-section li > p {
-    margin: 0;
-  }
-  .cv-section + .cv-section {
-    margin-top: 1.75rem;
-  }
-  .cv-section-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 0.25rem;
-    margin-bottom: 0.75rem;
-  }
-  .tech-badge {
-    display: inline-block;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.8rem;
-    border-radius: 999px;
-    margin: 0 0.25rem 0.25rem 0;
-    border: 1px solid var(--badge-border);
-    color: var(--badge-text-color);
-  }
-  .timeline-item {
-    position: relative;
-    padding-left: 1.5rem;
-    margin-bottom: 1.25rem;
-  }
-  .timeline-item::before {
-    content: "";
-    position: absolute;
-    left: 0.35rem;
-    top: 0.35rem;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: #0d6efd;
-  }
-  .timeline-item::after {
-    content: "";
-    position: absolute;
-    left: 0.38rem;
-    top: 0.75rem;
-    width: 2px;
-    bottom: -0.5rem;
-    background-color: var(--timeline-line);
-  }
-  .timeline-item:last-child::after {
-    display: none;
-  }
-  .timeline-title {
-    font-weight: 600;
-  }
-  .timeline-meta {
-    font-size: 0.8rem;
-    color: var(--muted-color);
-  }
-  .timeline-links a {
-    font-size: 0.8rem;
-  }
-  .cv-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-  @media (min-width: 768px) {
-    .cv-avatar {
-      width: 96px;
-      height: 96px;
-    }
-  }
-
-  .list-group-item {
-    background-color: var(--bg-card);
-    color: var(--text-color);
-  }
-
-  /* ---------- Footer ---------- */
-  .cv-footer {
-    border-top: 1px solid var(--border-color);
-    color: var(--muted-color);
-    padding-top: 1.25rem;
-    padding-bottom: 2.25rem;
-    margin-top: 2.5rem;
-  }
-  .cv-footer a {
-    text-decoration: none;
-  }
-  .cv-footer a:hover {
-    text-decoration: underline;
-  }
-
-  @media print {
-    body {
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    nav.navbar,
-    .no-print,
-    .alert,
-    #btn-theme, 
-    .cv-footer {
-      display: none !important;
-    }
-    main.container {
-      max-width: 100%;
-      padding-top: 0;
-    }
-    .col-lg-4 {
-      display: none !important;
-    }
-    .col-lg-8 {
-      flex: 0 0 100%;
-      max-width: 100%;
-    }
-    /* ===== 여기부터 히어로 정렬 강제 ===== */
-    .cv-hero .d-flex.flex-column.flex-md-row {
-      flex-direction: row !important;      /* 인쇄 시에도 가로 정렬 */
-      align-items: center !important;
-    }
-    .cv-hero img.cv-avatar {
-      margin-bottom: 0 !important;         /* 세로 여백 제거 */
-      margin-right: 1.5rem !important;     /* 텍스트와 간격 확보 */
-    }
-    /* ===== 여기까지 ===== */
-    .cv-hero {
-      border-color: #dee2e6;
-    }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/main-cv.css') }}">
 {% endblock %}
 
 {% block content %}
-{% if published %}
-  <div class="alert alert-success" role="alert">
-    새 글이 성공적으로 발행되었습니다.
-  </div>
-{% endif %}
+<div class="main-cv">
+  {% if published %}
+    <div class="alert alert-success" role="alert">
+      새 글이 성공적으로 발행되었습니다.
+    </div>
+  {% endif %}
 
-<div class="d-flex justify-content-between align-items-center mb-3 no-print">
-  <div class="btn-group btn-group-sm">
-    <button id="btn-lang-ko" type="button" class="btn btn-primary">KO</button>
-    <button id="btn-lang-en" type="button" class="btn btn-outline-secondary">EN</button>
+  <div class="d-flex justify-content-between align-items-center mb-3 no-print cv-toolbar">
+    <div class="btn-group btn-group-sm">
+      <button id="btn-lang-ko" type="button" class="btn btn-primary">KO</button>
+      <button id="btn-lang-en" type="button" class="btn btn-outline-secondary">EN</button>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button id="btn-theme" type="button" class="btn btn-outline-secondary btn-sm cv-btn-theme">
+        Dark
+      </button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+        PDF로 저장
+      </button>
+    </div>
   </div>
-  <div class="d-flex align-items-center gap-2">
-    <button id="btn-theme" type="button" class="btn btn-outline-dark btn-sm">
-      Dark
-    </button>
-    <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
-      PDF로 저장
-    </button>
-  </div>
-</div>
 
-<div class="row">
-  <!-- LEFT: CV CONTENT -->
-  <div class="col-lg-8 mb-4">
+  <div class="row cv-layout">
+    <!-- LEFT: CV CONTENT -->
+    <div class="col-lg-8 mb-4 cv-content-col">
 
     <!-- ===== KO VERSION ===== -->
     <div id="cv-lang-ko">
@@ -627,43 +439,44 @@
       </section>
     </div>
 
+    </div>
+
+    <!-- RIGHT: RECENT POSTS -->
+    <div class="col-lg-4 cv-sidebar">
+      <section class="mb-4">
+        <h2 class="h5 border-bottom pb-2 d-flex justify-content-between align-items-center cv-side-title">
+          Recent Posts
+          <a href="/board" class="small text-decoration-none text-muted cv-side-link">more</a>
+        </h2>
+        <ul class="list-group cv-recent-list">
+          {% for post in recent_posts %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <a href="/board/{{ post.id }}">{{ post.title }}</a>
+              <span class="text-muted small">{{ post.created_at.strftime("%m-%d") }}</span>
+            </li>
+          {% else %}
+            <li class="list-group-item">아직 작성된 글이 없습니다.</li>
+          {% endfor %}
+        </ul>
+      </section>
+    </div>
   </div>
 
-  <!-- RIGHT: RECENT POSTS -->
-  <div class="col-lg-4">
-    <section class="mb-4">
-      <h2 class="h5 border-bottom pb-2 d-flex justify-content-between align-items-center">
-        Recent Posts
-        <a href="/board" class="small text-decoration-none text-muted">more</a>
-      </h2>
-      <ul class="list-group">
-        {% for post in recent_posts %}
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            <a href="/board/{{ post.id }}">{{ post.title }}</a>
-            <span class="text-muted small">{{ post.created_at.strftime("%m-%d") }}</span>
-          </li>
-        {% else %}
-          <li class="list-group-item">아직 작성된 글이 없습니다.</li>
-        {% endfor %}
-      </ul>
-    </section>
-  </div>
+  <!-- FOOTER -->
+  <footer class="cv-footer small">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+      <div>
+        © {{ current_year }} {{ cv.profile.name_en }} · KAIST GSMSE jklab
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <span>Contact:</span>
+        <a href="mailto:{{ cv.profile.email }}">{{ cv.profile.email }}</a>
+        <span>·</span>
+        <a href="{{ cv.profile.github }}" target="_blank">GitHub</a>
+      </div>
+    </div>
+  </footer>
 </div>
-
-<!-- FOOTER -->
-<footer class="cv-footer small">
-  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
-    <div>
-      © {{ current_year }} {{ cv.profile.name_en }} · KAIST GSMSE jklab
-    </div>
-    <div class="d-flex flex-wrap gap-2">
-      <span>Contact:</span>
-      <a href="mailto:{{ cv.profile.email }}">{{ cv.profile.email }}</a>
-      <span>·</span>
-      <a href="{{ cv.profile.github }}" target="_blank">GitHub</a>
-    </div>
-  </div>
-</footer>
 
 <!-- LANG & THEME TOGGLE SCRIPT -->
 <script>
@@ -692,16 +505,28 @@
       } catch (e) {}
     }
 
+    function syncGlobalThemeIcon(theme) {
+      const navThemeToggle = document.querySelector(".theme-toggle");
+      if (!navThemeToggle) return;
+      navThemeToggle.innerHTML =
+        theme === "dark"
+          ? '<i class="bi bi-sun-fill"></i>'
+          : '<i class="bi bi-moon-fill"></i>';
+    }
+
     function setTheme(theme) {
-      const isDark = theme === "dark";
-      root.classList.toggle("theme-dark", isDark);
+      const normalized = theme === "dark" ? "dark" : "light";
+      const isDark = normalized === "dark";
+      root.setAttribute("data-theme", normalized);
+      document.body.setAttribute("data-bs-theme", normalized);
       if (themeBtn) {
         themeBtn.textContent = isDark ? "Light" : "Dark";
-        themeBtn.classList.toggle("btn-outline-dark", !isDark);
-        themeBtn.classList.toggle("btn-dark", isDark);
+        themeBtn.setAttribute("aria-label", `Switch to ${isDark ? "light" : "dark"} mode`);
       }
+      syncGlobalThemeIcon(normalized);
       try {
-        localStorage.setItem("cv-theme", theme);
+        localStorage.setItem("theme", normalized);
+        localStorage.setItem("cv-theme", normalized);
       } catch (e) {}
     }
 
@@ -709,7 +534,12 @@
     let savedTheme = null;
     try {
       savedLang = localStorage.getItem("cv-lang");
-      savedTheme = localStorage.getItem("cv-theme");
+      savedTheme =
+        localStorage.getItem("theme") ||
+        localStorage.getItem("cv-theme") ||
+        document.body.getAttribute("data-bs-theme") ||
+        root.getAttribute("data-bs-theme") ||
+        root.getAttribute("data-theme");
     } catch (e) {}
 
     setLang(savedLang === "en" ? "en" : "ko");
@@ -730,7 +560,7 @@
     if (themeBtn) {
       themeBtn.addEventListener("click", function (e) {
         e.preventDefault();
-        const next = root.classList.contains("theme-dark") ? "light" : "dark";
+        const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
         setTheme(next);
       });
     }

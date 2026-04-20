@@ -65,6 +65,11 @@
     color: white;
   }
 
+  .category-chip.is-child {
+    border-style: dashed;
+    padding-left: 1.15rem;
+  }
+
   /* Stories grid */
   .stories-grid {
     display: flex;
@@ -391,27 +396,49 @@
   </div>
 
   <!-- Search -->
-  <div class="search-container">
+  <form class="search-container" method="get" action="/board/">
+    {% if selected_category_id %}
+    <input type="hidden" name="category_id" value="{{ selected_category_id }}">
+    {% endif %}
+    <input type="hidden" name="sort" value="{{ selected_sort or 'recent' }}">
     <input
+      name="q"
       type="text"
       class="search-input"
       placeholder="Search stories..."
       id="searchInput"
+      value="{{ search_query or '' }}"
     >
-    <span class="search-icon">🔍</span>
+    <button type="submit" class="search-icon" style="border:0;background:transparent;">🔍</button>
+  </form>
+
+  <div class="category-filter">
+    <a href="/board/?{% if selected_category_id %}category_id={{ selected_category_id }}&{% endif %}{% if search_query %}q={{ search_query|urlencode }}&{% endif %}sort=recent"
+       class="category-chip {% if (selected_sort or 'recent') == 'recent' %}active{% endif %}">
+      Recent
+    </a>
+    <a href="/board/?{% if selected_category_id %}category_id={{ selected_category_id }}&{% endif %}{% if search_query %}q={{ search_query|urlencode }}&{% endif %}sort=popular"
+       class="category-chip {% if selected_sort == 'popular' %}active{% endif %}">
+      Popular
+    </a>
+    <a href="/board/?{% if selected_category_id %}category_id={{ selected_category_id }}&{% endif %}{% if search_query %}q={{ search_query|urlencode }}&{% endif %}sort=discussed"
+       class="category-chip {% if selected_sort == 'discussed' %}active{% endif %}">
+      Discussed
+    </a>
   </div>
 
   <!-- Category filter -->
   <div class="category-filter">
-    <a href="/board/" class="category-chip {% if not request.url.query %}active{% endif %}">
+    <a href="/board/?{% if search_query %}q={{ search_query|urlencode }}&{% endif %}sort={{ selected_sort or 'recent' }}"
+       class="category-chip {% if not selected_category_id %}active{% endif %}">
       All
     </a>
     {% for category in categories %}
     <a
-      href="/board/?category={{ category.id }}"
-      class="category-chip {% if request.url.query and category.id|string in request.url.query %}active{% endif %}"
+      href="/board/?category_id={{ category.id }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort or 'recent' }}"
+      class="category-chip {% if category_depths and category_depths.get(category.id, 0) > 0 %}is-child{% endif %} {% if selected_category_id == category.id %}active{% endif %}"
     >
-      {{ category.name }}
+      {% if category_depths and category_depths.get(category.id, 0) > 0 %}↳ {% endif %}{{ category.name }}
     </a>
     {% endfor %}
   </div>
@@ -480,12 +507,12 @@
   {% if total_pages > 1 %}
   <div class="pagination">
     {% if current_page > 1 %}
-    <a href="?page={{ current_page - 1 }}" class="page-link">← Previous</a>
+    <a href="?page={{ current_page - 1 }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort or 'recent' }}" class="page-link">← Previous</a>
     {% endif %}
 
     {% for page in range(1, total_pages + 1) %}
       {% if page <= 3 or page > total_pages - 3 or (page > current_page - 2 and page < current_page + 2) %}
-      <a href="?page={{ page }}" class="page-link {% if page == current_page %}active{% endif %}">
+      <a href="?page={{ page }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort or 'recent' }}" class="page-link {% if page == current_page %}active{% endif %}">
         {{ page }}
       </a>
       {% elif page == 4 or page == total_pages - 3 %}
@@ -494,7 +521,7 @@
     {% endfor %}
 
     {% if current_page < total_pages %}
-    <a href="?page={{ current_page + 1 }}" class="page-link">Next →</a>
+    <a href="?page={{ current_page + 1 }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort or 'recent' }}" class="page-link">Next →</a>
     {% endif %}
   </div>
   {% endif %}
