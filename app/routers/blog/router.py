@@ -4,17 +4,27 @@ import re
 import html as html_module
 import markdown
 import copy
-import random
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy import or_, func
+from sqlalchemy.orm import Session, joinedload
 from fastapi.templating import Jinja2Templates
 
 from app import models
 from app.database import get_db
 from app.auth_utils import get_current_user_optional
+from app.services.home_layout import (
+    HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
+    HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
+    select_home_card_sizes,
+)
+from app.services.category_counts import (
+    collect_descendant_category_ids,
+    order_categories_parent_first,
+    rollup_category_counts,
+)
+from app.services.recommendations import get_curated_home_recommendations
 from app.cv_content import (
     cv_profile,
     education,
@@ -92,73 +102,321 @@ def markdown_to_plain(text: str, max_len: int = 180) -> str:
 
 
 def extract_first_image(text: str):
-    """Markdown 원본에서 첫 번째 이미지 URL 추출 (![alt](url) 형식)"""
-    match = re.search(r'!\[.*?\]\((.*?)\)', text)
-    return match.group(1) if match else None
+    """
+    본문에서 첫 번째 이미지 URL을 추출한다.
+    지원 포맷:
+    1) Markdown: ![alt](url)
+    2) HTML: <img src="..."> 또는 <img data-src="...">
+    3) Inline style: background-image: url(...)
+    """
+    if not text:
+        return None
+
+    # 1) Markdown 이미지
+    md_match = re.search(r'!\[[^\]]*]\(([^)]+)\)', text)
+    if md_match:
+        md_url = md_match.group(1).strip()
+        # ![alt](url "title") 형태 대응: 첫 토큰만 URL로 사용
+        md_url = md_url.split()[0].strip("<>")
+        if md_url:
+            return html_module.unescape(md_url)
+
+    # 2) HTML 이미지 태그 (src / data-src)
+    html_match = re.search(
+        r'<img[^>]+(?:src|data-src)\s*=\s*["\']([^"\']+)["\']',
+        text,
+        flags=re.IGNORECASE,
+    )
+    if html_match:
+        return html_module.unescape(html_match.group(1).strip())
+
+    # 2-1) 따옴표 없는 속성값 fallback
+    html_unquoted_match = re.search(
+        r'<img[^>]+(?:src|data-src)\s*=\s*([^\s>]+)',
+        text,
+        flags=re.IGNORECASE,
+    )
+    if html_unquoted_match:
+        return html_module.unescape(html_unquoted_match.group(1).strip())
+
+    # 3) inline background-image
+    bg_match = re.search(
+        r'background-image\s*:\s*url\((["\']?)(.*?)\1\)',
+        text,
+        flags=re.IGNORECASE,
+    )
+    if bg_match and bg_match.group(2).strip():
+        return html_module.unescape(bg_match.group(2).strip())
+
+    return None
+
+
+def estimate_reading_minutes(text: str) -> int:
+    plain = markdown_to_plain(text or "", max_len=10000)
+    char_count = len(re.sub(r"\s+", "", plain))
+    return max(1, round(char_count / 350))
+
+
+def count_toc_headings(text: str) -> int:
+    if not text:
+        return 0
+    markdown_headings = re.findall(r"^\s{0,3}#{1,6}\s+.+$", text, flags=re.MULTILINE)
+    html_headings = re.findall(r"<h[1-6][^>]*>.*?</h[1-6]>", text, flags=re.IGNORECASE | re.DOTALL)
+    return len(markdown_headings) + len(html_headings)
+
+
+def detect_post_type(text: str) -> str:
+    plain = markdown_to_plain(text or "", max_len=8000)
+    plain_len = len(plain)
+    has_image = extract_first_image(text or "") is not None
+    has_url = bool(re.search(r"https?://", text or ""))
+
+    if has_image:
+        return "photo"
+    if has_url and plain_len < 900:
+        return "link"
+    if plain_len < 260:
+        return "note"
+    return "essay"
+
+
+def extract_key_sentence(text: str) -> str:
+    plain = markdown_to_plain(text or "", max_len=3000)
+    sentences = re.split(r"(?<=[\.\!\?。！？])\s+", plain)
+    for sentence in sentences:
+        cleaned = sentence.strip()
+        if len(cleaned) >= 24:
+            return cleaned
+    return plain[:120].strip()
+
+
+def extract_series_label(post: models.BoardPost) -> Optional[str]:
+    for tag in (post.tags or []):
+        tag_name = (tag.name or "").strip()
+        lower = tag_name.lower()
+        if lower.startswith("series:"):
+            return tag_name.split(":", 1)[1].strip() or "Series"
+        if lower.startswith("시리즈:"):
+            return tag_name.split(":", 1)[1].strip() or "시리즈"
+    title = post.title or ""
+    match = re.search(r"\[(series|시리즈)\s*[:\-]\s*([^\]]+)\]", title, flags=re.IGNORECASE)
+    if match:
+        return match.group(2).strip()
+    return None
 
 
 @router.get("/", response_class=HTMLResponse)
 def read_index(
     request: Request,
+    feed: str = "latest",
+    q: Optional[str] = None,
+    category_id: Optional[int] = None,
+    sort: str = "recent",
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
     """홈(/) 페이지: 비로그인=public, 로그인=public+내 private"""
-    q = db.query(models.BoardPost)
+    feed_mode = (feed or "latest").strip().lower()
+    if feed_mode not in {"latest", "following", "recommended"}:
+        feed_mode = "latest"
 
-    HOME_LIMIT = 6   # 3-column grid, 3 rows of guaranteed gap-free layout
+    sort_mode = (sort or "recent").strip().lower()
+    if sort_mode not in {"recent", "popular", "discussed"}:
+        sort_mode = "recent"
 
-    if current_user:
-        posts = (
-            q.filter(
+    categories = db.query(models.BoardCategory).order_by(models.BoardCategory.id).all()
+    selected_category_ids: list[int] | None = None
+    if category_id:
+        selected_category_ids = collect_descendant_category_ids(categories, category_id)
+
+    def visible_posts_query(with_options: bool = True):
+        query = db.query(models.BoardPost)
+        if with_options:
+            query = query.options(
+                joinedload(models.BoardPost.category),
+                joinedload(models.BoardPost.user),
+                joinedload(models.BoardPost.stats),
+                joinedload(models.BoardPost.tags),
+            )
+
+        if current_user:
+            query = query.filter(
                 or_(
                     models.BoardPost.is_private == False,
                     models.BoardPost.user_id == current_user.id,
                 )
             )
-            .order_by(models.BoardPost.created_at.desc())
+        else:
+            query = query.filter(models.BoardPost.is_private == False)
+
+        if q:
+            query = query.filter(
+                or_(
+                    models.BoardPost.title.ilike(f"%{q}%"),
+                    models.BoardPost.content.ilike(f"%{q}%"),
+                    models.BoardPost.content_html.ilike(f"%{q}%"),
+                    models.BoardPost.author.ilike(f"%{q}%"),
+                )
+            )
+        if selected_category_ids:
+            query = query.filter(models.BoardPost.category_id.in_(selected_category_ids))
+        return query
+
+    def apply_sort(query):
+        if sort_mode == "popular":
+            return (
+                query.outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id)
+                .order_by(func.coalesce(models.PostStats.views, 0).desc(), models.BoardPost.created_at.desc())
+            )
+        if sort_mode == "discussed":
+            return (
+                query.outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id)
+                .order_by(func.coalesce(models.PostStats.likes, 0).desc(), models.BoardPost.created_at.desc())
+            )
+        return query.order_by(models.BoardPost.created_at.desc())
+
+    HOME_LIMIT = 6
+    following_requires_login = False
+    following_empty = False
+
+    followed_category_ids: set[int] = set()
+    followed_author_ids: set[int] = set()
+    if current_user:
+        followed_category_ids = {
+            row.category_id
+            for row in db.query(models.CategoryFollow)
+            .filter(models.CategoryFollow.user_id == current_user.id)
+            .all()
+        }
+        followed_author_ids = {
+            row.author_user_id
+            for row in db.query(models.AuthorFollow)
+            .filter(models.AuthorFollow.user_id == current_user.id)
+            .all()
+        }
+
+    posts: list[models.BoardPost] = []
+    base_query = visible_posts_query(with_options=True)
+
+    if feed_mode == "following":
+        if not current_user:
+            following_requires_login = True
+        elif not followed_category_ids and not followed_author_ids:
+            following_empty = True
+        else:
+            follow_filters = []
+            if followed_category_ids:
+                follow_filters.append(models.BoardPost.category_id.in_(followed_category_ids))
+            if followed_author_ids:
+                follow_filters.append(models.BoardPost.user_id.in_(followed_author_ids))
+            posts = apply_sort(base_query.filter(or_(*follow_filters))).limit(HOME_LIMIT).all()
+            if not posts:
+                following_empty = True
+    elif feed_mode == "recommended":
+        posts = (
+            base_query.outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id)
+            .order_by(
+                func.coalesce(models.PostStats.likes, 0).desc(),
+                func.coalesce(models.PostStats.views, 0).desc(),
+                models.BoardPost.created_at.desc(),
+            )
             .limit(HOME_LIMIT)
             .all()
         )
     else:
-        posts = (
-            q.filter(models.BoardPost.is_private == False)
-            .order_by(models.BoardPost.created_at.desc())
-            .limit(HOME_LIMIT)
-            .all()
+        posts = apply_sort(base_query).limit(HOME_LIMIT).all()
+
+    if feed_mode == "following" and not posts and not following_requires_login and not following_empty:
+        following_empty = True
+
+    latest_query = visible_posts_query(with_options=True)
+    board_posts = latest_query.order_by(models.BoardPost.created_at.desc()).limit(5).all()
+
+    visible_post_total = (
+        visible_posts_query(with_options=False)
+        .with_entities(func.count(models.BoardPost.id))
+        .scalar()
+        or 0
+    )
+
+    def enrich_post(post: models.BoardPost):
+        source = post.content_html or post.content or ""
+        preview = markdown_to_plain(source)
+        key_sentence = extract_key_sentence(source)
+        toc_count = count_toc_headings(source)
+
+        post.preview = key_sentence if len(preview) > 170 and key_sentence else preview
+        post.thumbnail = extract_first_image(source)
+        post.reading_minutes = estimate_reading_minutes(source)
+        post.toc_count = toc_count
+        post.series_label = extract_series_label(post)
+        post.post_type = detect_post_type(source)
+        post.type_label = {
+            "essay": "에세이",
+            "photo": "사진기록",
+            "link": "링크노트",
+            "note": "짧은메모",
+        }.get(post.post_type, "에세이")
+        post.like_count = post.stats.likes if post.stats else 0
+        post.view_count = post.stats.views if post.stats else 0
+        post.comment_count = 0
+        post.discussion_score = (post.like_count * 3) + (post.view_count // 20)
+        post.is_followed_category = bool(current_user and post.category_id in followed_category_ids)
+        post.is_followed_author = bool(
+            current_user
+            and post.user_id in followed_author_ids
+            and post.user_id != current_user.id
         )
+        if not post.thumbnail:
+            post.card_variant = f"thumbless-{post.post_type}"
+        else:
+            post.card_variant = "with-thumb"
 
-    board_posts = posts[:5]
+    seen_ids = set()
+    for item in posts + board_posts:
+        if item.id in seen_ids:
+            continue
+        enrich_post(item)
+        seen_ids.add(item.id)
 
-    # 각 post에 plain-text 미리보기 주입
-    for post in posts:
-        post.preview = markdown_to_plain(post.content or '')
-        post.thumbnail = extract_first_image(post.content or '')
+    viewer_key = str(current_user.id) if current_user else (request.client.host if request.client else "anon")
+    available_layout_strategies = {
+        "random": HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
+        "stable": HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
+    }
+    layout_mode = request.query_params.get("layout", "random").strip().lower()
+    if layout_mode not in available_layout_strategies:
+        layout_mode = "random"
+    layout_strategy = available_layout_strategies[layout_mode]
+    card_sizes = select_home_card_sizes(
+        posts_count=len(posts),
+        strategy=layout_strategy,
+        viewer_key=viewer_key,
+    )
 
-    # Gap-free 랜덤 레이아웃 — 3-column 그리드를 완전히 채우는 패턴만 사용
-    # 규칙: 각 행의 col-span 합 = 3
-    #   bento-full           → 한 행 전체 (3칸)
-    #   bento-2 + bento-1    → 한 행 전체 (2+1칸)
-    #   bento-1 × 3          → 한 행 전체 (1+1+1칸)
-    _LAYOUTS = [
-        # A · B · C  (전체폭 · 와이드+일반 · 일반×3)
-        ['bento-full', 'bento-2', 'bento-1', 'bento-1', 'bento-1', 'bento-1'],
-        # A · C · B
-        ['bento-full', 'bento-1', 'bento-1', 'bento-1', 'bento-2', 'bento-1'],
-        # B · A · C
-        ['bento-2', 'bento-1', 'bento-full', 'bento-1', 'bento-1', 'bento-1'],
-        # B · B · B  (와이드+일반 3행 반복)
-        ['bento-2', 'bento-1', 'bento-2', 'bento-1', 'bento-2', 'bento-1'],
-        # B · C · A
-        ['bento-2', 'bento-1', 'bento-1', 'bento-1', 'bento-1', 'bento-full'],
-        # C · A · B
-        ['bento-1', 'bento-1', 'bento-1', 'bento-full', 'bento-2', 'bento-1'],
-        # C · B · A
-        ['bento-1', 'bento-1', 'bento-1', 'bento-2', 'bento-1', 'bento-full'],
+    category_rows = (
+        visible_posts_query(with_options=False)
+        .with_entities(models.BoardPost.category_id, func.count(models.BoardPost.id))
+        .filter(models.BoardPost.category_id.isnot(None))
+        .group_by(models.BoardPost.category_id)
+        .all()
+    )
+    direct_category_counts = {cid: cnt for cid, cnt in category_rows}
+    category_counts = rollup_category_counts(categories, direct_category_counts)
+    ordered_categories, category_depths = order_categories_parent_first(categories)
+    tone_names = ["sea", "forest", "sunset", "rose", "violet", "amber"]
+    category_tones = {cat.id: tone_names[cat.id % len(tone_names)] for cat in categories}
+
+    trending_topics = [
+        {
+            "id": cat.id,
+            "name": cat.name,
+            "count": category_counts.get(cat.id, 0),
+            "depth": category_depths.get(cat.id, 0),
+        }
+        for cat in ordered_categories
     ]
-    card_sizes = random.choice(_LAYOUTS)[:len(posts)]
-
-    categories = db.query(models.BoardCategory).order_by(models.BoardCategory.id).all()
+    curated_recommendations = get_curated_home_recommendations()
 
     return templates.TemplateResponse(
         "index.html",
@@ -167,8 +425,23 @@ def read_index(
             "posts": posts,
             "board_posts": board_posts,
             "categories": categories,
+            "ordered_categories": ordered_categories,
+            "category_depths": category_depths,
             "current_user": current_user,
             "card_sizes": card_sizes,
+            "visible_post_total": visible_post_total,
+            "category_counts": category_counts,
+            "category_tones": category_tones,
+            "selected_feed": feed_mode,
+            "selected_sort": sort_mode,
+            "search_query": q or "",
+            "selected_category_id": category_id,
+            "following_requires_login": following_requires_login,
+            "following_empty": following_empty,
+            "followed_category_ids": followed_category_ids,
+            "followed_author_ids": followed_author_ids,
+            "curated_recommendations": curated_recommendations,
+            "trending_topics": trending_topics,
         },
     )
 

@@ -8,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -39,6 +40,15 @@ class User(Base):
 
     # 사용자가 작성한 게시글들
     posts = relationship("BoardPost", back_populates="user")
+    bookmarks = relationship("PostBookmark", back_populates="user", cascade="all, delete-orphan")
+    likes = relationship("PostLike", back_populates="user", cascade="all, delete-orphan")
+    followed_categories = relationship("CategoryFollow", back_populates="user", cascade="all, delete-orphan")
+    followed_authors = relationship(
+        "AuthorFollow",
+        foreign_keys="AuthorFollow.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r}>"
@@ -141,6 +151,8 @@ class BoardPost(Base):
 
     # ── 통계 관계 ─────────────────────
     stats = relationship("PostStats", uselist=False, back_populates="post")
+    bookmarks = relationship("PostBookmark", back_populates="post", cascade="all, delete-orphan")
+    likes_rel = relationship("PostLike", back_populates="post", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<BoardPost id={self.id} title={self.title!r}>"
@@ -194,6 +206,85 @@ class PostStats(Base):
 
     def __repr__(self) -> str:
         return f"<PostStats post_id={self.post_id} views={self.views}>"
+
+
+# ─────────────────────────────
+# 포스트 북마크 모델
+# ─────────────────────────────
+class PostBookmark(Base):
+    __tablename__ = "post_bookmarks"
+    __table_args__ = (UniqueConstraint("user_id", "post_id", name="uq_post_bookmark_user_post"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    post_id = Column(Integer, ForeignKey("board_posts.id"), nullable=False)
+    created_at = Column(DateTime, default=now_kst)
+
+    user = relationship("User", back_populates="bookmarks")
+    post = relationship("BoardPost", back_populates="bookmarks")
+
+
+# ─────────────────────────────
+# 포스트 좋아요 모델
+# ─────────────────────────────
+class PostLike(Base):
+    __tablename__ = "post_likes"
+    __table_args__ = (UniqueConstraint("user_id", "post_id", name="uq_post_like_user_post"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    post_id = Column(Integer, ForeignKey("board_posts.id"), nullable=False)
+    created_at = Column(DateTime, default=now_kst)
+
+    user = relationship("User", back_populates="likes")
+    post = relationship("BoardPost", back_populates="likes_rel")
+
+
+# ─────────────────────────────
+# 카테고리 팔로우 모델
+# ─────────────────────────────
+class CategoryFollow(Base):
+    __tablename__ = "category_follows"
+    __table_args__ = (UniqueConstraint("user_id", "category_id", name="uq_category_follow_user_category"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    category_id = Column(Integer, ForeignKey("board_categories.id"), nullable=False)
+    created_at = Column(DateTime, default=now_kst)
+
+    user = relationship("User", back_populates="followed_categories")
+    category = relationship("BoardCategory")
+
+
+# ─────────────────────────────
+# 작성자 팔로우 모델
+# ─────────────────────────────
+class AuthorFollow(Base):
+    __tablename__ = "author_follows"
+    __table_args__ = (UniqueConstraint("user_id", "author_user_id", name="uq_author_follow_user_author"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    author_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=now_kst)
+
+    user = relationship("User", foreign_keys=[user_id], back_populates="followed_authors")
+    author = relationship("User", foreign_keys=[author_user_id])
+
+
+# ─────────────────────────────
+# 뉴스레터 구독 모델 (double opt-in)
+# ─────────────────────────────
+class NewsletterSubscriber(Base):
+    __tablename__ = "newsletter_subscribers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), nullable=False, unique=True, index=True)
+    status = Column(String(20), nullable=False, default="pending")  # pending | confirmed | unsubscribed
+    verify_token = Column(String(255), nullable=True, unique=True, index=True)
+    source = Column(String(50), nullable=True, default="home")
+    created_at = Column(DateTime, default=now_kst)
+    confirmed_at = Column(DateTime, nullable=True)
 
 
 # ─────────────────────────────

@@ -17,6 +17,11 @@ from app.database import get_db
 from app import models
 from app.auth_utils import get_current_user, get_current_user_optional
 from app.routers.upload.router import relocate_draft_files
+from app.services.category_counts import (
+    collect_descendant_category_ids,
+    order_categories_parent_first,
+    rollup_category_counts,
+)
 
 router = APIRouter(prefix="/board", tags=["board"])
 
@@ -154,7 +159,8 @@ def category_list(
         .group_by(models.BoardPost.category_id)
         .all()
     )
-    post_count_map = {row[0]: row[1] for row in count_rows}
+    direct_post_count_map = {row[0]: row[1] for row in count_rows}
+    post_count_map = rollup_category_counts(categories, direct_post_count_map)
 
     return templates.TemplateResponse(
         "board_categories.html",
@@ -237,12 +243,15 @@ def category_create(
             .group_by(models.BoardPost.category_id)
             .all()
         )
+        direct_post_count_map = {row[0]: row[1] for row in count_rows}
+        post_count_map = rollup_category_counts(categories, direct_post_count_map)
+
         return templates.TemplateResponse(
             "board_categories.html",
             {
                 "request": request,
                 "categories": categories,
-                "post_count_map": {row[0]: row[1] for row in count_rows},
+                "post_count_map": post_count_map,
                 "current_user": current_user,
                 "error": error,
                 "success": None,
@@ -710,6 +719,7 @@ def board_list(
     request: Request,
     category_id: Optional[int] = None,
     q: Optional[str] = None,
+    sort: str = "recent",
     page: int = 1,
     size: int = 10,
     db: Session = Depends(get_db),
@@ -722,6 +732,11 @@ def board_list(
         .order_by(models.BoardCategory.created_at.asc())
         .all()
     )
+    ordered_categories, category_depths = order_categories_parent_first(categories)
+
+    selected_category_ids: list[int] | None = None
+    if category_id:
+        selected_category_ids = collect_descendant_category_ids(categories, category_id)
 
     query = db.query(models.BoardPost).options(
         joinedload(models.BoardPost.category),
@@ -729,14 +744,16 @@ def board_list(
         joinedload(models.BoardPost.stats)
     )
 
-    if category_id:
-        query = query.filter(models.BoardPost.category_id == category_id)
+    if selected_category_ids:
+        query = query.filter(models.BoardPost.category_id.in_(selected_category_ids))
 
     if q:
         query = query.filter(
             or_(
                 models.BoardPost.title.ilike(f"%{q}%"),
-                models.BoardPost.content.ilike(f"%{q}%")
+                models.BoardPost.content.ilike(f"%{q}%"),
+                models.BoardPost.content_html.ilike(f"%{q}%"),
+                models.BoardPost.author.ilike(f"%{q}%"),
             )
         )
 
@@ -756,7 +773,22 @@ def board_list(
     total_pages = (total_posts + size - 1) // size if total_posts > 0 else 1
     page = max(1, min(page, total_pages))
     
-    posts = query.order_by(models.BoardPost.created_at.desc()).offset((page - 1) * size).limit(size).all()
+    sort_mode = (sort or "recent").strip().lower()
+    if sort_mode == "popular":
+        query = query.outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id).order_by(
+            func.coalesce(models.PostStats.views, 0).desc(),
+            models.BoardPost.created_at.desc(),
+        )
+    elif sort_mode == "discussed":
+        query = query.outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id).order_by(
+            func.coalesce(models.PostStats.likes, 0).desc(),
+            models.BoardPost.created_at.desc(),
+        )
+    else:
+        sort_mode = "recent"
+        query = query.order_by(models.BoardPost.created_at.desc())
+
+    posts = query.offset((page - 1) * size).limit(size).all()
 
     # Add preview to each post
     for post in posts:
@@ -768,9 +800,11 @@ def board_list(
         {
             "request": request,
             "posts": posts,
-            "categories": categories,
+            "categories": ordered_categories,
+            "category_depths": category_depths,
             "selected_category_id": category_id,
             "search_query": q,
+            "selected_sort": sort_mode,
             "current_user": current_user,
             "current_page": page,
             "total_pages": total_pages,
@@ -834,4 +868,3 @@ def board_detail(
             "next_post": next_post,
         },
     )
-

@@ -45,6 +45,21 @@ class Settings(BaseSettings):
     # M4 32GB에선 넉넉하게 설정
     SPELLCHECK_WORKER_MEMORY_KB: int = 3_145_728  # 3 GB
 
+    # ── Newsletter / Email ───────────────────────────────────
+    # 실제 발송을 사용하려면 SMTP 설정을 채우고 ENABLE_SEND=true로 둡니다.
+    NEWSLETTER_ENABLE_SEND: bool = False
+    NEWSLETTER_FROM_EMAIL: str = "no-reply@example.com"
+    NEWSLETTER_FROM_NAME: str = "Planet KIM's Travel"
+    NEWSLETTER_SMTP_HOST: str = ""
+    NEWSLETTER_SMTP_PORT: int = 587
+    NEWSLETTER_SMTP_USERNAME: str = ""
+    NEWSLETTER_SMTP_PASSWORD: str = ""
+    NEWSLETTER_SMTP_USE_TLS: bool = True
+    NEWSLETTER_SMTP_USE_SSL: bool = False
+    NEWSLETTER_SMTP_TIMEOUT_SECONDS: int = 10
+    NEWSLETTER_VERIFY_TOKEN_TTL_HOURS: int = 24
+    NEWSLETTER_UNSUBSCRIBE_TOKEN_TTL_HOURS: int = 24 * 30
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

@@ -17,9 +17,11 @@ from typing import Optional, List
 from datetime import datetime
 import asyncio
 import time
+import secrets
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -28,8 +30,15 @@ from sqlalchemy import func
 
 from app.database import get_db
 from app import models
-from app.auth_utils import get_current_user
+from app.auth_utils import get_current_user, get_current_user_optional
 from app.config import settings
+from app.services.newsletter import (
+    build_unsubscribe_token,
+    send_subscription_confirmed_email,
+    send_verification_email,
+    verify_unsubscribe_token,
+)
+from app.services.recommendations import get_curated_home_recommendations
 
 # 맞춤법 전용 스레드풀 (Celery 없이 직접 추론할 때 사용)
 _spellcheck_executor = ThreadPoolExecutor(max_workers=2)
@@ -174,6 +183,37 @@ class StatsUpdateRequest(BaseModel):
     increment_likes: bool = False
 
 
+class NewsletterSubscribeRequest(BaseModel):
+    email: str
+    source: Optional[str] = "home"
+
+
+class ToggleResponse(BaseModel):
+    post_id: int
+    active: bool
+    likes: int
+    bookmarks: int
+
+
+class FollowToggleResponse(BaseModel):
+    active: bool
+    target_type: str
+    target_id: int
+
+
+class NewsletterSubscribeResponse(BaseModel):
+    email: str
+    status: str
+    verify_url: Optional[str] = None
+    message: str
+
+
+class NewsletterUnsubscribeResponse(BaseModel):
+    email: str
+    status: str
+    message: str
+
+
 class SpellCheckRequest(BaseModel):
     text: str
     lang: Optional[str] = None        # "ko" | "en" | None (자동 감지)
@@ -277,6 +317,347 @@ async def update_post_stats(request: StatsUpdateRequest, db: Session = Depends(g
 
     db.commit()
     return {"post_id": request.post_id, "views": stats.views, "likes": stats.likes, "message": "Stats updated"}
+
+
+@router.post("/posts/{post_id}/like", response_model=ToggleResponse)
+async def toggle_post_like(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    stats = db.query(models.PostStats).filter(models.PostStats.post_id == post_id).first()
+    if not stats:
+        stats = models.PostStats(post_id=post_id, views=0, likes=0)
+        db.add(stats)
+        db.flush()
+
+    like = (
+        db.query(models.PostLike)
+        .filter(models.PostLike.post_id == post_id, models.PostLike.user_id == current_user.id)
+        .first()
+    )
+    if like:
+        db.delete(like)
+        stats.likes = max((stats.likes or 0) - 1, 0)
+        active = False
+    else:
+        db.add(models.PostLike(post_id=post_id, user_id=current_user.id))
+        stats.likes = (stats.likes or 0) + 1
+        active = True
+
+    db.commit()
+    bookmark_count = db.query(models.PostBookmark).filter(models.PostBookmark.post_id == post_id).count()
+    return ToggleResponse(
+        post_id=post_id,
+        active=active,
+        likes=stats.likes or 0,
+        bookmarks=bookmark_count,
+    )
+
+
+@router.post("/posts/{post_id}/bookmark", response_model=ToggleResponse)
+async def toggle_post_bookmark(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    stats = db.query(models.PostStats).filter(models.PostStats.post_id == post_id).first()
+    if not stats:
+        stats = models.PostStats(post_id=post_id, views=0, likes=0)
+        db.add(stats)
+        db.flush()
+
+    bookmark = (
+        db.query(models.PostBookmark)
+        .filter(models.PostBookmark.post_id == post_id, models.PostBookmark.user_id == current_user.id)
+        .first()
+    )
+    if bookmark:
+        db.delete(bookmark)
+        active = False
+    else:
+        db.add(models.PostBookmark(post_id=post_id, user_id=current_user.id))
+        active = True
+
+    db.commit()
+    bookmark_count = db.query(models.PostBookmark).filter(models.PostBookmark.post_id == post_id).count()
+    return ToggleResponse(
+        post_id=post_id,
+        active=active,
+        likes=stats.likes or 0,
+        bookmarks=bookmark_count,
+    )
+
+
+@router.get("/posts/{post_id}/engagement")
+async def get_post_engagement(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+):
+    post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    stats = db.query(models.PostStats).filter(models.PostStats.post_id == post_id).first()
+    bookmarks = db.query(models.PostBookmark).filter(models.PostBookmark.post_id == post_id).count()
+    liked = False
+    bookmarked = False
+    if current_user:
+        liked = (
+            db.query(models.PostLike)
+            .filter(models.PostLike.post_id == post_id, models.PostLike.user_id == current_user.id)
+            .first()
+            is not None
+        )
+        bookmarked = (
+            db.query(models.PostBookmark)
+            .filter(models.PostBookmark.post_id == post_id, models.PostBookmark.user_id == current_user.id)
+            .first()
+            is not None
+        )
+
+    return {
+        "post_id": post_id,
+        "likes": stats.likes if stats else 0,
+        "bookmarks": bookmarks,
+        "liked": liked,
+        "bookmarked": bookmarked,
+    }
+
+
+@router.post("/follow/category/{category_id}", response_model=FollowToggleResponse)
+async def toggle_follow_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    category = db.query(models.BoardCategory).filter(models.BoardCategory.id == category_id).first()
+    if not category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+    row = (
+        db.query(models.CategoryFollow)
+        .filter(models.CategoryFollow.user_id == current_user.id, models.CategoryFollow.category_id == category_id)
+        .first()
+    )
+    if row:
+        db.delete(row)
+        active = False
+    else:
+        db.add(models.CategoryFollow(user_id=current_user.id, category_id=category_id))
+        active = True
+    db.commit()
+
+    return FollowToggleResponse(active=active, target_type="category", target_id=category_id)
+
+
+@router.post("/follow/author/{author_user_id}", response_model=FollowToggleResponse)
+async def toggle_follow_author(
+    author_user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    author = db.query(models.User).filter(models.User.id == author_user_id).first()
+    if not author:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Author not found")
+    if author.id == current_user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot follow yourself")
+
+    row = (
+        db.query(models.AuthorFollow)
+        .filter(models.AuthorFollow.user_id == current_user.id, models.AuthorFollow.author_user_id == author_user_id)
+        .first()
+    )
+    if row:
+        db.delete(row)
+        active = False
+    else:
+        db.add(models.AuthorFollow(user_id=current_user.id, author_user_id=author_user_id))
+        active = True
+    db.commit()
+
+    return FollowToggleResponse(active=active, target_type="author", target_id=author_user_id)
+
+
+@router.post("/newsletter/subscribe", response_model=NewsletterSubscribeResponse)
+async def subscribe_newsletter(
+    payload: NewsletterSubscribeRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+):
+    email = payload.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+
+    subscriber = (
+        db.query(models.NewsletterSubscriber)
+        .filter(models.NewsletterSubscriber.email == email)
+        .first()
+    )
+
+    if subscriber and subscriber.status == "confirmed":
+        return NewsletterSubscribeResponse(
+            email=email,
+            status="confirmed",
+            message="이미 구독이 확인된 이메일입니다.",
+        )
+
+    token = secrets.token_urlsafe(24)
+    if not subscriber:
+        subscriber = models.NewsletterSubscriber(
+            email=email,
+            status="pending",
+            verify_token=token,
+            source=payload.source or "home",
+        )
+        db.add(subscriber)
+    else:
+        subscriber.status = "pending"
+        subscriber.verify_token = token
+        subscriber.source = payload.source or subscriber.source or "home"
+        subscriber.confirmed_at = None
+
+    # verify 토큰 만료 시간 계산 기준
+    subscriber.created_at = datetime.utcnow()
+
+    db.commit()
+
+    verify_url = f"{http_request.url_for('verify_newsletter')}?token={token}"
+    mail_sent, send_state = send_verification_email(email, verify_url)
+
+    if mail_sent:
+        response_verify_url = None
+        response_message = "확인 이메일을 발송했습니다. 메일함(스팸함 포함)을 확인해주세요."
+    else:
+        # 메일 서버가 없거나 발송 실패 시 개발/로컬 환경 fallback
+        response_verify_url = verify_url
+        response_message = (
+            "메일 전송 설정이 없어 확인 링크를 화면에 표시합니다. "
+            "링크를 열어 구독을 완료해주세요."
+            if send_state == "SMTP_NOT_CONFIGURED"
+            else "메일 발송에 실패하여 확인 링크를 화면에 표시합니다. 링크를 열어 구독을 완료해주세요."
+        )
+
+    return NewsletterSubscribeResponse(
+        email=email,
+        status="pending",
+        verify_url=response_verify_url,
+        message=response_message,
+    )
+
+
+@router.get("/newsletter/verify", name="verify_newsletter")
+async def verify_newsletter(token: str, http_request: Request, db: Session = Depends(get_db)):
+    subscriber = (
+        db.query(models.NewsletterSubscriber)
+        .filter(models.NewsletterSubscriber.verify_token == token)
+        .first()
+    )
+    if not subscriber:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid verification token")
+
+    issued_at = subscriber.created_at
+    if issued_at is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid verification timestamp")
+
+    verify_ttl_seconds = max(1, settings.NEWSLETTER_VERIFY_TOKEN_TTL_HOURS) * 3600
+    if issued_at.tzinfo is not None:
+        now = datetime.now(tz=issued_at.tzinfo)
+    else:
+        now = datetime.utcnow()
+    if (now - issued_at).total_seconds() > verify_ttl_seconds:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Verification token expired")
+
+    subscriber.status = "confirmed"
+    subscriber.confirmed_at = datetime.utcnow()
+    subscriber.verify_token = None
+    db.commit()
+
+    unsubscribe_token, unsubscribe_issued_at = build_unsubscribe_token(subscriber.email)
+    unsubscribe_query = urlencode(
+        {
+            "email": subscriber.email,
+            "token": unsubscribe_token,
+            "ts": unsubscribe_issued_at,
+        }
+    )
+    unsubscribe_url = (
+        f"{http_request.url_for('unsubscribe_newsletter')}?{unsubscribe_query}"
+    )
+    # 확인 완료 메일은 실패해도 주 흐름을 깨지 않도록 best-effort
+    send_subscription_confirmed_email(
+        subscriber.email,
+        unsubscribe_url=unsubscribe_url,
+    )
+
+    return {"email": subscriber.email, "status": "confirmed", "message": "뉴스레터 구독이 완료되었습니다."}
+
+
+@router.get("/newsletter/unsubscribe", response_model=NewsletterUnsubscribeResponse, name="unsubscribe_newsletter")
+async def unsubscribe_newsletter(email: str, token: str, ts: int, db: Session = Depends(get_db)):
+    normalized_email = email.strip().lower()
+    unsubscribe_ttl_seconds = max(1, settings.NEWSLETTER_UNSUBSCRIBE_TOKEN_TTL_HOURS) * 3600
+    if not verify_unsubscribe_token(
+        normalized_email,
+        token,
+        issued_at=ts,
+        max_age_seconds=unsubscribe_ttl_seconds,
+    ):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid unsubscribe token")
+
+    subscriber = (
+        db.query(models.NewsletterSubscriber)
+        .filter(models.NewsletterSubscriber.email == normalized_email)
+        .first()
+    )
+    if not subscriber:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscriber not found")
+
+    subscriber.status = "unsubscribed"
+    subscriber.verify_token = None
+    db.commit()
+
+    return NewsletterUnsubscribeResponse(
+        email=normalized_email,
+        status="unsubscribed",
+        message="뉴스레터 구독이 해지되었습니다.",
+    )
+
+
+@router.get("/recommendations/home")
+async def get_home_recommendations(db: Session = Depends(get_db)):
+    category_stats = (
+        db.query(
+            models.BoardCategory.id,
+            models.BoardCategory.name,
+            func.count(models.BoardPost.id).label("post_count"),
+        )
+        .outerjoin(models.BoardPost, models.BoardPost.category_id == models.BoardCategory.id)
+        .group_by(models.BoardCategory.id, models.BoardCategory.name)
+        .order_by(func.count(models.BoardPost.id).desc(), models.BoardCategory.name.asc())
+        .limit(6)
+        .all()
+    )
+
+    trending_topics = [
+        {"category_id": row.id, "name": row.name, "post_count": row.post_count}
+        for row in category_stats
+    ]
+    curated = get_curated_home_recommendations()
+    return {
+        "curated": curated,
+        "trending_topics": trending_topics,
+        "generated_at": datetime.utcnow().isoformat(),
+    }
 
 
 # ─────────────────────────────────────────────
@@ -386,7 +767,7 @@ def get_or_create_tag(db: Session, tag_name: str) -> models.Tag:
     tag = db.query(models.Tag).filter(models.Tag.name == tag_name).first()
     if not tag:
         tag = models.Tag(name=tag_name, slug=tag_slug, count=0)
-        db.add(db)
+        db.add(tag)
         db.commit()
         db.refresh(tag)
     return tag
