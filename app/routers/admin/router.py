@@ -25,6 +25,7 @@ def admin_dashboard(
     post_count = db.query(models.BoardPost).count()
     posts = db.query(models.BoardPost).order_by(models.BoardPost.created_at.desc()).limit(20).all()
     return templates.TemplateResponse(
+        request,
         "admin_dashboard.html",
         {
             "request": request,

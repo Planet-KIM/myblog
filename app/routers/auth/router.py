@@ -36,6 +36,7 @@ def signup_form(
         return RedirectResponse("/board/", status_code=303)
 
     return templates.TemplateResponse(
+        request,
         "signup.html",
         {
             "request": request,
@@ -61,6 +62,7 @@ def signup(
     # 비밀번호 일치 확인
     if password != password_confirm:
         return templates.TemplateResponse(
+            request,
             "signup.html",
             {
                 "request": request,
@@ -75,6 +77,7 @@ def signup(
         validate_password_rule(password)
     except HTTPException as e:
         return templates.TemplateResponse(
+            request,
             "signup.html",
             {
                 "request": request,
@@ -88,6 +91,7 @@ def signup(
     existing = db.query(models.User).filter(models.User.email == email).first()
     if existing:
         return templates.TemplateResponse(
+            request,
             "signup.html",
             {
                 "request": request,
@@ -125,6 +129,7 @@ def login_form(
         return RedirectResponse("/board/", status_code=303)
 
     return templates.TemplateResponse(
+        request,
         "login.html",
         {
             "request": request,
@@ -149,6 +154,7 @@ def login(
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user or not verify_password(password, user.password_hash):
         return templates.TemplateResponse(
+            request,
             "login.html",
             {
                 "request": request,
@@ -171,4 +177,3 @@ def login(
 def logout(request: Request):
     request.session.pop("user_id", None)
     return RedirectResponse("/", status_code=303)
-

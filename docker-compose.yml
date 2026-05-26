@@ -1,25 +1,48 @@
-version: "3.9"
-
 services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: fastapi-blog-nginx
+    ports:
+      - "5052:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - .:/app:ro
+    depends_on:
+      - web
+
   web:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: fastapi-blog-web
-    ports:
-      - "8000:8000"
+    command: ["gunicorn", "app.main:app", "-k", "uvicorn_worker.UvicornWorker", "-w", "2", "-b", "0.0.0.0:8000", "--timeout", "180", "--forwarded-allow-ips", "*"]
+    expose:
+      - "8000"
     volumes:
       - .:/app
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      REDIS_URL: redis://redis:6379/2
     depends_on:
       - redis
 
   celery-worker:
     build:
       context: .
-      dockerfile: celery_worker.Dockerfile
+      dockerfile: Dockerfile
     container_name: fastapi-blog-celery
+    command: ["celery", "-A", "app.tasks", "worker", "--loglevel=info", "--pool=solo", "--concurrency=1", "-Q", "spellcheck"]
     volumes:
       - .:/app
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      REDIS_URL: redis://redis:6379/2
     depends_on:
       - redis
 
@@ -27,4 +50,4 @@ services:
     image: redis:7-alpine
     container_name: fastapi-blog-redis
     ports:
-      - "6379:6379"
+      - "16379:6379"

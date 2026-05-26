@@ -1,8 +1,13 @@
 fastapi
+starlette
 uvicorn[standard]
+gunicorn
+uvicorn-worker
 sqlalchemy
 alembic
 jinja2
+itsdangerous
+python-dotenv
 python-multipart
 pydantic>=2
 pydantic-settings
@@ -14,6 +19,11 @@ passlib[bcrypt]
 transformers>=4.40.0
 torch>=2.0.0
 sentencepiece
+tiktoken
+protobuf
+safetensors
+accelerate
+tokenizers
 # ── 맞춤법 모델 학습 (선택) ──
 datasets>=2.14.0
 beautifulsoup4>=4.12.0
