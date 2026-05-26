@@ -16,6 +16,8 @@ API 라우터
 from typing import Optional, List
 from datetime import datetime
 import asyncio
+import hashlib
+import logging
 import time
 import secrets
 from collections import defaultdict
@@ -42,6 +44,8 @@ from app.services.recommendations import get_curated_home_recommendations
 
 # 맞춤법 전용 스레드풀 (Celery 없이 직접 추론할 때 사용)
 _spellcheck_executor = ThreadPoolExecutor(max_workers=2)
+_SPELLCHECK_TASK_MAX_ATTEMPTS = 2
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -132,23 +136,100 @@ async def _run_spellcheck(
     """
     Celery 워커에 태스크를 전달하고 결과를 기다립니다.
     웹서버는 모델을 들고 있지 않으므로 Celery가 반드시 실행 중이어야 합니다.
-    Celery가 없으면 503 반환.
+    실패 시 태스크를 정리(revoke/forget)하고 새 태스크로 1회 재실행합니다.
+    반복 실패 시 503으로 전환합니다.
     """
     try:
         from app.tasks.spellcheck_task import run_spellcheck
+        from celery.exceptions import TimeoutError as CeleryTimeoutError
+
+        payload_hash = hashlib.sha1(
+            f"{en_variant}|{ko_variant}|{text}".encode("utf-8")
+        ).hexdigest()[:12]
 
         def _dispatch_and_wait():
-            task = run_spellcheck.delay(text, en_variant, ko_variant)
             # 대형 모델(coedit/pko)은 첫 추론 시 워밍업으로 60~90초 소요 가능
             is_large = en_variant == "coedit" or ko_variant == "pko"
             timeout = 120 if is_large else 60
-            result = task.get(timeout=timeout)
-            return result["corrected"]
+            last_exc: Exception | None = None
+
+            for attempt in range(1, _SPELLCHECK_TASK_MAX_ATTEMPTS + 1):
+                task = run_spellcheck.delay(text, en_variant, ko_variant)
+                success = False
+
+                try:
+                    result = task.get(timeout=timeout)
+                    if not isinstance(result, dict) or "corrected" not in result:
+                        raise RuntimeError("Celery 결과 포맷이 올바르지 않습니다.")
+                    success = True
+                    try:
+                        task.forget()
+                    except Exception:
+                        logger.debug(
+                            "[SpellCheck] 성공 결과 forget 실패 task_id=%s payload=%s",
+                            task.id,
+                            payload_hash,
+                            exc_info=True,
+                        )
+                    return result["corrected"]
+                except CeleryTimeoutError as exc:
+                    last_exc = exc
+                    logger.warning(
+                        "[SpellCheck] timeout task_id=%s attempt=%s/%s payload=%s",
+                        task.id,
+                        attempt,
+                        _SPELLCHECK_TASK_MAX_ATTEMPTS,
+                        payload_hash,
+                    )
+                except Exception as exc:
+                    last_exc = exc
+                    logger.exception(
+                        "[SpellCheck] 실패 task_id=%s attempt=%s/%s payload=%s",
+                        task.id,
+                        attempt,
+                        _SPELLCHECK_TASK_MAX_ATTEMPTS,
+                        payload_hash,
+                    )
+                finally:
+                    if not success:
+                        try:
+                            # terminate=True는 운영용 비상옵션이며 프로그램적 사용은 지양.
+                            task.revoke(terminate=False)
+                        except Exception:
+                            logger.debug(
+                                "[SpellCheck] revoke 실패 task_id=%s payload=%s",
+                                task.id,
+                                payload_hash,
+                                exc_info=True,
+                            )
+                        try:
+                            task.forget()
+                        except Exception:
+                            logger.debug(
+                                "[SpellCheck] 실패 결과 forget 실패 task_id=%s payload=%s",
+                                task.id,
+                                payload_hash,
+                                exc_info=True,
+                            )
+
+                if attempt < _SPELLCHECK_TASK_MAX_ATTEMPTS:
+                    logger.info(
+                        "[SpellCheck] 태스크 재실행 attempt=%s/%s payload=%s",
+                        attempt + 1,
+                        _SPELLCHECK_TASK_MAX_ATTEMPTS,
+                        payload_hash,
+                    )
+
+            raise RuntimeError("맞춤법 태스크가 반복 실패했습니다. 잠시 후 다시 시도해주세요.") from last_exc
 
         return await loop.run_in_executor(_spellcheck_executor, _dispatch_and_wait)
 
+    except RuntimeError:
+        raise
     except Exception as e:
-        raise RuntimeError(f"Celery 워커에 연결할 수 없습니다. 워커가 실행 중인지 확인하세요. ({e})")
+        raise RuntimeError(
+            f"Celery 워커에 연결할 수 없습니다. 워커가 실행 중인지 확인하세요. ({e})"
+        ) from e
 
 
 # ─────────────────────────────────────────────
