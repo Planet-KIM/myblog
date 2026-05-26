@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+
+{% block title %}My Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+  main.container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  main.container .page-content {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 1.4rem 0 2.4rem;
+  }
+  main.container .page-card {
+    width: 100%;
+    margin: 0;
+  }
+  .me-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.4rem;
+  }
+  .me-title {
+    margin: 0;
+    font-size: 1.6rem;
+  }
+  .me-subtitle {
+    margin: 0.2rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+  }
+  .me-tabs .nav-link {
+    border-radius: 999px;
+    padding: 0.42rem 0.9rem;
+    font-size: 0.82rem;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    background: transparent;
+  }
+  .me-tabs .nav-link.active {
+    color: #fff;
+    border-color: transparent;
+    background: var(--gradient-primary);
+  }
+  .bookmark-toolbar {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: 1.3fr 0.9fr 0.9fr auto;
+    margin: 1.2rem 0 1rem;
+  }
+  .bookmark-toolbar .form-control,
+  .bookmark-toolbar .form-select {
+    background: var(--surface-soft, var(--surface));
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.65rem;
+  }
+  .bookmark-count {
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    margin-bottom: 1rem;
+  }
+  .bookmark-list {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .bookmark-card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: linear-gradient(150deg, rgba(70, 95, 130, 0.18), rgba(14, 28, 56, 0.22));
+    overflow: hidden;
+  }
+  .bookmark-card.no-thumb .bookmark-card-inner {
+    grid-template-columns: 1fr;
+  }
+  .bookmark-card-inner {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 0;
+    min-height: 132px;
+  }
+  .bookmark-thumb {
+    width: 100%;
+    height: 100%;
+    min-height: 132px;
+    object-fit: cover;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .bookmark-body {
+    padding: 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.52rem;
+  }
+  .bookmark-title {
+    margin: 0;
+    font-size: 1.02rem;
+    line-height: 1.35;
+  }
+  .bookmark-title a {
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+  .bookmark-title a:hover {
+    color: var(--primary);
+  }
+  .bookmark-preview {
+    font-size: 0.85rem;
+    color: var(--text-main);
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .bookmark-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    font-size: 0.77rem;
+    color: var(--text-muted);
+  }
+  .bookmark-actions {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.7rem;
+  }
+  .bookmark-actions a {
+    color: var(--accent);
+    font-size: 0.82rem;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .bookmark-actions a:hover {
+    text-decoration: underline;
+  }
+  .btn-unbookmark {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.34rem 0.7rem;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 0.78rem;
+  }
+  .btn-unbookmark:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .bookmark-empty,
+  .api-empty {
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    text-align: center;
+  }
+  .api-list {
+    display: grid;
+    gap: 0.9rem;
+    margin-top: 1rem;
+  }
+  .api-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 0.95rem;
+  }
+  .api-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .api-name {
+    margin: 0;
+    font-size: 0.96rem;
+  }
+  .api-path {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .api-badges {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  .api-badge {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .api-purpose {
+    color: var(--text-main);
+    font-size: 0.84rem;
+    margin-bottom: 0.7rem;
+  }
+  .api-sample-label {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin: 0.4rem 0 0.3rem;
+  }
+  .api-sample-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(10, 20, 40, 0.55);
+    padding: 0.55rem 0.65rem;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--text-main);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .api-copy-btn {
+    margin-top: 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    padding: 0.2rem 0.45rem;
+  }
+  .api-copy-btn:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+  .pager-wrap {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .pager-info {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+  .pager-links {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .pager-links a,
+  .pager-links span {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.32rem 0.62rem;
+    font-size: 0.78rem;
+    text-decoration: none;
+    color: var(--text-main);
+  }
+  .pager-links a:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  #me-bookmark-panel.is-loading {
+    opacity: 0.62;
+    pointer-events: none;
+    transition: opacity var(--transition-fast, 0.2s ease);
+  }
+  @media (max-width: 860px) {
+    main.container {
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+    }
+    main.container .page-content {
+      padding: 1rem 0 2rem;
+    }
+    main.container .page-card {
+      padding: 1rem;
+    }
+    .bookmark-toolbar {
+      grid-template-columns: 1fr;
+    }
+    .bookmark-card-inner {
+      grid-template-columns: 1fr;
+    }
+    .bookmark-thumb {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      max-height: 190px;
+    }
+  }
+  @media (max-width: 640px) {
+    .me-header {
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .me-tabs {
+      width: 100%;
+    }
+    .me-tabs .nav {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+    }
+    .me-tabs .nav-item {
+      width: 100%;
+    }
+    .me-tabs .nav-link {
+      width: 100%;
+      text-align: center;
+      padding: 0.48rem 0.55rem;
+    }
+    .bookmark-body {
+      padding: 0.75rem 0.8rem;
+    }
+    .bookmark-meta {
+      gap: 0.4rem 0.6rem;
+      font-size: 0.74rem;
+    }
+    .bookmark-actions {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+    .bookmark-actions a {
+      display: inline-block;
+    }
+    .btn-unbookmark {
+      width: 100%;
+      text-align: center;
+    }
+    .pager-wrap {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .pager-links {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .pager-links a,
+    .pager-links span {
+      width: 49%;
+      text-align: center;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <section class="page-card">
+    <div class="me-header">
+      <div>
+        <h1 class="me-title">My Dashboard</h1>
+        <p class="me-subtitle">{{ current_user.email }} 계정 기준으로 북마크와 내부 승인 API를 확인합니다.</p>
+      </div>
+      <div class="me-tabs">
+        <ul class="nav nav-pills">
+          <li class="nav-item">
+            <a class="nav-link {% if selected_tab == 'bookmarks' %}active{% endif %}"
+               href="{{ request.url.include_query_params(tab='bookmarks', page=1) }}">
+              Bookmarked Posts
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if selected_tab == 'apis' %}active{% endif %}"
+               href="{{ request.url.include_query_params(tab='apis', page=1) }}">
+              Approved APIs
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    {% if selected_tab == 'bookmarks' %}
+      <form id="bookmark-filter-form" class="bookmark-toolbar" method="get" action="/me">
+        <input type="hidden" name="tab" value="bookmarks">
+        <input class="form-control" type="search" name="q" value="{{ search_query }}" placeholder="북마크 검색 (제목/본문/작성자)">
+        <select class="form-select" name="category_id">
+          <option value="">전체 카테고리</option>
+          {% for cat in categories %}
+            {% set cat_count = bookmark_category_counts.get(cat.id, 0) %}
+            {% if cat_count > 0 %}
+              <option value="{{ cat.id }}" {% if selected_category_id == cat.id %}selected{% endif %}>
+                {{ cat.name }} ({{ cat_count }})
+              </option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <select class="form-select" name="sort">
+          <option value="recent" {% if selected_sort == 'recent' %}selected{% endif %}>최신 저장순</option>
+          <option value="oldest" {% if selected_sort == 'oldest' %}selected{% endif %}>오래된 저장순</option>
+          <option value="popular" {% if selected_sort == 'popular' %}selected{% endif %}>인기순(조회/좋아요)</option>
+        </select>
+        <button class="btn-travel" type="submit">적용</button>
+      </form>
+
+      <div id="me-bookmark-panel">
+        <div class="bookmark-count">
+          총 <strong id="total-bookmarks-count">{{ total_bookmarks }}</strong>개 북마크
+        </div>
+
+        <div id="bookmark-list" class="bookmark-list">
+          {% for post in bookmarked_posts %}
+            <article class="bookmark-card {% if not post.thumbnail %}no-thumb{% endif %}" data-post-id="{{ post.id }}">
+              <div class="bookmark-card-inner">
+                {% if post.thumbnail %}
+                  <img src="{{ post.thumbnail }}" alt="thumbnail" class="bookmark-thumb" loading="lazy" decoding="async">
+                {% endif %}
+                <div class="bookmark-body">
+                  <h3 class="bookmark-title">
+                    <a href="/board/{{ post.id }}">{{ post.title or 'Untitled' }}</a>
+                  </h3>
+                  <div class="bookmark-preview">{{ post.preview or '미리보기 텍스트가 없습니다.' }}</div>
+                  <div class="bookmark-meta">
+                    <span><i class="bi bi-folder2-open me-1"></i>{{ post.category.name if post.category else 'Uncategorized' }}</span>
+                    <span><i class="bi bi-calendar3 me-1"></i>{{ post.created_at.strftime("%Y-%m-%d") }}</span>
+                    <span><i class="bi bi-clock-history me-1"></i>{{ post.bookmark_saved_at.strftime("%Y-%m-%d %H:%M") }}</span>
+                    <span><i class="bi bi-hand-thumbs-up me-1"></i>{{ post.like_count }}</span>
+                    <span><i class="bi bi-eye me-1"></i>{{ post.view_count }}</span>
+                  </div>
+                  <div class="bookmark-actions">
+                    <a href="/board/{{ post.id }}">게시글 열기</a>
+                    <button type="button" class="btn-unbookmark js-unbookmark-btn" data-post-id="{{ post.id }}">
+                      <i class="bi bi-bookmark-check-fill me-1"></i>북마크 해제
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+
+        <div id="bookmark-empty" class="bookmark-empty" {% if bookmarked_posts %}style="display:none;"{% endif %}>
+          조건에 맞는 북마크 글이 없습니다.
+        </div>
+
+        <div class="pager-wrap">
+          <div class="pager-info">페이지 {{ current_page }} / {{ total_pages }}</div>
+          <div class="pager-links">
+            {% if current_page > 1 %}
+              <a href="{{ request.url.include_query_params(tab='bookmarks', page=current_page-1) }}">이전</a>
+            {% else %}
+              <span>이전</span>
+            {% endif %}
+            {% if current_page < total_pages %}
+              <a href="{{ request.url.include_query_params(tab='bookmarks', page=current_page+1) }}">다음</a>
+            {% else %}
+              <span>다음</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <p class="me-subtitle">내부 API 화이트리스트입니다. 실행 기능 없이, 호출 규약/권한/샘플 요청만 제공합니다.</p>
+      {% if approved_api_catalog %}
+        <div class="api-list">
+          {% for api in approved_api_catalog %}
+            <article class="api-card">
+              <div class="api-header">
+                <div>
+                  <h3 class="api-name">{{ api.name }}</h3>
+                  <div class="api-path"><strong>{{ api.method }}</strong> {{ api.path }}</div>
+                </div>
+                <div class="api-badges">
+                  <span class="api-badge">{{ api.auth }}</span>
+                  <span class="api-badge">{{ api.access }}</span>
+                </div>
+              </div>
+              <div class="api-purpose">{{ api.purpose }}</div>
+              <div class="api-sample-label">cURL</div>
+              <div class="api-sample-box" id="api-curl-{{ loop.index }}">{{ api.curl_example }}</div>
+              <button type="button" class="api-copy-btn js-copy-api" data-copy-target="api-curl-{{ loop.index }}">
+                cURL 복사
+              </button>
+              <div class="api-sample-label">fetch</div>
+              <div class="api-sample-box" id="api-fetch-{{ loop.index }}">{{ api.fetch_example }}</div>
+              <button type="button" class="api-copy-btn js-copy-api" data-copy-target="api-fetch-{{ loop.index }}">
+                fetch 복사
+              </button>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="api-empty">표시할 API 항목이 없습니다.</div>
+      {% endif %}
+    {% endif %}
+  </section>
+</div>
+
+<script>
+  async function postAction(url) {
+    const response = await fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        alert('로그인이 필요합니다.');
+        return null;
+      }
+      alert('요청 처리에 실패했습니다.');
+      return null;
+    }
+    return response.json();
+  }
+
+  (function setupBookmarkRealtimeFilter() {
+    const form = document.getElementById('bookmark-filter-form');
+    const panel = document.getElementById('me-bookmark-panel');
+    if (!form || !panel) return;
+
+    const qInput = form.querySelector('input[name="q"]');
+    const categorySelect = form.querySelector('select[name="category_id"]');
+    const sortSelect = form.querySelector('select[name="sort"]');
+    let debounceTimer = null;
+    let requestSeq = 0;
+
+    function ensurePageInput(value) {
+      let pageInput = form.querySelector('input[name="page"]');
+      if (!pageInput) {
+        pageInput = document.createElement('input');
+        pageInput.type = 'hidden';
+        pageInput.name = 'page';
+        form.appendChild(pageInput);
+      }
+      pageInput.value = String(value);
+    }
+
+    function buildQueryUrl() {
+      const params = new URLSearchParams(new FormData(form));
+      if (!params.get('tab')) params.set('tab', 'bookmarks');
+      if (!params.get('page')) params.set('page', '1');
+      if (!params.has('category_id')) params.set('category_id', '');
+      return `/me?${params.toString()}`;
+    }
+
+    async function refreshBookmarkPanel(url) {
+      const currentReq = ++requestSeq;
+      panel.classList.add('is-loading');
+      try {
+        const response = await fetch(url, {
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!response.ok) throw new Error('북마크 목록을 불러오지 못했습니다.');
+        const html = await response.text();
+        if (currentReq !== requestSeq) return;
+
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const nextPanel = doc.getElementById('me-bookmark-panel');
+        if (!nextPanel) throw new Error('북마크 패널 파싱 실패');
+
+        panel.innerHTML = nextPanel.innerHTML;
+        history.replaceState({}, '', url);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (currentReq === requestSeq) {
+          panel.classList.remove('is-loading');
+        }
+      }
+    }
+
+    function triggerFilter(resetPage) {
+      if (resetPage) ensurePageInput(1);
+      const url = buildQueryUrl();
+      refreshBookmarkPanel(url);
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      triggerFilter(true);
+    });
+
+    if (qInput) {
+      qInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => triggerFilter(true), 260);
+      });
+    }
+    if (categorySelect) {
+      categorySelect.addEventListener('change', () => triggerFilter(true));
+    }
+    if (sortSelect) {
+      sortSelect.addEventListener('change', () => triggerFilter(true));
+    }
+
+    panel.addEventListener('click', async (event) => {
+      const pageLink = event.target.closest('.pager-links a');
+      if (pageLink) {
+        event.preventDefault();
+        const href = pageLink.getAttribute('href');
+        if (!href) return;
+        const url = new URL(href, window.location.origin);
+        ensurePageInput(url.searchParams.get('page') || 1);
+        refreshBookmarkPanel(`${url.pathname}${url.search}`);
+        return;
+      }
+
+      const unbookmarkBtn = event.target.closest('.js-unbookmark-btn');
+      if (!unbookmarkBtn) return;
+
+      event.preventDefault();
+      const postId = unbookmarkBtn.getAttribute('data-post-id');
+      if (!postId) return;
+      const result = await postAction(`/api/posts/${postId}/bookmark`);
+      if (!result) return;
+
+      if (result.active === false) {
+        const url = buildQueryUrl();
+        refreshBookmarkPanel(url);
+      }
+    });
+  })();
+
+  document.querySelectorAll('.js-copy-api').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const targetId = btn.getAttribute('data-copy-target');
+      if (!targetId) return;
+      const source = document.getElementById(targetId);
+      if (!source) return;
+      const text = source.textContent || '';
+      try {
+        await navigator.clipboard.writeText(text.trim());
+        btn.textContent = '복사됨';
+        setTimeout(() => { btn.textContent = targetId.includes('curl') ? 'cURL 복사' : 'fetch 복사'; }, 1200);
+      } catch {
+        alert('클립보드 복사에 실패했습니다.');
+      }
+    });
+  });
+</script>
+{% endblock %}

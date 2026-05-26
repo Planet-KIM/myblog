@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 import re
 import html as html_module
@@ -83,19 +83,161 @@ templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(tags=["blog"])
 
 
+def build_approved_api_catalog() -> List[Dict[str, str]]:
+    """내부에서 사용 가능한 승인 API 카탈로그."""
+    return [
+        {
+            "name": "북마크 토글",
+            "method": "POST",
+            "path": "/api/posts/{post_id}/bookmark",
+            "auth": "로그인 필요",
+            "access": "쓰기",
+            "purpose": "글을 저장/해제하여 나중에 다시 보기",
+            "curl_example": "curl -X POST -H 'Content-Type: application/json' -b 'session=...' http://127.0.0.1:8000/api/posts/36/bookmark",
+            "fetch_example": "fetch('/api/posts/36/bookmark', { method: 'POST', credentials: 'same-origin' })",
+        },
+        {
+            "name": "좋아요 토글",
+            "method": "POST",
+            "path": "/api/posts/{post_id}/like",
+            "auth": "로그인 필요",
+            "access": "쓰기",
+            "purpose": "좋아요 반응 등록/해제",
+            "curl_example": "curl -X POST -H 'Content-Type: application/json' -b 'session=...' http://127.0.0.1:8000/api/posts/36/like",
+            "fetch_example": "fetch('/api/posts/36/like', { method: 'POST', credentials: 'same-origin' })",
+        },
+        {
+            "name": "게시글 참여 상태 조회",
+            "method": "GET",
+            "path": "/api/posts/{post_id}/engagement",
+            "auth": "선택(로그인 시 개인 상태 포함)",
+            "access": "읽기",
+            "purpose": "likes/bookmarks 총량 + 내 active 상태 조회",
+            "curl_example": "curl 'http://127.0.0.1:8000/api/posts/36/engagement'",
+            "fetch_example": "fetch('/api/posts/36/engagement', { credentials: 'same-origin' })",
+        },
+        {
+            "name": "카테고리 팔로우",
+            "method": "POST",
+            "path": "/api/follow/category/{category_id}",
+            "auth": "로그인 필요",
+            "access": "쓰기",
+            "purpose": "관심 카테고리 팔로우/해제",
+            "curl_example": "curl -X POST -H 'Content-Type: application/json' -b 'session=...' http://127.0.0.1:8000/api/follow/category/1",
+            "fetch_example": "fetch('/api/follow/category/1', { method: 'POST', credentials: 'same-origin' })",
+        },
+        {
+            "name": "작성자 팔로우",
+            "method": "POST",
+            "path": "/api/follow/author/{author_user_id}",
+            "auth": "로그인 필요",
+            "access": "쓰기",
+            "purpose": "관심 작성자 팔로우/해제",
+            "curl_example": "curl -X POST -H 'Content-Type: application/json' -b 'session=...' http://127.0.0.1:8000/api/follow/author/2",
+            "fetch_example": "fetch('/api/follow/author/2', { method: 'POST', credentials: 'same-origin' })",
+        },
+        {
+            "name": "태그 자동완성",
+            "method": "GET",
+            "path": "/api/tags/suggest?q=keyword",
+            "auth": "불필요",
+            "access": "읽기",
+            "purpose": "입력 중인 태그 추천",
+            "curl_example": "curl 'http://127.0.0.1:8000/api/tags/suggest?q=tr'",
+            "fetch_example": "fetch('/api/tags/suggest?q=tr')",
+        },
+        {
+            "name": "인기 태그 조회",
+            "method": "GET",
+            "path": "/api/tags/popular?limit=20",
+            "auth": "불필요",
+            "access": "읽기",
+            "purpose": "홈/작성 화면에서 인기 태그 노출",
+            "curl_example": "curl 'http://127.0.0.1:8000/api/tags/popular?limit=20'",
+            "fetch_example": "fetch('/api/tags/popular?limit=20')",
+        },
+        {
+            "name": "홈 추천 슬롯",
+            "method": "GET",
+            "path": "/api/recommendations/home",
+            "auth": "불필요",
+            "access": "읽기",
+            "purpose": "홈 추천 링크 목록 조회",
+            "curl_example": "curl 'http://127.0.0.1:8000/api/recommendations/home'",
+            "fetch_example": "fetch('/api/recommendations/home')",
+        },
+        {
+            "name": "뉴스레터 구독",
+            "method": "POST",
+            "path": "/api/newsletter/subscribe",
+            "auth": "불필요",
+            "access": "쓰기",
+            "purpose": "double opt-in 구독 요청",
+            "curl_example": "curl -X POST -H 'Content-Type: application/json' -d '{\"email\":\"you@example.com\"}' http://127.0.0.1:8000/api/newsletter/subscribe",
+            "fetch_example": "fetch('/api/newsletter/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'you@example.com' }) })",
+        },
+        {
+            "name": "읽기시간 계산",
+            "method": "POST",
+            "path": "/api/calculate-reading-time",
+            "auth": "불필요",
+            "access": "읽기",
+            "purpose": "텍스트 기반 예상 읽기시간 계산",
+            "curl_example": "curl -X POST -H 'Content-Type: application/json' -d '{\"content\":\"example text\"}' http://127.0.0.1:8000/api/calculate-reading-time",
+            "fetch_example": "fetch('/api/calculate-reading-time', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: 'example text' }) })",
+        },
+        {
+            "name": "마크다운 미리보기",
+            "method": "POST",
+            "path": "/api/markdown/preview",
+            "auth": "불필요",
+            "access": "읽기",
+            "purpose": "마크다운을 렌더링 HTML로 변환",
+            "curl_example": "curl -X POST -H 'Content-Type: application/json' -d '{\"content\":\"# hello\"}' http://127.0.0.1:8000/api/markdown/preview",
+            "fetch_example": "fetch('/api/markdown/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: '# hello' }) })",
+        },
+        {
+            "name": "맞춤법 검사",
+            "method": "POST",
+            "path": "/api/spellcheck",
+            "auth": "로그인 필요",
+            "access": "쓰기",
+            "purpose": "본문 맞춤법 교정 결과 반환 (rate limit 적용)",
+            "curl_example": "curl -X POST -H 'Content-Type: application/json' -b 'session=...' -d '{\"text\":\"안녕하세요\"}' http://127.0.0.1:8000/api/spellcheck",
+            "fetch_example": "fetch('/api/spellcheck', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: '안녕하세요' }) })",
+        },
+    ]
+
+
 def markdown_to_plain(text: str, max_len: int = 180) -> str:
-    """Markdown 원본을 렌더링 후 HTML 태그를 제거하여 순수 텍스트 미리보기 생성"""
-    # 1. 이미지 Markdown 문법 ![alt](url) 전제 제거
-    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
-    # 2. Markdown → HTML 변환
+    """Markdown/HTML 혼합 본문에서 카드용 순수 텍스트 미리보기 생성."""
+    text = (text or "").strip()
+    if not text:
+        return ""
+
+    # 1) 이미지 문법은 미리 제거 (alt/url 노이즈 방지)
+    text = re.sub(r'!\[.*?\]\(.*?\)', ' ', text)
+
+    # 2) Markdown -> HTML 정규화
     raw_html = markdown.markdown(text, extensions=['fenced_code', 'tables'])
-    # 3. HTML 태그 제거
+
+    # 3) 코드/스크립트/스타일 블록 제거 (카드 미리보기 노이즈 방지)
+    raw_html = re.sub(r'(?is)<(script|style)[^>]*>.*?</\1>', ' ', raw_html)
+    raw_html = re.sub(r'(?is)<pre[^>]*>.*?</pre>', ' ', raw_html)
+    raw_html = re.sub(r'(?is)<code[^>]*>.*?</code>', ' ', raw_html)
+
+    # 4) 태그 제거 -> 엔티티 복원 -> 잔재 태그 재제거
     plain = re.sub(r'<[^>]+>', ' ', raw_html)
-    # 4. HTML 엔티티 복원 (&amp; 등)
     plain = html_module.unescape(plain)
-    # 5. 연속 공백/줄바꾸을 단일 공백으로
+    plain = re.sub(r'<[^>\n]+>', ' ', plain)
+
+    # 5) 남아있는 꺾쇠 제거 (엔티티 복원 후 생긴 태그 조각 방어)
+    plain = plain.replace("<", " ").replace(">", " ")
+
+    # 6) 줄바꿈/연속 공백 정리
     plain = re.sub(r'\s+', ' ', plain).strip()
-    # 6. 최대 길이 제한
+
+    # 7) 최대 길이 제한
     if len(plain) > max_len:
         plain = plain[:max_len] + '...'
     return plain
@@ -419,6 +561,7 @@ def read_index(
     curated_recommendations = get_curated_home_recommendations()
 
     return templates.TemplateResponse(
+        request,
         "index.html",
         {
             "request": request,
@@ -511,6 +654,7 @@ def main_page(
     # 추가항
     cv = render_markdown_fields(cv)
     return templates.TemplateResponse(
+        request,
         "main.html",
         {
             "request": request,
@@ -519,6 +663,153 @@ def main_page(
             "current_user": current_user,
             "cv": cv,
             "current_year": datetime.utcnow().year,
+        },
+    )
+
+
+@router.get("/me", response_class=HTMLResponse)
+def my_page(
+    request: Request,
+    tab: str = "bookmarks",
+    q: Optional[str] = None,
+    category_id: Optional[str] = None,
+    sort: str = "recent",
+    page: int = 1,
+    size: int = 20,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+):
+    if not current_user:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    tab_mode = (tab or "bookmarks").strip().lower()
+    if tab_mode not in {"bookmarks", "apis"}:
+        tab_mode = "bookmarks"
+
+    sort_mode = (sort or "recent").strip().lower()
+    if sort_mode not in {"recent", "oldest", "popular"}:
+        sort_mode = "recent"
+
+    page = max(1, page)
+    size = max(1, min(size, 50))
+
+    categories = db.query(models.BoardCategory).order_by(models.BoardCategory.id.asc()).all()
+    selected_category_id: Optional[int] = None
+    if category_id not in (None, ""):
+        try:
+            selected_category_id = int(category_id)
+        except (TypeError, ValueError):
+            selected_category_id = None
+
+    selected_category_ids: list[int] | None = None
+    if selected_category_id is not None:
+        selected_category_ids = collect_descendant_category_ids(categories, selected_category_id)
+
+    bookmark_query = (
+        db.query(models.PostBookmark)
+        .join(models.BoardPost, models.PostBookmark.post_id == models.BoardPost.id)
+        .outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id)
+        .options(
+            joinedload(models.PostBookmark.post).joinedload(models.BoardPost.category),
+            joinedload(models.PostBookmark.post).joinedload(models.BoardPost.stats),
+            joinedload(models.PostBookmark.post).joinedload(models.BoardPost.tags),
+        )
+        .filter(models.PostBookmark.user_id == current_user.id)
+        .filter(
+            or_(
+                models.BoardPost.is_private == False,
+                models.BoardPost.user_id == current_user.id,
+            )
+        )
+    )
+
+    if q:
+        bookmark_query = bookmark_query.filter(
+            or_(
+                models.BoardPost.title.ilike(f"%{q}%"),
+                models.BoardPost.content.ilike(f"%{q}%"),
+                models.BoardPost.content_html.ilike(f"%{q}%"),
+                models.BoardPost.author.ilike(f"%{q}%"),
+            )
+        )
+
+    if selected_category_ids:
+        bookmark_query = bookmark_query.filter(models.BoardPost.category_id.in_(selected_category_ids))
+
+    if sort_mode == "oldest":
+        bookmark_query = bookmark_query.order_by(models.PostBookmark.created_at.asc())
+    elif sort_mode == "popular":
+        bookmark_query = bookmark_query.order_by(
+            func.coalesce(models.PostStats.views, 0).desc(),
+            func.coalesce(models.PostStats.likes, 0).desc(),
+            models.PostBookmark.created_at.desc(),
+        )
+    else:
+        bookmark_query = bookmark_query.order_by(models.PostBookmark.created_at.desc())
+
+    total_bookmarks = (
+        bookmark_query.order_by(None)
+        .with_entities(func.count(models.PostBookmark.id))
+        .scalar()
+        or 0
+    )
+    total_pages = max(1, (total_bookmarks + size - 1) // size)
+    page = min(page, total_pages)
+
+    bookmark_rows = bookmark_query.offset((page - 1) * size).limit(size).all()
+
+    bookmarked_posts: list[models.BoardPost] = []
+    for row in bookmark_rows:
+        post = row.post
+        if not post:
+            continue
+
+        source = post.content_html or post.content or ""
+        preview = markdown_to_plain(source, max_len=180)
+        key_sentence = extract_key_sentence(source)
+
+        post.preview = key_sentence if len(preview) > 170 and key_sentence else preview
+        post.thumbnail = extract_first_image(source)
+        post.reading_minutes = estimate_reading_minutes(source)
+        post.like_count = post.stats.likes if post.stats else 0
+        post.view_count = post.stats.views if post.stats else 0
+        post.bookmark_saved_at = row.created_at
+        bookmarked_posts.append(post)
+
+    category_rows = (
+        db.query(models.BoardPost.category_id, func.count(models.PostBookmark.id))
+        .join(models.PostBookmark, models.PostBookmark.post_id == models.BoardPost.id)
+        .filter(models.PostBookmark.user_id == current_user.id)
+        .filter(
+            or_(
+                models.BoardPost.is_private == False,
+                models.BoardPost.user_id == current_user.id,
+            )
+        )
+        .group_by(models.BoardPost.category_id)
+        .all()
+    )
+    bookmark_category_counts = {cid: cnt for cid, cnt in category_rows if cid is not None}
+    approved_api_catalog = build_approved_api_catalog()
+
+    return templates.TemplateResponse(
+        request,
+        "me.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "selected_tab": tab_mode,
+            "bookmarked_posts": bookmarked_posts,
+            "search_query": q or "",
+            "selected_category_id": selected_category_id,
+            "selected_sort": sort_mode,
+            "current_page": page,
+            "total_pages": total_pages,
+            "size": size,
+            "total_bookmarks": total_bookmarks,
+            "categories": categories,
+            "bookmark_category_counts": bookmark_category_counts,
+            "approved_api_catalog": approved_api_catalog,
         },
     )
 
@@ -544,6 +835,7 @@ def read_post(
             return RedirectResponse("/", status_code=303)
 
     return templates.TemplateResponse(
+        request,
         "post_detail.html",
         {
             "request": request,

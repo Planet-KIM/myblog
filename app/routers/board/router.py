@@ -3,6 +3,7 @@ import re
 from uuid import uuid4
 from pathlib import Path
 from datetime import datetime
+from urllib.parse import quote
 
 from fastapi import (
     APIRouter, Depends, Form, HTTPException, Request
@@ -84,39 +85,126 @@ def extract_title_from_html(html: str) -> str:
 
 
 # ------------------------------------------------------------
+# Milkdown 최상단 1줄 제목 추출
+# ------------------------------------------------------------
+def extract_title_from_milkdown_top_line(
+    content_html: Optional[str],
+    content: Optional[str] = None,
+) -> str:
+    """Milkdown 콘텐츠에서 최상단 유효 1줄만 제목으로 추출."""
+    import html as html_module
+
+    source = (content_html or content or "").strip()
+    if not source:
+        return "Untitled"
+
+    # 1) entity decode
+    text = html_module.unescape(source)
+
+    # 2) 코드/스타일 블록 제거 (제목 후보에서 제외)
+    text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", "\n", text)
+    text = re.sub(r"(?is)<pre[^>]*>.*?</pre>", "\n", text)
+    text = re.sub(r"(?is)<code[^>]*>.*?</code>", "\n", text)
+
+    # 3) 줄 경계 보존
+    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
+    text = re.sub(
+        r"(?i)</(h[1-6]|p|div|li|blockquote|section|article|header|footer|tr|td|th)>",
+        "\n",
+        text,
+    )
+    text = re.sub(
+        r"(?i)<(h[1-6]|p|div|li|blockquote|section|article|header|footer|tr|td|th)[^>]*>",
+        "",
+        text,
+    )
+
+    # 4) 나머지 태그 제거
+    text = re.sub(r"(?is)<[^>]+>", "", text)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    boilerplate_phrases = (
+        "여기에 내용을 작성하세요.",
+        "type here...",
+        "print(\"hello world\")",
+        "print('hello world')",
+    )
+
+    in_code_fence = False
+    for raw_line in text.split("\n"):
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        if re.match(r"^```", line):
+            in_code_fence = not in_code_fence
+            continue
+        if in_code_fence:
+            continue
+
+        if line.startswith("#"):
+            line = line.lstrip("#").strip()
+        if not line:
+            continue
+
+        if re.match(r"^!\[[^\]]*\]\([^)]+\)", line):
+            continue
+
+        lower_line = line.lower()
+        if any(phrase in lower_line for phrase in boilerplate_phrases):
+            continue
+
+        # 저장 중 섞인 태그 잔재 문자열 방어
+        if "data-text-color" in lower_line or "<span" in lower_line or "</span" in lower_line:
+            continue
+
+        cleaned = re.sub(r"\s+", " ", line).strip()
+        if cleaned:
+            return cleaned[:200]
+
+    return "Untitled"
+
+
+# ------------------------------------------------------------
 # Markdown to plain text preview (마크다운 기호 제거)
 # ------------------------------------------------------------
-def create_preview(content: str, max_length: int = 200) -> str:
-    """마크다운에서 일반 텍스트 미리보기 생성"""
-    import re
+def create_preview(
+    content_html: Optional[str],
+    content: Optional[str] = None,
+    max_length: int = 200,
+) -> str:
+    """HTML/Markdown 혼합 본문에서 카드용 순수 텍스트 미리보기 생성."""
+    import html as html_module
 
-    # 제목 제거 (첫 줄이 제목이면)
-    lines = content.splitlines()
-    text = content
+    source = (content_html or content or "").strip()
+    if not source:
+        return "No preview available..."
 
-    if lines and lines[0].startswith('#'):
-        text = '\n'.join(lines[1:])
+    text = html_module.unescape(source)
 
-    # 마크다운 기호들 제거
-    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)  # 이미지
-    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)  # 링크
-    text = re.sub(r'```[\s\S]*?```', '', text)  # 코드 블록
-    text = re.sub(r'`([^`]+)`', r'\1', text)  # 인라인 코드
-    text = re.sub(r'#+\s', '', text)  # 헤딩
-    text = re.sub(r'[*_]{1,2}([^*_]+)[*_]{1,2}', r'\1', text)  # Bold, italic
-    text = re.sub(r'^\s*[-*+]\s', '', text, flags=re.MULTILINE)  # 리스트
-    text = re.sub(r'^\s*\d+\.\s', '', text, flags=re.MULTILINE)  # 번호 리스트
-    text = re.sub(r'>\s', '', text)  # 인용구
+    # 코드/스크립트/스타일 블록 제거
+    text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", "\n", text)
+    text = re.sub(r"(?is)<pre[^>]*>.*?</pre>", "\n", text)
+    text = re.sub(r"(?is)<code[^>]*>.*?</code>", "\n", text)
+    text = re.sub(r"```[\s\S]*?```", "\n", text)
 
-    # 여러 공백을 하나로
-    text = re.sub(r'\s+', ' ', text)
-    text = text.strip()
+    # 블록 경계 보존
+    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
+    text = re.sub(r"(?i)</(h[1-6]|p|div|li|blockquote|section|article|header|footer|tr|td|th)>", "\n", text)
+    text = re.sub(r"(?i)<(h[1-6]|p|div|li|blockquote|section|article|header|footer|tr|td|th)[^>]*>", "", text)
 
-    # 길이 제한
+    # 잔여 태그 제거 및 공백 정리
+    text = re.sub(r"(?is)<[^>]+>", " ", text)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"\s+", " ", text).strip()
+
+    if not text:
+        return "No preview available..."
+
     if len(text) > max_length:
-        text = text[:max_length].rsplit(' ', 1)[0] + '...'
+        text = text[:max_length].rsplit(" ", 1)[0] + "..."
 
-    return text if text else 'No preview available...'
+    return text
 
 
 # ------------------------------------------------------------
@@ -163,6 +251,7 @@ def category_list(
     post_count_map = rollup_category_counts(categories, direct_post_count_map)
 
     return templates.TemplateResponse(
+        request,
         "board_categories.html",
         {
             "request": request,
@@ -247,6 +336,7 @@ def category_create(
         post_count_map = rollup_category_counts(categories, direct_post_count_map)
 
         return templates.TemplateResponse(
+            request,
             "board_categories.html",
             {
                 "request": request,
@@ -476,6 +566,7 @@ def board_new(
     # 에디터 선택 안 했으면 선택 페이지로
     if editor not in ("milkdown", "tiptap"):
         return templates.TemplateResponse(
+            request,
             "board_select_editor.html",
             {"request": request, "current_user": current_user},
         )
@@ -491,6 +582,7 @@ def board_new(
     template_name = "board_new_tiptap.html" if editor == "tiptap" else "board_new_clean.html"
 
     return templates.TemplateResponse(
+        request,
         template_name,
         {
             "request": request,
@@ -534,9 +626,11 @@ def board_create(
     if not category:
         raise HTTPException(400, "Invalid category")
 
-    # TipTap은 HTML 기반이므로 제목 추출 방식 분기
+    # 에디터 타입별 제목 추출 분기
     if editor_type == "tiptap":
         title = extract_title_from_html(content_html or content)
+    elif editor_type == "milkdown":
+        title = extract_title_from_milkdown_top_line(content_html, content)
     else:
         title = extract_title_from_markdown(content)
 
@@ -611,6 +705,7 @@ def board_edit(
     template_name = "board_edit_tiptap.html" if post.editor_type == "tiptap" else "board_edit.html"
 
     return templates.TemplateResponse(
+        request,
         template_name,
         {
             "request": request,
@@ -652,8 +747,11 @@ def board_update(
         raise HTTPException(status_code=400, detail="Invalid category ID format")
 
     # 에디터 타입에 따라 제목 추출 분기
-    if editor_type == "tiptap" or post.editor_type == "tiptap":
+    effective_editor_type = editor_type or post.editor_type or "milkdown"
+    if effective_editor_type == "tiptap":
         post.title = extract_title_from_html(content_html or content)
+    elif effective_editor_type == "milkdown":
+        post.title = extract_title_from_milkdown_top_line(content_html, content)
     else:
         post.title = extract_title_from_markdown(content)
 
@@ -717,8 +815,9 @@ def board_delete(
 @router.get("/", response_class=HTMLResponse)
 def board_list(
     request: Request,
-    category_id: Optional[int] = None,
+    category_id: Optional[str] = None,
     q: Optional[str] = None,
+    scope: str = "all",
     sort: str = "recent",
     page: int = 1,
     size: int = 10,
@@ -734,15 +833,39 @@ def board_list(
     )
     ordered_categories, category_depths = order_categories_parent_first(categories)
 
+    selected_category_id: Optional[int] = None
+    if category_id not in (None, ""):
+        try:
+            selected_category_id = int(category_id)
+        except (TypeError, ValueError):
+            selected_category_id = None
+
     selected_category_ids: list[int] | None = None
-    if category_id:
-        selected_category_ids = collect_descendant_category_ids(categories, category_id)
+    if selected_category_id is not None:
+        selected_category_ids = collect_descendant_category_ids(categories, selected_category_id)
+
+    scope_mode = (scope or "all").strip().lower()
+    if scope_mode not in {"all", "saved"}:
+        scope_mode = "all"
+
+    if scope_mode == "saved" and not current_user:
+        next_path = request.url.path
+        if request.url.query:
+            next_path = f"{next_path}?{request.url.query}"
+        encoded_next = quote(next_path, safe="/")
+        return RedirectResponse(f"/auth/login?next={encoded_next}", status_code=303)
 
     query = db.query(models.BoardPost).options(
         joinedload(models.BoardPost.category),
         joinedload(models.BoardPost.user),
         joinedload(models.BoardPost.stats)
     )
+
+    if scope_mode == "saved" and current_user:
+        query = query.join(
+            models.PostBookmark,
+            models.PostBookmark.post_id == models.BoardPost.id,
+        ).filter(models.PostBookmark.user_id == current_user.id)
 
     if selected_category_ids:
         query = query.filter(models.BoardPost.category_id.in_(selected_category_ids))
@@ -777,32 +900,41 @@ def board_list(
     if sort_mode == "popular":
         query = query.outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id).order_by(
             func.coalesce(models.PostStats.views, 0).desc(),
+            func.coalesce(models.PostStats.likes, 0).desc(),
+            models.PostBookmark.created_at.desc() if scope_mode == "saved" else models.BoardPost.created_at.desc(),
             models.BoardPost.created_at.desc(),
         )
     elif sort_mode == "discussed":
         query = query.outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id).order_by(
             func.coalesce(models.PostStats.likes, 0).desc(),
+            func.coalesce(models.PostStats.views, 0).desc(),
+            models.PostBookmark.created_at.desc() if scope_mode == "saved" else models.BoardPost.created_at.desc(),
             models.BoardPost.created_at.desc(),
         )
     else:
         sort_mode = "recent"
-        query = query.order_by(models.BoardPost.created_at.desc())
+        if scope_mode == "saved":
+            query = query.order_by(models.PostBookmark.created_at.desc(), models.BoardPost.created_at.desc())
+        else:
+            query = query.order_by(models.BoardPost.created_at.desc())
 
     posts = query.offset((page - 1) * size).limit(size).all()
 
     # Add preview to each post
     for post in posts:
         if not hasattr(post, 'preview') or not post.preview:
-            post.preview = create_preview(post.content)
+            post.preview = create_preview(post.content_html, post.content)
 
     return templates.TemplateResponse(
+        request,
         "board_list_writer.html",
         {
             "request": request,
             "posts": posts,
             "categories": ordered_categories,
             "category_depths": category_depths,
-            "selected_category_id": category_id,
+            "selected_category_id": selected_category_id,
+            "selected_scope": scope_mode,
             "search_query": q,
             "selected_sort": sort_mode,
             "current_user": current_user,
@@ -858,6 +990,7 @@ def board_detail(
     template_name = "board_detail_magazine.html" if post.editor_type == "tiptap" else "board_detail_writer.html"
 
     return templates.TemplateResponse(
+        request,
         template_name,
         {
             "request": request,

@@ -217,7 +217,8 @@ async function main() {
 
   const crepe = new Crepe({
     root,
-    defaultValue: '# 제목 예시\n\n여기에 내용을 작성하세요.\n\n```python\nprint("hello world")\n```',
+    // 새 글은 빈 상태로 시작한다 (샘플 문구/코드 자동 삽입 제거).
+    defaultValue: '',
     featureConfigs: {
       [Crepe.Feature.ImageBlock]: { onUpload: uploadImage },
     },

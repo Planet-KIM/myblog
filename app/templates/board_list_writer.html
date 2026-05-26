@@ -42,6 +42,10 @@
     margin-bottom: 2rem;
   }
 
+  .scope-filter {
+    margin-bottom: 1rem;
+  }
+
   .category-chip {
     padding: 0.5rem 1rem;
     border-radius: 20px;
@@ -75,6 +79,12 @@
     display: flex;
     flex-direction: column;
     gap: 2rem;
+  }
+
+  .board-results-region.is-loading {
+    opacity: 0.58;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
   }
 
   /* Story card */
@@ -396,11 +406,11 @@
   </div>
 
   <!-- Search -->
-  <form class="search-container" method="get" action="/board/">
-    {% if selected_category_id %}
-    <input type="hidden" name="category_id" value="{{ selected_category_id }}">
-    {% endif %}
+  <form id="board-search-form" class="search-container" method="get" action="/board/">
+    <input type="hidden" name="scope" value="{{ selected_scope or 'all' }}">
+    <input type="hidden" name="category_id" value="{{ selected_category_id if selected_category_id is not none else '' }}">
     <input type="hidden" name="sort" value="{{ selected_sort or 'recent' }}">
+    <input type="hidden" name="page" value="{{ current_page or 1 }}">
     <input
       name="q"
       type="text"
@@ -412,119 +422,138 @@
     <button type="submit" class="search-icon" style="border:0;background:transparent;">🔍</button>
   </form>
 
-  <div class="category-filter">
-    <a href="/board/?{% if selected_category_id %}category_id={{ selected_category_id }}&{% endif %}{% if search_query %}q={{ search_query|urlencode }}&{% endif %}sort=recent"
-       class="category-chip {% if (selected_sort or 'recent') == 'recent' %}active{% endif %}">
-      Recent
-    </a>
-    <a href="/board/?{% if selected_category_id %}category_id={{ selected_category_id }}&{% endif %}{% if search_query %}q={{ search_query|urlencode }}&{% endif %}sort=popular"
-       class="category-chip {% if selected_sort == 'popular' %}active{% endif %}">
-      Popular
-    </a>
-    <a href="/board/?{% if selected_category_id %}category_id={{ selected_category_id }}&{% endif %}{% if search_query %}q={{ search_query|urlencode }}&{% endif %}sort=discussed"
-       class="category-chip {% if selected_sort == 'discussed' %}active{% endif %}">
-      Discussed
-    </a>
-  </div>
-
-  <!-- Category filter -->
-  <div class="category-filter">
-    <a href="/board/?{% if search_query %}q={{ search_query|urlencode }}&{% endif %}sort={{ selected_sort or 'recent' }}"
-       class="category-chip {% if not selected_category_id %}active{% endif %}">
-      All
-    </a>
-    {% for category in categories %}
-    <a
-      href="/board/?category_id={{ category.id }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort or 'recent' }}"
-      class="category-chip {% if category_depths and category_depths.get(category.id, 0) > 0 %}is-child{% endif %} {% if selected_category_id == category.id %}active{% endif %}"
-    >
-      {% if category_depths and category_depths.get(category.id, 0) > 0 %}↳ {% endif %}{{ category.name }}
-    </a>
-    {% endfor %}
-  </div>
-
-  <!-- Stories -->
-  <div class="stories-grid" id="storiesGrid">
-    {% if posts %}
-      {% for post in posts %}
-      <article class="story-card" onclick="window.location.href='/board/{{ post.id }}'">
-        <div class="story-header">
-          <div class="story-meta">
-            {% if post.category %}
-            <span class="story-category">{{ post.category.name }}</span>
-            {% endif %}
-            <span class="story-date">{{ post.created_at.strftime('%B %d, %Y') }}</span>
-          </div>
-          <div class="story-badges">
-            {% if post.is_private %}
-            <span class="badge badge-private">Private</span>
-            {% endif %}
-            {% if (current_time - post.created_at).days < 1 %}
-            <span class="badge badge-new">New</span>
-            {% endif %}
-          </div>
-        </div>
-
-        <a href="/board/{{ post.id }}" class="story-title">
-          {% if post.show_title != False %}
-            {{ post.title or 'Untitled Story' }}
-          {% else %}
-            Untitled Story
-          {% endif %}
-        </a>
-
-        <p class="story-preview">
-          {{ post.preview | default('No preview available...', true) }}
-        </p>
-
-        <div class="story-footer">
-          <div class="story-author">
-            <span class="author-avatar">{{ post.author[0].upper() }}</span>
-            <span>{{ post.author }}</span>
-          </div>
-          <div class="story-stats">
-            <span class="stat-item">
-              👁 {{ post.stats.views if post.stats else 0 }}
-            </span>
-            <span class="stat-item">
-              📝 {{ post.content.split()|length if post.content else 0 }} words
-            </span>
-          </div>
-        </div>
-      </article>
-      {% endfor %}
-    {% else %}
-      <div class="empty-state">
-        <div class="empty-icon">📝</div>
-        <h2 class="empty-title">No stories yet</h2>
-        <p class="empty-message">Start writing your first story to begin your journey.</p>
-        <a href="/board/new" class="btn-primary">Write Your First Story</a>
-      </div>
-    {% endif %}
-  </div>
-
-  <!-- Pagination (if needed) -->
-  {% if total_pages > 1 %}
-  <div class="pagination">
-    {% if current_page > 1 %}
-    <a href="?page={{ current_page - 1 }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort or 'recent' }}" class="page-link">← Previous</a>
-    {% endif %}
-
-    {% for page in range(1, total_pages + 1) %}
-      {% if page <= 3 or page > total_pages - 3 or (page > current_page - 2 and page < current_page + 2) %}
-      <a href="?page={{ page }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort or 'recent' }}" class="page-link {% if page == current_page %}active{% endif %}">
-        {{ page }}
+  <div id="board-results-region" class="board-results-region">
+    <div class="category-filter scope-filter">
+      <a href="{{ request.url.include_query_params(scope='all', page=1) }}"
+         class="category-chip js-board-filter-link {% if (selected_scope or 'all') == 'all' %}active{% endif %}">
+        All
       </a>
-      {% elif page == 4 or page == total_pages - 3 %}
-      <span>...</span>
-      {% endif %}
-    {% endfor %}
+      <a href="{{ request.url.include_query_params(scope='saved', page=1) }}"
+         class="category-chip js-board-filter-link {% if selected_scope == 'saved' %}active{% endif %}">
+        Saved
+      </a>
+    </div>
 
-    {% if current_page < total_pages %}
-    <a href="?page={{ current_page + 1 }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort or 'recent' }}" class="page-link">Next →</a>
+    <div class="category-filter">
+      <a href="{{ request.url.include_query_params(sort='recent', page=1) }}"
+         class="category-chip js-board-filter-link {% if (selected_sort or 'recent') == 'recent' %}active{% endif %}">
+        Recent
+      </a>
+      <a href="{{ request.url.include_query_params(sort='popular', page=1) }}"
+         class="category-chip js-board-filter-link {% if selected_sort == 'popular' %}active{% endif %}">
+        Popular
+      </a>
+      <a href="{{ request.url.include_query_params(sort='discussed', page=1) }}"
+         class="category-chip js-board-filter-link {% if selected_sort == 'discussed' %}active{% endif %}">
+        Discussed
+      </a>
+    </div>
+
+    <!-- Category filter -->
+    <div class="category-filter">
+      <a href="{{ request.url.include_query_params(category_id='', page=1) }}"
+         class="category-chip js-board-filter-link {% if selected_category_id is none %}active{% endif %}">
+        All Categories
+      </a>
+      {% for category in categories %}
+      <a
+        href="{{ request.url.include_query_params(category_id=category.id, page=1) }}"
+        class="category-chip js-board-filter-link {% if category_depths and category_depths.get(category.id, 0) > 0 %}is-child{% endif %} {% if selected_category_id == category.id %}active{% endif %}"
+      >
+        {% if category_depths and category_depths.get(category.id, 0) > 0 %}↳ {% endif %}{{ category.name }}
+      </a>
+      {% endfor %}
+    </div>
+
+    <!-- Stories -->
+    <div class="stories-grid" id="storiesGrid">
+      {% if posts %}
+        {% for post in posts %}
+        <article class="story-card" onclick="window.location.href='/board/{{ post.id }}'">
+          <div class="story-header">
+            <div class="story-meta">
+              {% if post.category %}
+              <span class="story-category">{{ post.category.name }}</span>
+              {% endif %}
+              <span class="story-date">{{ post.created_at.strftime('%B %d, %Y') }}</span>
+            </div>
+            <div class="story-badges">
+              {% if post.is_private %}
+              <span class="badge badge-private">Private</span>
+              {% endif %}
+              {% if (current_time - post.created_at).days < 1 %}
+              <span class="badge badge-new">New</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <a href="/board/{{ post.id }}" class="story-title">
+            {% if post.show_title != False %}
+              {{ post.title or 'Untitled Story' }}
+            {% else %}
+              Untitled Story
+            {% endif %}
+          </a>
+
+          <p class="story-preview">
+            {{ post.preview | default('No preview available...', true) }}
+          </p>
+
+          <div class="story-footer">
+            <div class="story-author">
+              <span class="author-avatar">{{ post.author[0].upper() }}</span>
+              <span>{{ post.author }}</span>
+            </div>
+            <div class="story-stats">
+              <span class="stat-item">
+                👁 {{ post.stats.views if post.stats else 0 }}
+              </span>
+              <span class="stat-item">
+                📝 {{ post.content.split()|length if post.content else 0 }} words
+              </span>
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">📝</div>
+          {% if selected_scope == 'saved' %}
+          <h2 class="empty-title">No saved stories yet</h2>
+          <p class="empty-message">북마크한 글이 아직 없습니다. 관심 글을 저장해 보세요.</p>
+          <a href="{{ request.url.include_query_params(scope='all', page=1) }}" class="btn-primary js-board-filter-link">Explore All Stories</a>
+          {% else %}
+          <h2 class="empty-title">No stories yet</h2>
+          <p class="empty-message">Start writing your first story to begin your journey.</p>
+          <a href="/board/new" class="btn-primary">Write Your First Story</a>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Pagination (if needed) -->
+    {% if total_pages > 1 %}
+    <div class="pagination">
+      {% if current_page > 1 %}
+      <a href="{{ request.url.include_query_params(page=current_page - 1) }}" class="page-link js-board-filter-link">← Previous</a>
+      {% endif %}
+
+      {% for page in range(1, total_pages + 1) %}
+        {% if page <= 3 or page > total_pages - 3 or (page > current_page - 2 and page < current_page + 2) %}
+        <a href="{{ request.url.include_query_params(page=page) }}" class="page-link js-board-filter-link {% if page == current_page %}active{% endif %}">
+          {{ page }}
+        </a>
+        {% elif page == 4 or page == total_pages - 3 %}
+        <span>...</span>
+        {% endif %}
+      {% endfor %}
+
+      {% if current_page < total_pages %}
+      <a href="{{ request.url.include_query_params(page=current_page + 1) }}" class="page-link js-board-filter-link">Next →</a>
+      {% endif %}
+    </div>
     {% endif %}
   </div>
-  {% endif %}
 </div>
 
 <!-- Floating new story button -->
@@ -532,31 +561,5 @@
   ✍️
 </a>
 
-<script>
-// Search functionality
-const searchInput = document.getElementById('searchInput');
-const storiesGrid = document.getElementById('storiesGrid');
-
-searchInput.addEventListener('input', (e) => {
-  const searchTerm = e.target.value.toLowerCase();
-  const stories = storiesGrid.querySelectorAll('.story-card');
-
-  stories.forEach(story => {
-    const title = story.querySelector('.story-title').textContent.toLowerCase();
-    const preview = story.querySelector('.story-preview').textContent.toLowerCase();
-    const category = story.querySelector('.story-category')?.textContent.toLowerCase() || '';
-
-    if (title.includes(searchTerm) || preview.includes(searchTerm) || category.includes(searchTerm)) {
-      story.style.display = 'block';
-    } else {
-      story.style.display = 'none';
-    }
-  });
-});
-
-// Theme persistence
-const html = document.documentElement;
-const savedTheme = localStorage.getItem('theme') || 'light';
-html.setAttribute('data-theme', savedTheme);
-</script>
+<script src="{{ url_for('static', path='js/board_list_writer.js') }}?v=1"></script>
 {% endblock %}
