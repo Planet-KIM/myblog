@@ -1,0 +1,882 @@
+{% extends "base.html" %}
+
+{% block title %}New Travel Log - Code & Journey{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='editor/layout.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/traveler-coder.css') }}">
+<style>
+  body {
+    background: var(--terminal-black);
+  }
+
+  .page-content {
+    max-width: 1600px;
+    padding: 2rem;
+  }
+
+  /* VS Code Style Layout */
+  .vscode-container {
+    background: var(--terminal-black);
+    border: 1px solid var(--terminal-border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  }
+
+  /* Activity Bar (Left Side) */
+  .activity-bar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 48px;
+    background: var(--terminal-dark);
+    border-right: 1px solid var(--terminal-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 0;
+    gap: 1rem;
+    z-index: 100;
+  }
+
+  .activity-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--code-comment);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .activity-icon:hover {
+    color: var(--terminal-green);
+  }
+
+  .activity-icon.active {
+    color: var(--terminal-green);
+  }
+
+  .activity-icon.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--terminal-green);
+  }
+
+  /* Main Editor Area */
+  .editor-workspace {
+    margin-left: 48px;
+    display: grid;
+    grid-template-columns: 250px 1fr 300px;
+    height: calc(100vh - 4rem);
+  }
+
+  /* File Explorer Panel */
+  .file-explorer {
+    background: var(--terminal-surface);
+    border-right: 1px solid var(--terminal-border);
+    padding: 1rem;
+    overflow-y: auto;
+  }
+
+  .explorer-title {
+    font-family: var(--font-terminal);
+    font-size: 0.75rem;
+    color: var(--code-comment);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .file-tree {
+    font-family: var(--font-terminal);
+    font-size: 0.875rem;
+  }
+
+  .file-item {
+    padding: 0.35rem 0.5rem;
+    color: var(--code-comment);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+    border-radius: 4px;
+  }
+
+  .file-item:hover {
+    background: rgba(0, 255, 65, 0.05);
+    color: var(--terminal-green);
+  }
+
+  .file-item.active {
+    background: rgba(0, 255, 65, 0.1);
+    color: var(--terminal-green);
+  }
+
+  /* Main Content Area */
+  .editor-main-content {
+    background: var(--terminal-black);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Tab Bar */
+  .editor-tabs {
+    background: var(--terminal-surface);
+    border-bottom: 1px solid var(--terminal-border);
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .editor-tab {
+    padding: 0.75rem 1.5rem;
+    background: var(--terminal-dark);
+    color: var(--code-comment);
+    border-right: 1px solid var(--terminal-border);
+    cursor: pointer;
+    font-family: var(--font-terminal);
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+    position: relative;
+    white-space: nowrap;
+  }
+
+  .editor-tab.active {
+    background: var(--terminal-black);
+    color: var(--terminal-green);
+  }
+
+  .editor-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--terminal-green);
+  }
+
+  /* Breadcrumb */
+  .breadcrumb-bar {
+    background: var(--terminal-surface);
+    padding: 0.5rem 1rem;
+    font-family: var(--font-terminal);
+    font-size: 0.75rem;
+    color: var(--code-comment);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .breadcrumb-item {
+    color: var(--code-variable);
+  }
+
+  /* Editor Content */
+  .editor-content-area {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+  }
+
+  /* Right Sidebar */
+  .editor-sidebar {
+    background: var(--terminal-surface);
+    border-left: 1px solid var(--terminal-border);
+    padding: 1rem;
+    overflow-y: auto;
+  }
+
+  /* Travel Form Fields */
+  .travel-field {
+    margin-bottom: 1.5rem;
+  }
+
+  .field-label {
+    font-family: var(--font-terminal);
+    font-size: 0.875rem;
+    color: var(--code-function);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .field-input {
+    width: 100%;
+    background: var(--terminal-surface);
+    border: 1px solid var(--terminal-border);
+    color: var(--terminal-green);
+    padding: 0.75rem;
+    font-family: var(--font-terminal);
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .field-input:focus {
+    outline: none;
+    border-color: var(--terminal-green);
+    box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.1);
+  }
+
+  /* Location Picker */
+  .location-picker {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .location-option {
+    padding: 0.5rem;
+    background: var(--terminal-black);
+    border: 1px solid var(--terminal-border);
+    border-radius: 4px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font-terminal);
+    font-size: 0.75rem;
+    color: var(--code-comment);
+  }
+
+  .location-option:hover {
+    border-color: var(--travel-blue);
+    color: var(--travel-blue);
+  }
+
+  .location-option.selected {
+    background: var(--travel-blue);
+    color: var(--terminal-black);
+    border-color: var(--travel-blue);
+  }
+
+  /* Tag Cloud */
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--terminal-black);
+    border: 1px solid var(--terminal-border);
+    border-radius: 4px;
+    min-height: 60px;
+  }
+
+  .tag-item {
+    padding: 0.35rem 0.75rem;
+    background: linear-gradient(135deg, var(--travel-blue), var(--terminal-green));
+    color: var(--terminal-black);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-family: var(--font-terminal);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    animation: slideInUp 0.3s ease;
+  }
+
+  .tag-remove {
+    cursor: pointer;
+    opacity: 0.7;
+  }
+
+  .tag-remove:hover {
+    opacity: 1;
+  }
+
+  /* Status Bar */
+  .status-bar {
+    background: var(--terminal-dark);
+    border-top: 1px solid var(--terminal-border);
+    padding: 0.5rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-terminal);
+    font-size: 0.75rem;
+    color: var(--code-comment);
+    position: fixed;
+    bottom: 0;
+    left: 48px;
+    right: 0;
+  }
+
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .status-indicator {
+    width: 8px;
+    height: 8px;
+    background: var(--terminal-green);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  /* Minimap */
+  .minimap {
+    position: absolute;
+    right: 20px;
+    top: 100px;
+    width: 100px;
+    height: 300px;
+    background: rgba(26, 31, 41, 0.8);
+    border: 1px solid var(--terminal-border);
+    border-radius: 4px;
+    padding: 0.5rem;
+    font-family: var(--font-terminal);
+    font-size: 2px;
+    line-height: 1;
+    color: var(--code-comment);
+    overflow: hidden;
+  }
+
+  /* Terminal Output */
+  .terminal-output {
+    background: var(--terminal-black);
+    border: 1px solid var(--terminal-border);
+    border-radius: 4px;
+    padding: 1rem;
+    font-family: var(--font-terminal);
+    font-size: 0.875rem;
+    color: var(--terminal-green);
+    margin-top: 1rem;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  .output-line {
+    margin-bottom: 0.25rem;
+  }
+
+  .output-success {
+    color: var(--code-string);
+  }
+
+  .output-error {
+    color: var(--passport-red);
+  }
+
+  /* Action Buttons */
+  .action-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .btn-travel {
+    padding: 0.75rem 2rem;
+    background: linear-gradient(135deg, var(--travel-blue), var(--terminal-green));
+    color: var(--terminal-black);
+    border: none;
+    border-radius: 8px;
+    font-family: var(--font-terminal);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-travel::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .btn-travel:hover::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  .btn-travel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 255, 65, 0.3);
+  }
+
+  .btn-secondary {
+    padding: 0.75rem 2rem;
+    background: var(--terminal-surface);
+    color: var(--terminal-green);
+    border: 1px solid var(--terminal-border);
+    border-radius: 8px;
+    font-family: var(--font-terminal);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .btn-secondary:hover {
+    background: var(--terminal-dark);
+    border-color: var(--terminal-green);
+  }
+
+  /* Mobile responsiveness */
+  @media (max-width: 1200px) {
+    .editor-workspace {
+      grid-template-columns: 1fr;
+    }
+
+    .file-explorer,
+    .editor-sidebar {
+      display: none;
+    }
+
+    .activity-bar {
+      display: none;
+    }
+
+    .editor-workspace {
+      margin-left: 0;
+    }
+
+    .status-bar {
+      left: 0;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <!-- VS Code Style Activity Bar -->
+  <div class="activity-bar">
+    <div class="activity-icon active" title="Explorer">
+      <i class="bi bi-files" style="font-size: 20px;"></i>
+    </div>
+    <div class="activity-icon" title="Search">
+      <i class="bi bi-search" style="font-size: 20px;"></i>
+    </div>
+    <div class="activity-icon" title="Git">
+      <i class="bi bi-git" style="font-size: 20px;"></i>
+    </div>
+    <div class="activity-icon" title="Debug">
+      <i class="bi bi-bug" style="font-size: 20px;"></i>
+    </div>
+    <div class="activity-icon" title="Extensions">
+      <i class="bi bi-puzzle" style="font-size: 20px;"></i>
+    </div>
+  </div>
+
+  <div class="editor-workspace">
+    <!-- File Explorer -->
+    <div class="file-explorer">
+      <div class="explorer-title">
+        <i class="bi bi-folder-fill" style="color: var(--pin-yellow);"></i>
+        TRAVEL_LOGS
+      </div>
+      <div class="file-tree">
+        <div class="file-item">
+          <i class="bi bi-folder" style="color: var(--code-function);"></i>
+          asia/
+        </div>
+        <div class="file-item" style="padding-left: 1rem;">
+          <i class="bi bi-file-earmark-code" style="color: var(--travel-blue);"></i>
+          seoul.md
+        </div>
+        <div class="file-item" style="padding-left: 1rem;">
+          <i class="bi bi-file-earmark-code" style="color: var(--travel-blue);"></i>
+          tokyo.md
+        </div>
+        <div class="file-item">
+          <i class="bi bi-folder" style="color: var(--code-function);"></i>
+          europe/
+        </div>
+        <div class="file-item active">
+          <i class="bi bi-file-earmark-plus" style="color: var(--terminal-green);"></i>
+          new_journey.md
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Editor Area -->
+    <div class="editor-main-content">
+      <!-- Tab Bar -->
+      <div class="editor-tabs">
+        <div class="editor-tab active">
+          <i class="bi bi-file-earmark-text" style="color: var(--terminal-green);"></i>
+          new_journey.md
+          <span style="margin-left: auto; font-size: 10px;">●</span>
+        </div>
+      </div>
+
+      <!-- Breadcrumb -->
+      <div class="breadcrumb-bar">
+        <span class="breadcrumb-item">travels</span>
+        <span>/</span>
+        <span class="breadcrumb-item">2024</span>
+        <span>/</span>
+        <span class="breadcrumb-item" style="color: var(--terminal-green);">new_journey.md</span>
+      </div>
+
+      <!-- Editor Content -->
+      <div class="editor-content-area">
+        <form id="post-form" method="post" action="/board/new">
+          <!-- Title Input with Git Commit Style -->
+          <div class="travel-field">
+            <div class="field-label">
+              <i class="bi bi-pencil-square"></i>
+              <span style="color: var(--code-function);">commit</span>
+              <span style="color: var(--code-keyword);">-m</span>
+              "<span style="color: var(--code-string);">Title of your journey</span>"
+            </div>
+            <input type="text"
+                   class="field-input"
+                   id="title-input"
+                   placeholder="feat: Explored the hidden gems of..."
+                   style="font-size: 1.25rem;">
+          </div>
+
+          <!-- Location Selector -->
+          <div class="travel-field">
+            <div class="field-label">
+              <i class="bi bi-geo-alt-fill" style="color: var(--pin-yellow);"></i>
+              Location / Category
+            </div>
+            <select class="field-input" name="category_id" id="category_id">
+              {% for cat in categories %}
+              <option value="{{ cat.id }}" {% if cat.id==normal_category_id %}selected{% endif %}>
+                📍 {{ cat.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Tags Input -->
+          <div class="travel-field">
+            <div class="field-label">
+              <i class="bi bi-tags-fill"></i>
+              Tags (Press Enter to add)
+            </div>
+            <div class="tag-cloud" id="tag-cloud">
+              <!-- Tags will be added here -->
+            </div>
+            <input type="text"
+                   class="field-input"
+                   id="tag-input"
+                   placeholder="#travel #coding #adventure"
+                   style="margin-top: 0.5rem;">
+            <input type="hidden" name="tags" id="tags-hidden">
+          </div>
+
+          <!-- Main Editor with Line Numbers -->
+          <div class="travel-field">
+            <div class="field-label">
+              <i class="bi bi-file-earmark-text"></i>
+              Content.markdown
+            </div>
+
+            <div class="terminal-window">
+              <div class="terminal-header">
+                <div class="terminal-dots">
+                  <span class="terminal-dot red"></span>
+                  <span class="terminal-dot yellow"></span>
+                  <span class="terminal-dot green"></span>
+                </div>
+                <span class="terminal-title">vim new_journey.md</span>
+              </div>
+              <div class="terminal-body" style="padding: 0;">
+                <div style="display: flex;">
+                  <div class="line-numbers" id="line-numbers">
+                    1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>
+                  </div>
+                  <div id="editor-root" data-draft-id="{{ draft_id }}" style="flex: 1; padding: 1rem;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Options -->
+          <div style="display: flex; gap: 2rem; margin: 1rem 0;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--code-comment); font-family: var(--font-terminal); font-size: 0.875rem;">
+              <input type="checkbox" name="is_private" id="is_private">
+              <i class="bi bi-lock"></i>
+              Private Repository
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--code-comment); font-family: var(--font-terminal); font-size: 0.875rem;">
+              <input type="checkbox" name="show_title" id="show_title" checked>
+              <i class="bi bi-eye"></i>
+              Show README
+            </label>
+          </div>
+
+          <!-- Hidden Fields -->
+          <input type="hidden" name="draft_id" id="draft_id" value="{{ draft_id }}">
+          <input type="hidden" name="content" id="content">
+          <input type="hidden" name="content_html" id="content_html">
+
+          <!-- Terminal Output -->
+          <div class="terminal-output">
+            <div class="output-line">$ git status</div>
+            <div class="output-line output-success">✓ Changes to be committed:</div>
+            <div class="output-line" style="padding-left: 1rem;">new file: new_journey.md</div>
+            <div class="output-line" id="auto-save-status" style="color: var(--code-comment);">
+              <span class="terminal-cursor"></span>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="action-buttons">
+            <button type="submit" class="btn-travel">
+              <i class="bi bi-git"></i> git push origin travel
+            </button>
+            <button type="button" class="btn-secondary" id="save-draft">
+              <i class="bi bi-save"></i> git stash
+            </button>
+            <a href="/board/" class="btn-secondary" style="text-decoration: none;">
+              <i class="bi bi-x-circle"></i> git reset --hard
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div class="editor-sidebar">
+      <!-- Minimap Preview -->
+      <div class="explorer-title">
+        <i class="bi bi-map"></i>
+        JOURNEY MAP
+      </div>
+      <div style="height: 200px; background: var(--terminal-black); border: 1px solid var(--terminal-border); border-radius: 4px; padding: 1rem; margin-bottom: 1rem;">
+        <pre style="color: var(--code-comment); font-size: 10px; line-height: 1;">
+     ✈ ─────┐
+            │
+    ┌───────┴───────┐
+    │               │
+ Seoul           Tokyo
+    │               │
+    └───────┬───────┘
+            │
+         You are here
+        </pre>
+      </div>
+
+      <!-- Git History -->
+      <div class="explorer-title">
+        <i class="bi bi-clock-history"></i>
+        RECENT COMMITS
+      </div>
+      <div style="font-family: var(--font-terminal); font-size: 0.75rem;">
+        <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--terminal-border);">
+          <div style="color: var(--code-function);">7d4f3a2</div>
+          <div style="color: var(--code-string);">feat: Added Tokyo travel log</div>
+          <div style="color: var(--code-comment);">2 days ago</div>
+        </div>
+        <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--terminal-border);">
+          <div style="color: var(--code-function);">9b2c8e1</div>
+          <div style="color: var(--code-string);">docs: Updated Seoul guide</div>
+          <div style="color: var(--code-comment);">5 days ago</div>
+        </div>
+      </div>
+
+      <!-- Quick Templates -->
+      <div class="explorer-title" style="margin-top: 1rem;">
+        <i class="bi bi-lightning"></i>
+        SNIPPETS
+      </div>
+      <div style="display: grid; gap: 0.5rem;">
+        <button class="btn-secondary" style="padding: 0.5rem; font-size: 0.75rem;" data-snippet="location">
+          📍 Location Template
+        </button>
+        <button class="btn-secondary" style="padding: 0.5rem; font-size: 0.75rem;" data-snippet="itinerary">
+          🗓️ Itinerary Template
+        </button>
+        <button class="btn-secondary" style="padding: 0.5rem; font-size: 0.75rem;" data-snippet="review">
+          ⭐ Review Template
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div style="display: flex; gap: 2rem;">
+      <div class="status-item">
+        <span class="status-indicator"></span>
+        <span>Ready</span>
+      </div>
+      <div class="status-item">
+        <i class="bi bi-git"></i>
+        <span>main</span>
+      </div>
+      <div class="status-item">
+        <span id="word-count">0 words</span>
+      </div>
+      <div class="status-item">
+        <span id="char-count">0 chars</span>
+      </div>
+    </div>
+    <div style="display: flex; gap: 2rem;">
+      <div class="status-item">
+        <span>UTF-8</span>
+      </div>
+      <div class="status-item">
+        <span>Markdown</span>
+      </div>
+      <div class="status-item">
+        <span>Spaces: 2</span>
+      </div>
+      <div class="status-item">
+        <span>Ln 1, Col 1</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>window.DRAFT_ID = "{{ draft_id }}";</script>
+<script type="module" src="{{ url_for('static', path='editor/board_new.js') }}?v=5"></script>
+<script>
+// Enhanced Tag System
+const tagCloud = document.getElementById('tag-cloud');
+const tagInput = document.getElementById('tag-input');
+const tagsHidden = document.getElementById('tags-hidden');
+const tags = new Set();
+
+tagInput?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const tag = tagInput.value.trim();
+    if (tag && !tags.has(tag)) {
+      addTag(tag);
+      tagInput.value = '';
+    }
+  }
+});
+
+function addTag(tag) {
+  tags.add(tag);
+  renderTags();
+}
+
+function removeTag(tag) {
+  tags.delete(tag);
+  renderTags();
+}
+
+function renderTags() {
+  tagCloud.innerHTML = Array.from(tags).map(tag => `
+    <div class="tag-item">
+      #${tag}
+      <span class="tag-remove" onclick="removeTag('${tag}')">×</span>
+    </div>
+  `).join('');
+
+  tagsHidden.value = Array.from(tags).join(',');
+}
+
+// Auto-save status
+let autoSaveTimer;
+function showAutoSave() {
+  const status = document.getElementById('auto-save-status');
+  if (status) {
+    status.innerHTML = '<span style="color: var(--code-string);">✓ Auto-saved to stash</span>';
+    setTimeout(() => {
+      status.innerHTML = '<span class="terminal-cursor"></span>';
+    }, 3000);
+  }
+}
+
+// Simulate auto-save every 5 seconds
+setInterval(showAutoSave, 5000);
+
+// Snippet Templates
+document.querySelectorAll('[data-snippet]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const type = btn.dataset.snippet;
+    insertSnippet(type);
+  });
+});
+
+function insertSnippet(type) {
+  const snippets = {
+    location: `## 📍 Location: [City Name]
+
+### Getting There
+- Flight:
+- Transportation:
+
+### Where to Stay
+- Hotel:
+- Area:
+
+### Must Visit
+1.
+2.
+3. `,
+    itinerary: `## 🗓️ Day 1 - [Date]
+
+### Morning (09:00 - 12:00)
+- [ ]
+
+### Afternoon (12:00 - 18:00)
+- [ ]
+
+### Evening (18:00 - 22:00)
+- [ ]
+
+### Notes
+- `,
+    review: `## ⭐ Rating: /5
+
+### Pros
+-
+
+### Cons
+-
+
+### Tips for Future Travelers
+- `
+  };
+
+  // Insert into editor (implementation depends on Milkdown)
+  console.log('Insert snippet:', snippets[type]);
+}
+
+// Update line numbers
+function updateLineNumbers() {
+  const content = document.querySelector('.milkdown')?.innerText || '';
+  const lines = content.split('\n').length;
+  const lineNumbers = document.getElementById('line-numbers');
+  if (lineNumbers) {
+    lineNumbers.innerHTML = Array.from({length: Math.max(10, lines)}, (_, i) => i + 1).join('<br>');
+  }
+}
+
+// Update stats
+setInterval(() => {
+  const content = document.querySelector('.milkdown')?.innerText || '';
+  const words = content.split(/\s+/).filter(w => w.length > 0).length;
+  const chars = content.length;
+
+  document.getElementById('word-count').textContent = `${words} words`;
+  document.getElementById('char-count').textContent = `${chars} chars`;
+
+  updateLineNumbers();
+}, 1000);
+</script>
+{% endblock %}

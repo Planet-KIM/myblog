@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}새 글 작성 - Planet KIM's Travel{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='editor/layout.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/editor-enhanced.css') }}">
+<style>
+  /* Additional custom styles */
+  .page-content {
+    max-width: 1400px;
+    padding: 0;
+  }
+
+  /* Full-width editor layout */
+  @media (min-width: 1200px) {
+    .editor-with-sidebar {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 2rem;
+      padding: 2rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="editor-enhanced">
+    <!-- Enhanced Header -->
+    <div class="editor-header">
+      <h1>
+        <i class="bi bi-pencil-square"></i>
+        새 글 작성
+      </h1>
+      <div class="status-badge">
+        <i class="bi bi-circle-fill text-success"></i> 초안
+      </div>
+    </div>
+
+    <!-- Enhanced Toolbar -->
+    <div class="editor-toolbar">
+      <div class="toolbar-group">
+        <button class="toolbar-btn" data-tooltip="굵게" data-action="bold">
+          <i class="bi bi-type-bold"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="기울임" data-action="italic">
+          <i class="bi bi-type-italic"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="취소선" data-action="strike">
+          <i class="bi bi-type-strikethrough"></i>
+        </button>
+      </div>
+
+      <div class="toolbar-group">
+        <button class="toolbar-btn" data-tooltip="제목 1" data-action="h1">
+          <i class="bi bi-type-h1"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="제목 2" data-action="h2">
+          <i class="bi bi-type-h2"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="제목 3" data-action="h3">
+          <i class="bi bi-type-h3"></i>
+        </button>
+      </div>
+
+      <div class="toolbar-group">
+        <button class="toolbar-btn" data-tooltip="순서 목록" data-action="ol">
+          <i class="bi bi-list-ol"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="글머리 목록" data-action="ul">
+          <i class="bi bi-list-ul"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="인용구" data-action="quote">
+          <i class="bi bi-quote"></i>
+        </button>
+      </div>
+
+      <div class="toolbar-group">
+        <button class="toolbar-btn" data-tooltip="링크" data-action="link">
+          <i class="bi bi-link-45deg"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="이미지" data-action="image">
+          <i class="bi bi-image"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="코드 블록" data-action="code">
+          <i class="bi bi-code-square"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="표" data-action="table">
+          <i class="bi bi-table"></i>
+        </button>
+      </div>
+
+      <div class="toolbar-group ms-auto">
+        <button class="toolbar-btn" data-tooltip="미리보기" data-action="preview" id="toggle-preview">
+          <i class="bi bi-eye"></i>
+        </button>
+        <button class="toolbar-btn" data-tooltip="전체화면" data-action="fullscreen">
+          <i class="bi bi-arrows-fullscreen"></i>
+        </button>
+      </div>
+    </div>
+
+    <form id="post-form" method="post" action="/board/new">
+      <!-- Title & Slug Input -->
+      <div class="editor-meta">
+        <input type="text"
+               class="title-input"
+               id="title-input"
+               placeholder="제목을 입력하세요..."
+               autocomplete="off">
+        <div class="slug-input-group">
+          <span>URL:</span>
+          <input type="text"
+                 class="slug-input"
+                 id="slug-input"
+                 placeholder="자동 생성됨"
+                 readonly>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="edit-slug">
+            <i class="bi bi-pencil"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Split View Container -->
+      <div class="editor-split-container">
+        <!-- Editor Pane -->
+        <div class="editor-pane editor-main">
+          <div class="editor-pane-header">
+            <span>에디터</span>
+            <span class="text-muted" id="word-count">0 단어</span>
+          </div>
+          <div id="editor-root" data-draft-id="{{ draft_id }}"></div>
+        </div>
+
+        <!-- Preview Pane -->
+        <div class="editor-pane editor-preview" id="preview-pane">
+          <div class="editor-pane-header">
+            <span>미리보기</span>
+            <span class="text-muted" id="read-time">0분 읽기</span>
+          </div>
+          <div id="preview-content" class="markdown-body"></div>
+        </div>
+
+        <!-- Resize Handle -->
+        <div class="editor-resize-handle" id="resize-handle"></div>
+      </div>
+
+      <!-- Category, Tags, and Options -->
+      <div class="editor-meta p-3">
+        <div class="row g-3">
+          <!-- Category Selection -->
+          <div class="col-md-4">
+            <label class="form-label" for="category_id">
+              <i class="bi bi-folder"></i> 카테고리
+            </label>
+            <select class="form-select" id="category_id" name="category_id" required>
+              {% for cat in categories %}
+              <option value="{{ cat.id }}" {% if cat.id==normal_category_id %}selected{% endif %}>
+                {{ cat.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Tags Input -->
+          <div class="col-md-8">
+            <label class="form-label">
+              <i class="bi bi-tags"></i> 태그
+            </label>
+            <div class="tag-input-container position-relative">
+              <div id="selected-tags"></div>
+              <input type="text"
+                     class="tag-input"
+                     id="tag-input"
+                     placeholder="태그를 입력하세요 (엔터로 추가)">
+              <div class="tag-suggestions" id="tag-suggestions"></div>
+            </div>
+            <input type="hidden" name="tags" id="tags-hidden">
+          </div>
+        </div>
+
+        <!-- Options -->
+        <div class="row g-3 mt-2">
+          <div class="col-md-6">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="is_private" name="is_private">
+              <label class="form-check-label" for="is_private">
+                <i class="bi bi-lock"></i> 비공개 글 (나만 볼 수 있음)
+              </label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="show_title" name="show_title" checked>
+              <label class="form-check-label" for="show_title">
+                <i class="bi bi-eye"></i> 제목 표시
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hidden Fields -->
+      <input type="hidden" name="draft_id" id="draft_id" value="{{ draft_id }}">
+      <input type="hidden" name="content" id="content">
+      <input type="hidden" name="content_html" id="content_html">
+
+      <!-- Footer Actions -->
+      <div class="editor-footer">
+        <div class="editor-stats">
+          <div class="editor-stat">
+            <i class="bi bi-file-earmark-text"></i>
+            <span id="char-count">0</span> 글자
+          </div>
+          <div class="editor-stat">
+            <i class="bi bi-clock"></i>
+            <span id="estimated-time">0</span>분 읽기
+          </div>
+          <div class="editor-stat">
+            <i class="bi bi-image"></i>
+            <span id="image-count">0</span> 이미지
+          </div>
+        </div>
+
+        <div class="editor-actions">
+          <button type="button" class="btn-editor btn-secondary" id="save-draft">
+            <i class="bi bi-save"></i> 임시 저장
+          </button>
+          <button type="submit" class="btn-editor btn-primary" id="publish-btn">
+            <i class="bi bi-send"></i> 발행하기
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Sidebar (Desktop Only) -->
+  <div class="editor-sidebar d-none d-xl-block">
+    <!-- Table of Contents -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">
+        <i class="bi bi-list-nested"></i> 목차
+      </div>
+      <ul class="toc-list" id="toc-list">
+        <li class="toc-item text-muted">제목을 입력하면 목차가 생성됩니다</li>
+      </ul>
+    </div>
+
+    <!-- Writing Tips -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">
+        <i class="bi bi-lightbulb"></i> 작성 팁
+      </div>
+      <ul class="small text-muted">
+        <li>제목은 간결하고 명확하게</li>
+        <li>이미지는 드래그 앤 드롭 가능</li>
+        <li>코드 블록은 ```언어명 사용</li>
+        <li>5초마다 자동 저장됩니다</li>
+      </ul>
+    </div>
+
+    <!-- Quick Templates -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">
+        <i class="bi bi-layout-text-window"></i> 빠른 템플릿
+      </div>
+      <div class="d-grid gap-2">
+        <button class="btn btn-sm btn-outline-secondary" data-template="travel">
+          <i class="bi bi-geo-alt"></i> 여행 일정
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" data-template="review">
+          <i class="bi bi-star"></i> 리뷰
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" data-template="tutorial">
+          <i class="bi bi-book"></i> 튜토리얼
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto Save Indicator -->
+  <div class="auto-save-indicator" id="auto-save-indicator" style="display: none;">
+    <span class="spinner" id="save-spinner" style="display: none;"></span>
+    <i class="bi bi-check-circle text-success" id="save-check" style="display: none;"></i>
+    <span id="save-status">대기 중...</span>
+  </div>
+</div>
+
+<script>window.DRAFT_ID = "{{ draft_id }}";</script>
+<script type="module" src="{{ url_for('static', path='editor/board_new.js') }}?v=4"></script>
+<script src="{{ url_for('static', path='js/editor-enhanced.js') }}"></script>
+{% endblock %}

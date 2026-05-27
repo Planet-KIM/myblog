@@ -1,0 +1,725 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<style>
+  /* ---------- Theme variables ---------- */
+  :root {
+    --bg-body: #f8f9fa;
+    --bg-card: #ffffff;
+    --border-color: #e9ecef;
+    --text-color: #212529;
+    --muted-color: #6c757d;
+    --badge-border: rgba(0, 0, 0, 0.03);
+    --badge-text-color: #212529;
+    --timeline-line: #dee2e6;
+    --hero-gradient: linear-gradient(135deg, #0d6efd0d, #0d6efd15);
+  }
+
+  .theme-dark {
+    --bg-body: #121212;
+    --bg-card: #1e1e1e;
+    --border-color: #343a40;
+    --text-color: #f8f9fa;
+    --muted-color: #ced4da;
+    --badge-border: rgba(255, 255, 255, 0.08);
+    --badge-text-color: #212529;
+    --timeline-line: #495057;
+    --hero-gradient: linear-gradient(135deg, #0d6efd22, #0d6efd33);
+  }
+
+  body {
+    background-color: var(--bg-body);
+    color: var(--text-color);
+  }
+
+  .text-muted {
+    color: var(--muted-color) !important;
+  }
+
+  /* ---------- CV layout ---------- */
+  .cv-hero {
+    background: var(--hero-gradient);
+    border-radius: 1rem;
+    border: 1px solid var(--border-color);
+  }
+  .cv-name {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .cv-role {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--muted-color);
+  }
+  .cv-meta {
+    font-size: 0.9rem;
+    color: var(--muted-color);
+  }
+  .cv-contact a {
+    text-decoration: none;
+  }
+  .cv-contact a:hover {
+    text-decoration: underline;
+  }
+  .cv-section li > p {
+    margin: 0;
+  }
+  .cv-section + .cv-section {
+    margin-top: 1.75rem;
+  }
+  .cv-section-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .tech-badge {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.8rem;
+    border-radius: 999px;
+    margin: 0 0.25rem 0.25rem 0;
+    border: 1px solid var(--badge-border);
+    color: var(--badge-text-color);
+  }
+  .timeline-item {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .timeline-item::before {
+    content: "";
+    position: absolute;
+    left: 0.35rem;
+    top: 0.35rem;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #0d6efd;
+  }
+  .timeline-item::after {
+    content: "";
+    position: absolute;
+    left: 0.38rem;
+    top: 0.75rem;
+    width: 2px;
+    bottom: -0.5rem;
+    background-color: var(--timeline-line);
+  }
+  .timeline-item:last-child::after {
+    display: none;
+  }
+  .timeline-title {
+    font-weight: 600;
+  }
+  .timeline-meta {
+    font-size: 0.8rem;
+    color: var(--muted-color);
+  }
+  .timeline-links a {
+    font-size: 0.8rem;
+  }
+  .cv-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  @media (min-width: 768px) {
+    .cv-avatar {
+      width: 96px;
+      height: 96px;
+    }
+  }
+
+  .list-group-item {
+    background-color: var(--bg-card);
+    color: var(--text-color);
+  }
+
+  /* ---------- Footer ---------- */
+  .cv-footer {
+    border-top: 1px solid var(--border-color);
+    color: var(--muted-color);
+    padding-top: 1.25rem;
+    padding-bottom: 2.25rem;
+    margin-top: 2.5rem;
+  }
+  .cv-footer a {
+    text-decoration: none;
+  }
+  .cv-footer a:hover {
+    text-decoration: underline;
+  }
+
+  @media print {
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    nav.navbar,
+    .no-print,
+    .alert,
+    #btn-theme, 
+    .cv-footer {
+      display: none !important;
+    }
+    main.container {
+      max-width: 100%;
+      padding-top: 0;
+    }
+    .col-lg-4 {
+      display: none !important;
+    }
+    .col-lg-8 {
+      flex: 0 0 100%;
+      max-width: 100%;
+    }
+    /* ===== 여기부터 히어로 정렬 강제 ===== */
+    .cv-hero .d-flex.flex-column.flex-md-row {
+      flex-direction: row !important;      /* 인쇄 시에도 가로 정렬 */
+      align-items: center !important;
+    }
+    .cv-hero img.cv-avatar {
+      margin-bottom: 0 !important;         /* 세로 여백 제거 */
+      margin-right: 1.5rem !important;     /* 텍스트와 간격 확보 */
+    }
+    /* ===== 여기까지 ===== */
+    .cv-hero {
+      border-color: #dee2e6;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if published %}
+  <div class="alert alert-success" role="alert">
+    새 글이 성공적으로 발행되었습니다.
+  </div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+  <div class="btn-group btn-group-sm">
+    <button id="btn-lang-ko" type="button" class="btn btn-primary">KO</button>
+    <button id="btn-lang-en" type="button" class="btn btn-outline-secondary">EN</button>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button id="btn-theme" type="button" class="btn btn-outline-dark btn-sm">
+      Dark
+    </button>
+    <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+      PDF로 저장
+    </button>
+  </div>
+</div>
+
+<div class="row">
+  <!-- LEFT: CV CONTENT -->
+  <div class="col-lg-8 mb-4">
+
+    <!-- ===== KO VERSION ===== -->
+    <div id="cv-lang-ko">
+      <!-- HERO -->
+      <div class="cv-hero p-4 mb-4">
+        <div class="d-flex flex-column gap-3">
+          <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+            <div>
+              <img
+                src="{{ url_for('static', path='images/myimage.jpeg') }}"
+                alt="Profile image"
+                class="cv-avatar mb-2 mb-md-0"
+              />
+            </div>
+            <div>
+              <div class="cv-name mb-1">{{ cv.profile.name_ko }}</div>
+              <div class="cv-role mb-2">
+                {{ cv.profile.role_ko }}
+              </div>
+              <p class="mb-0 cv-meta">
+                {{ cv.profile.intro_ko }}
+              </p>
+            </div>
+          </div>
+
+          <div class="cv-contact small text-muted d-flex flex-wrap gap-3">
+            <div>
+              <strong>이메일</strong> :
+              <a href="mailto:{{ cv.profile.email }}">{{ cv.profile.email }}</a>
+            </div>
+            <div>
+              <strong>GitHub</strong> :
+              <a href="{{ cv.profile.github }}" target="_blank">{{ cv.profile.github }}</a>
+            </div>
+            <div>
+              <strong>Website</strong> :
+              <a href="{{ cv.profile.website }}" target="_blank">{{ cv.profile.website }}</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EDUCATION -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">학력 (Education)</h2>
+        <div class="d-flex justify-content-between">
+          <div>
+            <strong>{{ cv.education.ko.title }}</strong>
+          </div>
+          <div class="text-muted small">
+            {{ cv.education.ko.period }}
+          </div>
+        </div>
+        <p class="mb-1 small text-muted">
+          {{ cv.education.ko.desc }}
+        </p>
+        {% if cv.education.ko.extra %}
+          <p class="mb-1 small text-muted">
+            {{ cv.education.ko.extra }}
+          </p>
+        {% endif %}
+      </section>
+
+      <!-- PROFESSIONAL EXPERIENCE -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">경력 (Professional Experience)</h2>
+        <div class="d-flex justify-content-between">
+          <div>
+            <strong>{{ cv.experience.ko.position }}</strong>
+          </div>
+          <div class="text-muted small">{{ cv.experience.ko.period }}</div>
+        </div>
+        <ul class="mb-1 small text-muted">
+          {% for b in cv.experience.ko.bullets %}
+            <li>{{ b|safe }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <!-- INDUSTRY EXPERIENCE -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">산업 경력 (Industry Experience)</h2>
+        {% for job in cv.industry.ko %}
+          <div class="mb-2">
+            <div class="d-flex justify-content-between">
+              <div>
+                <strong>{{ job.role }}, {{ job.company }}</strong>
+              </div>
+              <div class="text-muted small">{{ job.period }}</div>
+            </div>
+            <p class="mb-1 small text-muted">
+              {{ job.desc }}
+            </p>
+          </div>
+        {% endfor %}
+      </section>
+
+      <!-- SKILLS -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">기술 스택 (Skills)</h2>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <h3 class="h6 mb-2 text-muted">Machine Learning / Deep Learning</h3>
+            <div>
+              {% for s in cv.skills.ml %}
+                <span
+                  class="tech-badge"
+                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
+                >
+                  {{ s.label }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <h3 class="h6 mb-2 text-muted">BioAI Tools (재현 &amp; 최적화)</h3>
+            <div>
+              {% for s in cv.skills.bioai %}
+                <span
+                  class="tech-badge"
+                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
+                >
+                  {{ s.label }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <h3 class="h6 mb-2 text-muted">Software Engineering</h3>
+            <div>
+              {% for s in cv.skills.se %}
+                <span
+                  class="tech-badge"
+                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
+                >
+                  {{ s.label }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <h3 class="h6 mb-2 text-muted">Data Engineering / Analysis</h3>
+            <div>
+              {% for s in cv.skills.data %}
+                <span
+                  class="tech-badge"
+                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
+                >
+                  {{ s.label }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <!-- ========================= -->
+        <!--  (B) 연구 관심사 View -->
+        <!-- ========================= -->
+        <div id="research-view" class="mt-3 d-none">
+            {% for sec in cv.research_interest.sections %}
+              <h3 class="h6 fw-bold mt-3">{{ sec.subtitle }}</h3>
+              <ul class="small mb-2">
+                {% for b in sec.bullets %}
+                  <li>{{ b|safe }}</li>
+                {% endfor %}
+              </ul>
+            {% endfor %}
+        </div>
+      </section>
+
+      <!-- RESEARCH & PROJECTS -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">연구 및 프로젝트 경험 (Research &amp; Projects)</h2>
+
+        {% for p in cv.projects %}
+          <div class="timeline-item">
+            <div class="d-flex justify-content-between">
+              <div class="timeline-title">
+                {{ p.title_ko }}
+              </div>
+              <div class="timeline-meta">
+                {{ p.start_year }} – {% if p.end_year %}{{ p.end_year }}{% else %}현재{% endif %}
+              </div>
+            </div>
+            <div class="timeline-meta mb-1">
+              {{ p.meta_ko }}
+            </div>
+            <ul class="mb-1 small">
+              {% for b in p.bullets_ko %}
+                <li>{{ b|safe }}</li>
+              {% endfor %}
+            </ul>
+            <div class="timeline-links mb-2">
+              {% for link in p.links %}
+                <a href="{{ link.url }}" target="_blank">{{ link.label }}</a>{% if not loop.last %} · {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </section>
+    </div>
+
+    <!-- ===== EN VERSION ===== -->
+    <div id="cv-lang-en" class="d-none">
+      <!-- HERO -->
+      <div class="cv-hero p-4 mb-4">
+        <div class="d-flex flex-column gap-3">
+          <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+            <div>
+              <img
+                src="{{ url_for('static', path='images/myimage.jpeg') }}"
+                alt="Profile image"
+                class="cv-avatar mb-2 mb-md-0"
+              />
+            </div>
+            <div>
+              <div class="cv-name mb-1">{{ cv.profile.name_en }}</div>
+              <div class="cv-role mb-2">
+                {{ cv.profile.role_en }}
+              </div>
+              <p class="mb-0 cv-meta">
+                {{ cv.profile.intro_en }}
+              </p>
+            </div>
+          </div>
+
+          <div class="cv-contact small text-muted d-flex flex-wrap gap-3">
+            <div>
+              <strong>Email</strong> :
+              <a href="mailto:{{ cv.profile.email }}">{{ cv.profile.email }}</a>
+            </div>
+            <div>
+              <strong>GitHub</strong> :
+              <a href="{{ cv.profile.github }}" target="_blank">{{ cv.profile.github }}</a>
+            </div>
+            <div>
+              <strong>Website</strong> :
+              <a href="{{ cv.profile.website }}" target="_blank">{{ cv.profile.website }}</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EDUCATION -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">Education</h2>
+        <div class="d-flex justify-content-between">
+          <div>
+            <strong>{{ cv.education.en.title }}</strong>
+          </div>
+          <div class="text-muted small">
+            {{ cv.education.en.period }}
+          </div>
+        </div>
+        <p class="mb-1 small text-muted">
+          {{ cv.education.en.desc }}
+        </p>
+        {% if cv.education.en.extra %}
+          <p class="mb-1 small text-muted">
+            {{ cv.education.en.extra }}
+          </p>
+        {% endif %}
+      </section>
+
+      <!-- PROFESSIONAL EXPERIENCE -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">Professional Experience</h2>
+        <div class="d-flex justify-content-between">
+          <div>
+            <strong>{{ cv.experience.en.position }}</strong>
+          </div>
+          <div class="text-muted small">{{ cv.experience.en.period }}</div>
+        </div>
+        <ul class="mb-1 small text-muted">
+          {% for b in cv.experience.en.bullets %}
+            <li>{{ b|safe }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <!-- INDUSTRY EXPERIENCE -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">Industry Experience</h2>
+        {% for job in cv.industry.en %}
+          <div class="mb-2">
+            <div class="d-flex justify-content-between">
+              <div>
+                <strong>{{ job.role }}, {{ job.company }}</strong>
+              </div>
+              <div class="text-muted small">{{ job.period }}</div>
+            </div>
+            <p class="mb-1 small text-muted">
+              {{ job.desc }}
+            </p>
+          </div>
+        {% endfor %}
+      </section>
+
+      <!-- SKILLS -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">Skills</h2>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <h3 class="h6 mb-2 text-muted">Machine Learning / Deep Learning</h3>
+            <div>
+              {% for s in cv.skills.ml %}
+                <span
+                  class="tech-badge"
+                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
+                >
+                  {{ s.label }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <h3 class="h6 mb-2 text-muted">BioAI Tools (Reproduced &amp; Optimized)</h3>
+            <div>
+              {% for s in cv.skills.bioai %}
+                <span
+                  class="tech-badge"
+                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
+                >
+                  {{ s.label }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <h3 class="h6 mb-2 text-muted">Software Engineering</h3>
+            <div>
+              {% for s in cv.skills.se %}
+                <span
+                  class="tech-badge"
+                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
+                >
+                  {{ s.label }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <h3 class="h6 mb-2 text-muted">Data Engineering / Analysis</h3>
+            <div>
+              {% for s in cv.skills.data %}
+                <span
+                  class="tech-badge"
+                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
+                >
+                  {{ s.label }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESEARCH & PROJECTS -->
+      <section class="cv-section">
+        <h2 class="cv-section-title">Research &amp; Project Experience</h2>
+
+        {% for p in cv.projects %}
+          <div class="timeline-item">
+            <div class="d-flex justify-content-between">
+              <div class="timeline-title">
+                {{ p.title_en }}
+              </div>
+              <div class="timeline-meta">
+                {{ p.start_year }} – {% if p.end_year %}{{ p.end_year }}{% else %}Present{% endif %}
+              </div>
+            </div>
+            <div class="timeline-meta mb-1">
+              {{ p.meta_en }}
+            </div>
+            <ul class="mb-1 small">
+              {% for b in p.bullets_en %}
+                <li>{{ b|safe }}</li>
+              {% endfor %}
+            </ul>
+            <div class="timeline-links mb-2">
+              {% for link in p.links %}
+                <a href="{{ link.url }}" target="_blank">{{ link.label }}</a>{% if not loop.last %} · {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </section>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: RECENT POSTS -->
+  <div class="col-lg-4">
+    <section class="mb-4">
+      <h2 class="h5 border-bottom pb-2 d-flex justify-content-between align-items-center">
+        Recent Posts
+        <a href="/board" class="small text-decoration-none text-muted">more</a>
+      </h2>
+      <ul class="list-group">
+        {% for post in recent_posts %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="/board/{{ post.id }}">{{ post.title }}</a>
+            <span class="text-muted small">{{ post.created_at.strftime("%m-%d") }}</span>
+          </li>
+        {% else %}
+          <li class="list-group-item">아직 작성된 글이 없습니다.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="cv-footer small">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+    <div>
+      © {{ current_year }} {{ cv.profile.name_en }} · KAIST GSMSE jklab
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <span>Contact:</span>
+      <a href="mailto:{{ cv.profile.email }}">{{ cv.profile.email }}</a>
+      <span>·</span>
+      <a href="{{ cv.profile.github }}" target="_blank">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+<!-- LANG & THEME TOGGLE SCRIPT -->
+<script>
+  (function () {
+    const koBtn = document.getElementById("btn-lang-ko");
+    const enBtn = document.getElementById("btn-lang-en");
+    const koCv = document.getElementById("cv-lang-ko");
+    const enCv = document.getElementById("cv-lang-en");
+    const themeBtn = document.getElementById("btn-theme");
+    const root = document.documentElement;
+
+    function setLang(lang) {
+      if (!koBtn || !enBtn || !koCv || !enCv) return;
+      const isKo = lang === "ko";
+
+      koCv.classList.toggle("d-none", !isKo);
+      enCv.classList.toggle("d-none", isKo);
+
+      koBtn.classList.toggle("btn-primary", isKo);
+      koBtn.classList.toggle("btn-outline-secondary", !isKo);
+      enBtn.classList.toggle("btn-primary", !isKo);
+      enBtn.classList.toggle("btn-outline-secondary", isKo);
+
+      try {
+        localStorage.setItem("cv-lang", lang);
+      } catch (e) {}
+    }
+
+    function setTheme(theme) {
+      const isDark = theme === "dark";
+      root.classList.toggle("theme-dark", isDark);
+      if (themeBtn) {
+        themeBtn.textContent = isDark ? "Light" : "Dark";
+        themeBtn.classList.toggle("btn-outline-dark", !isDark);
+        themeBtn.classList.toggle("btn-dark", isDark);
+      }
+      try {
+        localStorage.setItem("cv-theme", theme);
+      } catch (e) {}
+    }
+
+    let savedLang = null;
+    let savedTheme = null;
+    try {
+      savedLang = localStorage.getItem("cv-lang");
+      savedTheme = localStorage.getItem("cv-theme");
+    } catch (e) {}
+
+    setLang(savedLang === "en" ? "en" : "ko");
+    setTheme(savedTheme === "dark" ? "dark" : "light");
+
+    if (koBtn) {
+      koBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        setLang("ko");
+      });
+    }
+    if (enBtn) {
+      enBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        setLang("en");
+      });
+    }
+    if (themeBtn) {
+      themeBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        const next = root.classList.contains("theme-dark") ? "light" : "dark";
+        setTheme(next);
+      });
+    }
+  })();
+</script>
+
+{% endblock %}
