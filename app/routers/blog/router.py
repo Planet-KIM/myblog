@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from fastapi.templating import Jinja2Templates
 
 from app import models
+from app.config import settings
 from app.database import get_db
 from app.auth_utils import get_current_user_optional
 from app.services.home_layout import (
@@ -676,6 +677,8 @@ def my_page(
     sort: str = "recent",
     page: int = 1,
     size: int = 20,
+    issue_state: Optional[str] = None,
+    issue_page: int = 1,
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
@@ -683,7 +686,7 @@ def my_page(
         return RedirectResponse("/auth/login", status_code=303)
 
     tab_mode = (tab or "bookmarks").strip().lower()
-    if tab_mode not in {"bookmarks", "apis"}:
+    if tab_mode not in {"bookmarks", "apis", "issues"}:
         tab_mode = "bookmarks"
 
     sort_mode = (sort or "recent").strip().lower()
@@ -792,6 +795,34 @@ def my_page(
     bookmark_category_counts = {cid: cnt for cid, cnt in category_rows if cid is not None}
     approved_api_catalog = build_approved_api_catalog()
 
+    issue_state_mode = (issue_state or settings.GITHUB_ISSUES_DEFAULT_STATE or "open").strip().lower()
+    if issue_state_mode not in {"open", "closed", "all"}:
+        issue_state_mode = "open"
+    issue_page = max(1, issue_page)
+
+    github_issue_items: list[dict] = []
+    github_issue_has_next = False
+    github_issue_has_prev = issue_page > 1
+    github_issue_error: Optional[str] = None
+    github_rate_remaining: Optional[str] = None
+
+    if tab_mode == "issues":
+        from app.services.github_issues import fetch_github_issues
+
+        issue_result = fetch_github_issues(
+            repo=settings.GITHUB_REPO,
+            state=issue_state_mode,
+            page=issue_page,
+            per_page=settings.GITHUB_ISSUES_PER_PAGE,
+            token=settings.GITHUB_TOKEN,
+            timeout_seconds=settings.GITHUB_ISSUES_TIMEOUT_SECONDS,
+        )
+        github_issue_items = issue_result.get("items", [])
+        github_issue_has_next = bool(issue_result.get("has_next"))
+        github_issue_has_prev = bool(issue_result.get("has_prev"))
+        github_issue_error = issue_result.get("error")
+        github_rate_remaining = issue_result.get("rate_remaining")
+
     return templates.TemplateResponse(
         request,
         "me.html",
@@ -810,6 +841,14 @@ def my_page(
             "categories": categories,
             "bookmark_category_counts": bookmark_category_counts,
             "approved_api_catalog": approved_api_catalog,
+            "github_repo": settings.GITHUB_REPO,
+            "issue_state": issue_state_mode,
+            "issue_page": issue_page,
+            "github_issue_items": github_issue_items,
+            "github_issue_has_next": github_issue_has_next,
+            "github_issue_has_prev": github_issue_has_prev,
+            "github_issue_error": github_issue_error,
+            "github_rate_remaining": github_rate_remaining,
         },
     )
 

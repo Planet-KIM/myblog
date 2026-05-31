@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     NEWSLETTER_VERIFY_TOKEN_TTL_HOURS: int = 24
     NEWSLETTER_UNSUBSCRIBE_TOKEN_TTL_HOURS: int = 24 * 30
 
+    # ── GitHub Issues (My Dashboard 탭) ─────────────────────
+    # 공개 저장소는 토큰 없이도 조회 가능하지만 rate limit가 낮습니다.
+    # private 저장소 또는 높은 호출 빈도에는 token 사용 권장.
+    GITHUB_REPO: str = "Planet-KIM/myblog"  # owner/repo
+    GITHUB_TOKEN: str = ""
+    GITHUB_ISSUES_DEFAULT_STATE: str = "open"  # open | closed | all
+    GITHUB_ISSUES_PER_PAGE: int = 20
+    GITHUB_ISSUES_TIMEOUT_SECONDS: int = 8
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

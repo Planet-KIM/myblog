@@ -7,7 +7,7 @@ Nginx + Gunicorn + Celery + Redis 조합으로 운영 가능한 구조를 갖추
 
 - 블로그 메인/큐레이션 피드: `/`
 - CV/소개 페이지: `/main`
-- 개인 대시보드(북마크, 승인 API 카탈로그): `/me`
+- 개인 대시보드(북마크, 승인 API 카탈로그, GitHub Issues): `/me`
 - 게시판 목록/검색/정렬/저장글 필터: `/board/`
 - 게시글 작성/수정/상세:
   - 작성: `/board/new?editor=milkdown|tiptap`
@@ -96,6 +96,8 @@ cp .env.example .env
 - `REDIS_URL` (로컬 기본: `redis://localhost:6379/2`)
 - `SPELLCHECK_EN_DEFAULT_VARIANT` (`vennify`/`coedit`)
 - `NEWSLETTER_ENABLE_SEND` (`false` 권장: 로컬)
+- `GITHUB_REPO` (`owner/repo`, 예: `Planet-KIM/myblog`)
+- `GITHUB_TOKEN` (private 저장소/높은 호출량일 때 권장)
 
 ## 7. 로컬 실행 (Python 프로세스 직접 실행)
 
