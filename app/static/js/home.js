@@ -9,6 +9,15 @@
 document.addEventListener('DOMContentLoaded', function () {
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const searchInput = document.getElementById('home-search-input');
+  const nav = document.querySelector('.site-nav');
+
+  function syncHomeNavState() {
+    if (!nav) return;
+    nav.classList.toggle('is-scrolled', window.scrollY > 60);
+  }
+
+  syncHomeNavState();
+  window.addEventListener('scroll', syncHomeNavState, { passive: true });
 
   /* ── AOS: Animate On Scroll (MIT License) ────────────────── */
   if (!prefersReducedMotion && typeof AOS !== 'undefined') {

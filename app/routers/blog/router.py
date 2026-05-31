@@ -418,7 +418,7 @@ def read_index(
             )
         return query.order_by(models.BoardPost.created_at.desc())
 
-    HOME_LIMIT = 6
+    HOME_LIMIT = 12
     following_requires_login = False
     following_empty = False
 

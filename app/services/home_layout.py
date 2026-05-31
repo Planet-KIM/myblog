@@ -54,4 +54,7 @@ def select_home_card_sizes(
     else:
         raise ValueError(f"Unknown home layout strategy: {strategy}")
 
-    return selected_layout[:posts_count]
+    card_sizes: list[str] = []
+    while len(card_sizes) < posts_count:
+        card_sizes.extend(selected_layout)
+    return card_sizes[:posts_count]

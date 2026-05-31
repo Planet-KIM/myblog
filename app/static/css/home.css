@@ -38,6 +38,55 @@ main.container {
   padding-right: 0 !important;
 }
 
+/* ─── Home-only Nav/Hero bridge ───────────────────────────── */
+body.home-page main.container {
+  margin-top: -74px;
+}
+
+body.home-page .hero {
+  padding-top: 74px;
+}
+
+body.home-page .site-nav {
+  background: rgba(8, 18, 40, 0.56);
+  border-bottom: 0;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.28);
+}
+
+body.home-page .site-nav.is-scrolled {
+  background: color-mix(in srgb, var(--bg-overlay) 94%, rgba(2, 6, 23, 0.46));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  box-shadow: 0 8px 22px rgba(2, 6, 23, 0.34);
+}
+
+body.home-page .site-nav::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -26px;
+  height: 26px;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 18, 40, 0.38) 0%,
+    rgba(8, 18, 40, 0) 100%
+  );
+  pointer-events: none;
+}
+
+body.home-page .site-nav.is-scrolled::after {
+  opacity: 0;
+}
+
+body.home-page .site-nav .nav-link {
+  color: color-mix(in srgb, var(--text-main) 90%, #ffffff 10%) !important;
+}
+
+body.home-page .site-nav .nav-link:hover,
+body.home-page .site-nav .nav-link.active {
+  color: #8fd8ff !important;
+}
+
 /* ─── Hero ────────────────────────────────────────────────── */
 .hero {
   position: relative;
@@ -60,6 +109,22 @@ main.container {
   overflow: hidden;
 }
 
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(2, 6, 23, 0.44) 0%,
+      rgba(2, 6, 23, 0.32) 35%,
+      rgba(2, 6, 23, 0.54) 72%,
+      rgba(2, 6, 23, 0.76) 100%
+    );
+  z-index: 0;
+  pointer-events: none;
+}
+
 .hero::before {
   content: '';
   position: absolute;
@@ -71,6 +136,7 @@ main.container {
     rgba(56, 189, 248, 0.07) 50%,
     transparent 70%
   );
+  z-index: 0;
   animation: hero-rotate 90s linear infinite;
   pointer-events: none;
 }
@@ -78,7 +144,25 @@ main.container {
 .hero-body {
   max-width: 700px;
   padding: 2.25rem 1.5rem 3.75rem;
+  position: relative;
   z-index: 1;
+  isolation: isolate;
+}
+
+.hero-body::before {
+  content: '';
+  position: absolute;
+  inset: -1.4rem -3rem -1.1rem;
+  z-index: -1;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(2, 6, 23, 0.54) 0%,
+      rgba(2, 6, 23, 0.38) 38%,
+      rgba(2, 6, 23, 0.0) 72%
+    );
+  filter: blur(10px);
+  pointer-events: none;
 }
 
 .hero-eyebrow {
@@ -109,19 +193,21 @@ main.container {
 .hero-summary {
   margin: 0 auto 1rem;
   max-width: 560px;
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.84);
   font-size: 0.92rem;
   line-height: 1.7;
   font-family: var(--font-sans);
+  text-shadow: 0 2px 14px rgba(2, 6, 23, 0.72);
   animation: hero-slide-up 0.7s ease-out 0.15s both;
 }
 
 .hero-typed-wrap {
   font-family: var(--font-mono);
   font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.72);
   margin-bottom: 1.25rem;
   min-height: 1.8rem;
+  text-shadow: 0 2px 12px rgba(2, 6, 23, 0.68);
   animation: hero-slide-up 0.7s ease-out 0.2s both;
 }
 
@@ -173,6 +259,7 @@ main.container {
   font-family: var(--font-mono);
   position: relative;
   overflow: hidden;
+  box-shadow: 0 6px 18px rgba(56, 189, 248, 0.24);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   animation: hero-slide-up 0.7s ease-out 0.4s both;
 }
@@ -190,7 +277,7 @@ main.container {
 
 .hero-cta:hover {
   transform: translateY(-3px);
-  box-shadow: 0 14px 36px rgba(56, 189, 248, 0.45);
+  box-shadow: 0 16px 42px rgba(56, 189, 248, 0.48);
   color: white;
 }
 
@@ -214,6 +301,7 @@ main.container {
   font-family: var(--font-mono);
   letter-spacing: 2px;
   text-transform: uppercase;
+  z-index: 1;
   pointer-events: none;
   animation: hero-fade-in 1.5s ease-out 1.2s both;
 }
@@ -543,6 +631,11 @@ main.container {
     padding: 2rem 1rem 2.5rem;
   }
 
+  .hero-body::before {
+    inset: -0.9rem -1rem -0.8rem;
+    filter: blur(8px);
+  }
+
   .hero-summary {
     font-size: 0.84rem;
     line-height: 1.64;
@@ -784,13 +877,24 @@ main.container {
 /* ─── Curation Bar (Discovery Layer) ─────────────────────── */
 .curation-bar {
   position: sticky;
-  top: 62px;
-  z-index: 35;
-  background: color-mix(in srgb, var(--bg-body) 88%, transparent);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-  padding: 0.7rem 1.2rem 0.55rem;
+  top: 70px;
+  z-index: 38;
+  width: min(1320px, calc(100% - 2.4rem));
+  margin: -36px auto 0;
+  padding: 0.86rem 1.1rem 0.62rem;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--surface) 92%, transparent) 0%,
+      color-mix(in srgb, var(--surface-dark) 86%, transparent) 100%
+    );
+  box-shadow:
+    0 12px 30px rgba(2, 6, 23, 0.3),
+    0 0 0 1px rgba(148, 163, 184, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .curation-inner {
@@ -873,12 +977,12 @@ main.container {
 }
 
 .topic-chips {
-  margin-top: 0.5rem;
+  margin-top: 0.62rem;
   display: flex;
   align-items: center;
   gap: 0.35rem;
   overflow-x: auto;
-  padding-bottom: 0.1rem;
+  padding: 0 0.1rem 0.1rem;
 }
 
 .topic-chip {
@@ -1129,11 +1233,26 @@ main.container {
   .curation-sort-wrap {
     justify-self: start;
   }
+
+  .curation-bar {
+    width: calc(100% - 1.5rem);
+  }
 }
 
 @media (max-width: 600px) {
+  body.home-page main.container {
+    margin-top: -64px;
+  }
+
+  body.home-page .hero {
+    padding-top: 64px;
+  }
+
   .curation-bar {
-    top: 56px;
+    top: 58px;
+    margin-top: -22px;
+    width: calc(100% - 0.85rem);
     padding: 0.62rem 0.72rem 0.48rem;
+    border-radius: 14px;
   }
 }
