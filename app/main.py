@@ -10,10 +10,11 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .database import Base, engine
 from .routers import blog, board, admin, auth, upload, api
 
-Base.metadata.create_all(bind=engine)
+# DB 스키마는 Alembic이 단일 소스로 관리합니다 (create_all 제거: alembic 마이그레이션과의 충돌 방지).
+#   신규 설치:  alembic upgrade head
+#   기존 DB:    alembic stamp 0001 && alembic upgrade head
 
 
 # ── 서버 시작/종료 수명주기 ────────────────────────────────
