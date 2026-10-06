@@ -180,7 +180,7 @@
               </div>
 
               <div class="card-meta">
-                <i class="bi bi-person-fill me-1"></i>{{ post.author.split('@')[0] }}@***.com
+                <i class="bi bi-person-fill me-1"></i>{% if post.user and post.user.handle %}{{ post.user.display_name or ('@' ~ post.user.handle) }}{% else %}{{ post.author.split('@')[0] }}{% endif %}
                 &nbsp;·&nbsp;
                 <i class="bi bi-clock me-1"></i>{{ post.created_at.strftime("%Y-%m-%d") }}
                 &nbsp;·&nbsp;
@@ -226,7 +226,20 @@
         {% endfor %}
       {% else %}
         <div class="empty-state" data-aos="fade-up" style="grid-column: span 3;">
-          <i class="bi bi-compass empty-state-icon"></i>
+          <div class="empty-state-visual">
+            <svg class="empty-state-svg" viewBox="0 0 120 120" width="120" height="120" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="60" cy="60" r="50" class="svg-compass-dial" />
+              <circle cx="60" cy="60" r="42" class="svg-compass-inner" />
+              <g class="svg-compass-needle">
+                <polygon points="60,25 65,60 60,65" class="needle-north" />
+                <polygon points="60,95 65,60 60,65" class="needle-south" />
+                <circle cx="60" cy="60" r="3.5" class="needle-center" />
+              </g>
+              <circle cx="28" cy="40" r="2" class="svg-shimmer-dot" style="animation-delay: 0.3s;" />
+              <circle cx="92" cy="80" r="2.5" class="svg-shimmer-dot" style="animation-delay: 0.8s;" />
+              <circle cx="85" cy="35" r="1.5" class="svg-shimmer-dot" style="animation-delay: 1.2s;" />
+            </svg>
+          </div>
           <p class="empty-state-title">아직 여행 기록이 없습니다</p>
           <p class="empty-state-body">첫 번째 여행을 기록해보세요</p>
           <a href="/board/new" class="btn-travel">여행 기록 쓰기</a>

@@ -8,13 +8,13 @@
 <style>
   /* Board list specific styles */
   .stories-container {
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
   }
 
   .stories-header {
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
     text-align: center;
   }
 
@@ -30,48 +30,194 @@
     font-family: var(--font-ui);
     font-size: 1.1rem;
     color: var(--soft-gray);
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
   }
 
-  /* Category filter */
-  .category-filter {
+  /* 2-Column Sidebar Layout */
+  .stories-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 2.5rem;
+    align-items: start;
+    margin-top: 1rem;
+  }
+
+  .stories-sidebar {
+    position: sticky;
+    top: 5.5rem;
     display: flex;
-    gap: 0.5rem;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 2rem;
-  }
-
-  .scope-filter {
-    margin-bottom: 1rem;
-  }
-
-  .category-chip {
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    background: var(--light-gray);
-    color: var(--ink-black);
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-  }
-
-  .category-chip:hover {
+    flex-direction: column;
+    gap: 1.5rem;
     background: var(--paper-white);
-    border-color: var(--accent-blue);
+    border: 1px solid var(--light-gray);
+    padding: 1.35rem 1.5rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px var(--shadow-color);
+  }
+
+  [data-theme="dark"] .stories-sidebar {
+    background: var(--dark-surface);
+    border-color: var(--dark-surface);
+  }
+
+  .sidebar-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 0.62rem;
+  }
+
+  .sidebar-widget-title {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--soft-gray);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--light-gray);
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.2rem;
+  }
+
+  [data-theme="dark"] .sidebar-widget-title {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .segmented-control.w-100 {
+    display: flex;
+    width: 100%;
+  }
+
+  .segmented-control.w-100 .segmented-item {
+    flex: 1;
+    text-align: center;
+  }
+
+  /* Sort list */
+  .sort-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .sort-item {
+    display: flex;
+    align-items: center;
+    font-family: var(--font-ui);
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--soft-gray);
+    text-decoration: none;
+    padding: 0.42rem 0.75rem;
+    border-radius: 8px;
+    transition: all var(--transition-fast);
+  }
+
+  .sort-item:hover {
+    background: var(--light-gray);
     color: var(--accent-blue);
-    transform: translateY(-1px);
+    transform: translateX(2px);
   }
 
-  .category-chip.active {
-    background: var(--accent-blue);
-    color: white;
+  .sort-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent-blue);
+    font-weight: 600;
   }
 
-  .category-chip.is-child {
-    border-style: dashed;
-    padding-left: 1.15rem;
+  [data-theme="dark"] .sort-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  /* Category tree view */
+  .category-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-height: 380px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+  }
+
+  .category-tree::-webkit-scrollbar {
+    width: 4px;
+  }
+  .category-tree::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .category-tree::-webkit-scrollbar-thumb {
+    background: var(--light-gray);
+    border-radius: 20px;
+  }
+
+  .tree-node {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-ui);
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--soft-gray);
+    text-decoration: none;
+    padding: 0.42rem 0.75rem;
+    border-radius: 8px;
+    transition: all var(--transition-fast);
+    border-left: 2px solid transparent;
+  }
+
+  .tree-node:hover {
+    background: var(--light-gray);
+    color: var(--accent-blue);
+    transform: translateX(2px);
+  }
+
+  .tree-node.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent-blue);
+    border-left-color: var(--accent-blue);
+    font-weight: 600;
+  }
+
+  [data-theme="dark"] .tree-node:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .tree-child {
+    padding-left: 1.6rem;
+    font-size: 0.84rem;
+  }
+
+  .tree-line {
+    color: var(--soft-gray);
+    opacity: 0.6;
+    margin-right: 0.4rem;
+    font-weight: bold;
+    font-family: var(--font-mono);
+  }
+
+  /* Responsive styles */
+  @media (max-width: 900px) {
+    .stories-layout {
+      grid-template-columns: 1fr;
+      gap: 1.75rem;
+    }
+
+    .stories-sidebar {
+      position: static;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      padding: 1.25rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .stories-sidebar {
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
   }
 
   /* Stories grid */
@@ -423,136 +569,188 @@
   </form>
 
   <div id="board-results-region" class="board-results-region">
-    <div class="category-filter scope-filter">
-      <a href="{{ request.url.include_query_params(scope='all', page=1) }}"
-         class="category-chip js-board-filter-link {% if (selected_scope or 'all') == 'all' %}active{% endif %}">
-        All
-      </a>
-      <a href="{{ request.url.include_query_params(scope='saved', page=1) }}"
-         class="category-chip js-board-filter-link {% if selected_scope == 'saved' %}active{% endif %}">
-        Saved
-      </a>
-    </div>
-
-    <div class="category-filter">
-      <a href="{{ request.url.include_query_params(sort='recent', page=1) }}"
-         class="category-chip js-board-filter-link {% if (selected_sort or 'recent') == 'recent' %}active{% endif %}">
-        Recent
-      </a>
-      <a href="{{ request.url.include_query_params(sort='popular', page=1) }}"
-         class="category-chip js-board-filter-link {% if selected_sort == 'popular' %}active{% endif %}">
-        Popular
-      </a>
-      <a href="{{ request.url.include_query_params(sort='discussed', page=1) }}"
-         class="category-chip js-board-filter-link {% if selected_sort == 'discussed' %}active{% endif %}">
-        Discussed
-      </a>
-    </div>
-
-    <!-- Category filter -->
-    <div class="category-filter">
-      <a href="{{ request.url.include_query_params(category_id='', page=1) }}"
-         class="category-chip js-board-filter-link {% if selected_category_id is none %}active{% endif %}">
-        All Categories
-      </a>
-      {% for category in categories %}
-      <a
-        href="{{ request.url.include_query_params(category_id=category.id, page=1) }}"
-        class="category-chip js-board-filter-link {% if category_depths and category_depths.get(category.id, 0) > 0 %}is-child{% endif %} {% if selected_category_id == category.id %}active{% endif %}"
-      >
-        {% if category_depths and category_depths.get(category.id, 0) > 0 %}↳ {% endif %}{{ category.name }}
-      </a>
-      {% endfor %}
-    </div>
-
-    <!-- Stories -->
-    <div class="stories-grid" id="storiesGrid">
-      {% if posts %}
-        {% for post in posts %}
-        <article class="story-card" onclick="window.location.href='/board/{{ post.id }}'">
-          <div class="story-header">
-            <div class="story-meta">
-              {% if post.category %}
-              <span class="story-category">{{ post.category.name }}</span>
-              {% endif %}
-              <span class="story-date">{{ post.created_at.strftime('%B %d, %Y') }}</span>
-            </div>
-            <div class="story-badges">
-              {% if post.is_private %}
-              <span class="badge badge-private">Private</span>
-              {% endif %}
-              {% if (current_time - post.created_at).days < 1 %}
-              <span class="badge badge-new">New</span>
-              {% endif %}
-            </div>
+    <div class="stories-layout">
+      <!-- Left Column: Sidebar Filters -->
+      <aside class="stories-sidebar">
+        <!-- Scope Filter Widget -->
+        <div class="sidebar-widget">
+          <div class="sidebar-widget-title">
+            <i class="bi bi-compass-fill"></i> Feed Scope
           </div>
-
-          <a href="/board/{{ post.id }}" class="story-title">
-            {% if post.show_title != False %}
-              {{ post.title or 'Untitled Story' }}
-            {% else %}
-              Untitled Story
-            {% endif %}
-          </a>
-
-          <p class="story-preview">
-            {{ post.preview | default('No preview available...', true) }}
-          </p>
-
-          <div class="story-footer">
-            <div class="story-author">
-              <span class="author-avatar">{{ post.author[0].upper() }}</span>
-              <span>{{ post.author }}</span>
-            </div>
-            <div class="story-stats">
-              <span class="stat-item">
-                👁 {{ post.stats.views if post.stats else 0 }}
-              </span>
-              <span class="stat-item">
-                📝 {{ post.content.split()|length if post.content else 0 }} words
-              </span>
-            </div>
+          <div class="segmented-control w-100" id="scope-segmented-control">
+            <a href="{{ request.url.include_query_params(scope='all', page=1) }}"
+               class="segmented-item js-board-filter-link {% if (selected_scope or 'all') == 'all' %}active{% endif %}">
+              All
+            </a>
+            <a href="{{ request.url.include_query_params(scope='saved', page=1) }}"
+               class="segmented-item js-board-filter-link {% if selected_scope == 'saved' %}active{% endif %}">
+              Saved
+            </a>
           </div>
-        </article>
-        {% endfor %}
-      {% else %}
-        <div class="empty-state">
-          <div class="empty-icon">📝</div>
-          {% if selected_scope == 'saved' %}
-          <h2 class="empty-title">No saved stories yet</h2>
-          <p class="empty-message">북마크한 글이 아직 없습니다. 관심 글을 저장해 보세요.</p>
-          <a href="{{ request.url.include_query_params(scope='all', page=1) }}" class="btn-primary js-board-filter-link">Explore All Stories</a>
+        </div>
+
+        <!-- Sort Filter Widget -->
+        <div class="sidebar-widget">
+          <div class="sidebar-widget-title">
+            <i class="bi bi-sort-down-alt"></i> Sort By
+          </div>
+          <div class="sort-list">
+            <a href="{{ request.url.include_query_params(sort='recent', page=1) }}"
+               class="sort-item js-board-filter-link {% if (selected_sort or 'recent') == 'recent' %}active{% endif %}">
+              <i class="bi bi-clock me-2"></i> Recent
+            </a>
+            <a href="{{ request.url.include_query_params(sort='popular', page=1) }}"
+               class="sort-item js-board-filter-link {% if selected_sort == 'popular' %}active{% endif %}">
+              <i class="bi bi-eye me-2"></i> Popular
+            </a>
+            <a href="{{ request.url.include_query_params(sort='discussed', page=1) }}"
+               class="sort-item js-board-filter-link {% if selected_sort == 'discussed' %}active{% endif %}">
+              <i class="bi bi-chat-dots me-2"></i> Discussed
+            </a>
+          </div>
+        </div>
+
+        <!-- Categories Widget (Hierarchical Tree) -->
+        <div class="sidebar-widget">
+          <div class="sidebar-widget-title">
+            <i class="bi bi-folder2-open"></i> Categories
+          </div>
+          <div class="category-tree">
+            <a href="{{ request.url.include_query_params(category_id='', page=1) }}"
+               class="tree-node js-board-filter-link {% if selected_category_id is none %}active{% endif %}">
+              <span class="node-name"><i class="bi bi-grid-fill me-2" style="font-size:0.8rem;"></i>All Stories</span>
+            </a>
+            {% for category in categories %}
+              {% set is_child = category_depths and category_depths.get(category.id, 0) > 0 %}
+              <a
+                href="{{ request.url.include_query_params(category_id=category.id, page=1) }}"
+                class="tree-node js-board-filter-link {% if is_child %}tree-child{% endif %} {% if selected_category_id == category.id %}active{% endif %}"
+              >
+                <span class="node-name">
+                  {% if is_child %}
+                    <span class="tree-line">↳</span>
+                  {% else %}
+                    <i class="bi bi-folder-fill me-2" style="font-size:0.8rem; opacity:0.85;"></i>
+                  {% endif %}
+                  {{ category.name }}
+                </span>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right Column: Stories Feed & Pagination -->
+      <div class="stories-feed-col">
+        <!-- Stories -->
+        <div class="stories-grid" id="storiesGrid">
+          {% if posts %}
+            {% for post in posts %}
+            <article class="story-card shine-effect" onclick="window.location.href='/board/{{ post.id }}'" data-aos="fade-up" data-aos-delay="{{ loop.index * 20 }}">
+              <div class="story-header">
+                <div class="story-meta">
+                  {% if post.category %}
+                    {% set tone = 'sky' %}
+                    {% if post.category.name == 'Travel' or post.category.name == '여행' %}{% set tone = 'cyan' %}
+                    {% elif post.category.name == 'Tech' or post.category.name == '기술' %}{% set tone = 'violet' %}
+                    {% elif post.category.name == 'Food' or post.category.name == '맛집' %}{% set tone = 'amber' %}
+                    {% elif post.category.name == 'Life' or post.category.name == '일상' %}{% set tone = 'rose' %}
+                    {% endif %}
+                    <span class="badge-tint badge-tint-{{ tone }} me-2" style="font-size:0.68rem; padding:0.18rem 0.5rem;">{{ post.category.name }}</span>
+                  {% endif %}
+                  <span class="story-date">{{ post.created_at.strftime('%B %d, %Y') }}</span>
+                </div>
+                <div class="story-badges">
+                  {% if post.is_private %}
+                  <span class="badge-tint badge-tint-rose" style="font-size:0.65rem; padding:0.18rem 0.5rem;"><i class="bi bi-lock-fill me-1"></i>Private</span>
+                  {% endif %}
+                  {% if (current_time - post.created_at).days < 1 %}
+                  <span class="badge-tint badge-tint-emerald" style="font-size:0.65rem; padding:0.18rem 0.5rem;"><i class="bi bi-sparkles me-1"></i>New</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <a href="/board/{{ post.id }}" class="story-title">
+                {% if post.show_title != False %}
+                  {{ post.title or 'Untitled Story' }}
+                {% else %}
+                  Untitled Story
+                {% endif %}
+              </a>
+
+              <p class="story-preview">
+                {{ post.preview | default('No preview available...', true) }}
+              </p>
+
+              <div class="story-footer">
+                <div class="story-author">
+                  <span class="author-avatar">{{ (post.user.display_name or post.user.handle or post.author or '?')[0]|upper }}</span>
+                  {% if post.user and post.user.handle %}
+                  <a href="/@{{ post.user.handle }}" style="position:relative; z-index:2;">{{ post.user.display_name or ('@' ~ post.user.handle) }}</a>
+                  {% else %}
+                  <span>{{ post.author.split('@')[0] }}</span>
+                  {% endif %}
+                </div>
+                <div class="story-stats">
+                  <span class="stat-item">
+                    👁 {{ post.stats.views if post.stats else 0 }}
+                  </span>
+                  <span class="stat-item">
+                    📝 {{ post.content.split()|length if post.content else 0 }} words
+                  </span>
+                </div>
+              </div>
+            </article>
+            {% endfor %}
           {% else %}
-          <h2 class="empty-title">No stories yet</h2>
-          <p class="empty-message">Start writing your first story to begin your journey.</p>
-          <a href="/board/new" class="btn-primary">Write Your First Story</a>
+            <div class="empty-state">
+              <div class="empty-state-visual">
+                <svg class="empty-state-svg" viewBox="0 0 120 120" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="60" cy="60" r="50" class="svg-compass-dial" />
+                  <circle cx="60" cy="60" r="42" class="svg-compass-inner" />
+                  <g class="svg-compass-needle">
+                    <polygon points="60,25 65,60 60,65" class="needle-north" />
+                    <polygon points="60,95 65,60 60,65" class="needle-south" />
+                  </g>
+                </svg>
+              </div>
+              {% if selected_scope == 'saved' %}
+              <h2 class="empty-title">No saved stories yet</h2>
+              <p class="empty-message">북마크한 글이 아직 없습니다. 관심 글을 저장해 보세요.</p>
+              <a href="{{ request.url.include_query_params(scope='all', page=1) }}" class="btn-primary js-board-filter-link" style="text-decoration:none; display:inline-block; border-radius:30px; font-size:0.85rem; padding:0.5rem 1.25rem;">Explore All Stories</a>
+              {% else %}
+              <h2 class="empty-title">No stories yet</h2>
+              <p class="empty-message">Start writing your first story to begin your journey.</p>
+              <a href="/board/new" class="btn-primary" style="text-decoration:none; display:inline-block; border-radius:30px; font-size:0.85rem; padding:0.5rem 1.25rem;">Write Your First Story</a>
+              {% endif %}
+            </div>
           {% endif %}
         </div>
-      {% endif %}
-    </div>
 
-    <!-- Pagination (if needed) -->
-    {% if total_pages > 1 %}
-    <div class="pagination">
-      {% if current_page > 1 %}
-      <a href="{{ request.url.include_query_params(page=current_page - 1) }}" class="page-link js-board-filter-link">← Previous</a>
-      {% endif %}
+        <!-- Pagination (if needed) -->
+        {% if total_pages > 1 %}
+        <div class="pagination">
+          {% if current_page > 1 %}
+          <a href="{{ request.url.include_query_params(page=current_page - 1) }}" class="page-link js-board-filter-link">← Previous</a>
+          {% endif %}
 
-      {% for page in range(1, total_pages + 1) %}
-        {% if page <= 3 or page > total_pages - 3 or (page > current_page - 2 and page < current_page + 2) %}
-        <a href="{{ request.url.include_query_params(page=page) }}" class="page-link js-board-filter-link {% if page == current_page %}active{% endif %}">
-          {{ page }}
-        </a>
-        {% elif page == 4 or page == total_pages - 3 %}
-        <span>...</span>
+          {% for page in range(1, total_pages + 1) %}
+            {% if page <= 3 or page > total_pages - 3 or (page > current_page - 2 and page < current_page + 2) %}
+            <a href="{{ request.url.include_query_params(page=page) }}" class="page-link js-board-filter-link {% if page == current_page %}active{% endif %}">
+              {{ page }}
+            </a>
+            {% elif page == 4 or page == total_pages - 3 %}
+            <span>...</span>
+            {% endif %}
+          {% endfor %}
+
+          {% if current_page < total_pages %}
+          <a href="{{ request.url.include_query_params(page=current_page + 1) }}" class="page-link js-board-filter-link">Next →</a>
+          {% endif %}
+        </div>
         {% endif %}
-      {% endfor %}
-
-      {% if current_page < total_pages %}
-      <a href="{{ request.url.include_query_params(page=current_page + 1) }}" class="page-link js-board-filter-link">Next →</a>
-      {% endif %}
+      </div>
     </div>
-    {% endif %}
   </div>
 </div>
 

@@ -47,11 +47,11 @@
       background: var(--bg-overlay);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid rgba(var(--primary-rgb, 56, 189, 248), 0.08);
       position: sticky;
       top: 0;
       z-index: var(--z-sticky);
-      transition: background var(--transition-base);
+      transition: background var(--transition-base), border-color var(--transition-base);
     }
 
     .site-nav .navbar-brand {
@@ -79,31 +79,34 @@
       font-size: 0.88rem;
       font-weight: 500;
       letter-spacing: 0.3px;
-      padding: 0.5rem 0.9rem !important;
-      transition: color var(--transition-fast);
+      padding: 0.42rem 0.9rem !important;
+      margin: 0 0.1rem;
+      border-radius: 20px;
+      transition: color var(--transition-fast), background-color var(--transition-fast);
       position: relative;
     }
 
     .site-nav .nav-link::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 0;
-      height: 2px;
-      background: var(--gradient-primary);
-      transition: width var(--transition-fast);
+      display: none;
     }
 
-    .site-nav .nav-link:hover::after,
-    .site-nav .nav-link.active::after {
-      width: calc(100% - 1.8rem);
+    .site-nav .nav-link:hover {
+      color: var(--primary) !important;
+      background-color: rgba(var(--primary-rgb, 56, 189, 248), 0.06);
     }
 
-    .site-nav .nav-link:hover,
     .site-nav .nav-link.active {
       color: var(--primary) !important;
+      background-color: rgba(var(--primary-rgb, 56, 189, 248), 0.12);
+      font-weight: 600;
+    }
+
+    [data-theme="light"] .site-nav .nav-link:hover {
+      background-color: rgba(var(--primary-rgb, 14, 165, 233), 0.06);
+    }
+
+    [data-theme="light"] .site-nav .nav-link.active {
+      background-color: rgba(var(--primary-rgb, 14, 165, 233), 0.12);
     }
 
     .site-nav .btn-nav-write {
@@ -369,6 +372,11 @@
           <li class="nav-item">
             <a class="nav-link" href="/me"><i class="bi bi-person-circle me-1"></i>My</a>
           </li>
+          {% if current_user.handle %}
+          <li class="nav-item">
+            <a class="nav-link" href="/@{{ current_user.handle }}"><i class="bi bi-journal-bookmark me-1"></i>My Blog</a>
+          </li>
+          {% endif %}
           {% endif %}
           <li class="nav-item">
             <a class="nav-link" href="/main"><i class="bi bi-person me-1"></i>About</a>

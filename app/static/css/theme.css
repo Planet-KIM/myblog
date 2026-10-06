@@ -358,3 +358,151 @@
     --text-muted: #cbd5e1;
   }
 }
+
+/* ─────────────────────────────────────────────
+   Premium Design Extensions
+   ───────────────────────────────────────────── */
+
+/* Pulse Ring Animation */
+@keyframes pulse-ring {
+  0% { transform: scale(0.65); opacity: 0; }
+  50% { opacity: 0.6; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.pulse-target {
+  position: relative;
+  z-index: 1;
+}
+
+.pulse-target::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--primary);
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Card Glint Shine Effect */
+@keyframes card-shine {
+  0% { left: -150%; }
+  50% { left: 150%; }
+  100% { left: 150%; }
+}
+
+.shine-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine-effect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.12),
+    transparent
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+  transition: none;
+}
+
+.shine-effect:hover::after {
+  animation: card-shine 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Segmented Sliding Controls */
+.segmented-control {
+  display: inline-flex;
+  position: relative;
+  background: var(--surface-dark);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  padding: 3px;
+  user-select: none;
+  gap: 2px;
+  z-index: 1;
+}
+
+.segmented-item {
+  position: relative;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.35rem 1.1rem;
+  border-radius: 30px;
+  cursor: pointer;
+  z-index: 2;
+  transition: color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.segmented-item.active {
+  color: var(--text-primary) !important;
+  background: var(--surface-light);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .segmented-item.active {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Unified Tinted Badges */
+.badge-tint {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.65rem;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.badge-tint-sea, .badge-tint-sky {
+  background-color: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.18);
+}
+.badge-tint-forest, .badge-tint-emerald {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.18);
+}
+.badge-tint-sunset, .badge-tint-orange {
+  background-color: rgba(251, 146, 60, 0.12);
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.18);
+}
+.badge-tint-rose, .badge-tint-pink {
+  background-color: rgba(244, 63, 94, 0.12);
+  color: #f43f5e;
+  border-color: rgba(244, 63, 94, 0.18);
+}
+.badge-tint-violet, .badge-tint-purple {
+  background-color: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  border-color: rgba(139, 92, 246, 0.18);
+}
+.badge-tint-amber, .badge-tint-yellow {
+  background-color: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.18);
+}

@@ -1,5 +1,158 @@
 {% extends "base.html" %}
 
+{% block extra_head %}
+<style>
+  /* Premium Board Modern List View styling */
+  .modern-post-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .modern-post-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid rgba(var(--primary-rgb, 56, 189, 248), 0.04);
+    border-radius: 14px;
+    padding: 1.35rem 1.65rem;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  .modern-post-row:hover {
+    transform: translateY(-2px);
+    border-color: rgba(var(--primary-rgb, 56, 189, 248), 0.15);
+    box-shadow: var(--shadow-md);
+  }
+
+  .modern-post-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .modern-post-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .modern-post-title a {
+    font-family: 'Noto Serif KR', serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+
+  .modern-post-title a:hover {
+    color: var(--primary);
+  }
+
+  .modern-post-bottom-meta {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+  }
+
+  .modern-post-action {
+    margin-left: 2rem;
+    flex-shrink: 0;
+  }
+
+  .modern-post-link {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+    border: 1px solid rgba(var(--primary-rgb, 56, 189, 248), 0.2);
+    padding: 0.4rem 1rem;
+    border-radius: 30px;
+    transition: all var(--transition-fast);
+  }
+
+  .modern-post-link:hover {
+    background: var(--gradient-primary);
+    color: white !important;
+    border-color: transparent;
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Mobile card improvements */
+  .post-list-card {
+    display: block;
+    background: var(--surface);
+    border: 1px solid rgba(var(--primary-rgb, 56, 189, 248), 0.04);
+    border-radius: 12px;
+    padding: 1.1rem 1.3rem;
+    margin-bottom: 0.75rem;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast), border-color var(--transition-fast);
+  }
+
+  .post-list-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(var(--primary-rgb, 56, 189, 248), 0.15);
+  }
+
+  .post-list-card-title {
+    font-family: 'Noto Serif KR', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  .post-list-card-meta {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  /* Category pills */
+  .cat-pill {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 500;
+    padding: 0.3rem 0.85rem;
+    border-radius: 20px;
+    background: var(--surface-dark);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-right: 0.35rem;
+    margin-bottom: 0.35rem;
+    transition: all var(--transition-fast);
+  }
+
+  .cat-pill:hover {
+    color: var(--text-primary);
+    border-color: rgba(var(--primary-rgb, 56, 189, 248), 0.25);
+  }
+
+  .cat-pill.active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(16, 185, 129, 0.08));
+    border-color: rgba(var(--primary-rgb, 56, 189, 248), 0.4);
+    color: var(--primary);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-content">
   {% if published %}
@@ -25,7 +178,7 @@
     </div>
   </div>
 
-  <div class="row mb-3 align-items-center">
+  <div class="row mb-4 align-items-center">
     <div class="col-md-7">
       <span class="me-2 fw-semibold small">Categories:</span>
       <a href="/board/"
@@ -61,76 +214,97 @@
   <!-- 모바일 카드 뷰 (md 미만에서 표시) -->
   <div class="d-md-none post-card-list mb-3">
     {% for post in posts %}
-    <a href="/board/{{ post.id }}" class="post-list-card">
+    <a href="/board/{{ post.id }}" class="post-list-card shine-effect">
       <span class="post-list-card-title">{{ post.title }}</span>
       <div class="post-list-card-meta">
         {% if post.category %}
-        <span class="badge bg-secondary" style="font-size:0.72rem;">{{ post.category.name }}</span>
+          {% set tone = 'sky' %}
+          {% if post.category.name == 'Travel' or post.category.name == '여행' %}{% set tone = 'cyan' %}
+          {% elif post.category.name == 'Tech' or post.category.name == '기술' %}{% set tone = 'violet' %}
+          {% elif post.category.name == 'Food' or post.category.name == '맛집' %}{% set tone = 'amber' %}
+          {% elif post.category.name == 'Life' or post.category.name == '일상' %}{% set tone = 'rose' %}
+          {% endif %}
+          <span class="badge-tint badge-tint-{{ tone }} me-1" style="font-size:0.65rem;">{{ post.category.name }}</span>
         {% endif %}
-        <span>{{ post.author.split('@')[0] }}@***.com</span>
+        <span>{{ post.author.split('@')[0] }}</span>
         <span>·</span>
         <span>{{ post.created_at.strftime("%Y-%m-%d") }}</span>
         {% if post.is_private %}
-        <span class="badge bg-secondary" style="font-size:0.72rem;">Private</span>
-        {% else %}
-        <span class="badge bg-success" style="font-size:0.72rem;">Public</span>
+        <span class="badge-tint badge-tint-rose ms-1" style="font-size:0.65rem;"><i class="bi bi-lock-fill"></i> Private</span>
         {% endif %}
       </div>
     </a>
     {% else %}
-    <div class="empty-state py-4">
-      <i class="bi bi-journal-x empty-state-icon"></i>
+    <div class="empty-state py-5">
+      <div class="empty-state-visual">
+        <svg class="empty-state-svg" viewBox="0 0 120 120" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="50" class="svg-compass-dial" />
+          <circle cx="60" cy="60" r="42" class="svg-compass-inner" />
+          <g class="svg-compass-needle">
+            <polygon points="60,25 65,60 60,65" class="needle-north" />
+            <polygon points="60,95 65,60 60,65" class="needle-south" />
+          </g>
+        </svg>
+      </div>
       <p class="empty-state-title">게시글이 없습니다</p>
     </div>
     {% endfor %}
   </div>
 
-  <!-- 데스크탑 테이블 (md 이상에서 표시) -->
-  <table class="table table-hover align-middle d-none d-md-table">
-    <thead>
-      <tr>
-        <th style="width: 60px;">#</th>
-        <th>Title</th>
-        <th style="width: 160px;">Category</th>
-        <th style="width: 220px;">Author</th>
-        <th style="width: 120px;">Visibility</th>
-        <th style="width: 180px;">Created</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for post in posts %}
-      <tr>
-        <!-- 순번: 전체 흐름에 맞춰 계산 -->
-        <td>{{ (page - 1) * size + loop.index }}</td>
-        <td>
-          <a href="/board/{{ post.id }}">
-            {{ post.title }}
-          </a>
-        </td>
-        <td>
+  <!-- 데스크탑 리스트 뷰 (md 이상에서 표시) -->
+  <div class="d-none d-md-block modern-post-list mb-4">
+    {% for post in posts %}
+    <article class="modern-post-row shine-effect" data-aos="fade-up" data-aos-delay="{{ loop.index * 25 }}">
+      <div class="modern-post-info">
+        <div class="modern-post-top-meta">
           {% if post.category %}
-          <span class="badge bg-secondary">{{ post.category.name }}</span>
-          {% else %}
-          <span class="text-muted small">-</span>
+            {% set tone = 'sky' %}
+            {% if post.category.name == 'Travel' or post.category.name == '여행' %}{% set tone = 'cyan' %}
+            {% elif post.category.name == 'Tech' or post.category.name == '기술' %}{% set tone = 'violet' %}
+            {% elif post.category.name == 'Food' or post.category.name == '맛집' %}{% set tone = 'amber' %}
+            {% elif post.category.name == 'Life' or post.category.name == '일상' %}{% set tone = 'rose' %}
+            {% endif %}
+            <span class="badge-tint badge-tint-{{ tone }} me-2">{{ post.category.name }}</span>
           {% endif %}
-        </td>
-        <td>{{ post.author.split('@')[0] }}@***.com</td>
-        <td>
-          {% if post.is_private %}
-          <span class="badge bg-secondary">Private</span>
-          {% else %}
-          <span class="badge bg-success">Public</span>
-          {% endif %}
-        </td>
-        <td>{{ post.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
-      </tr>
-      {% else %}
-      <tr>
-        <td colspan="6" class="text-center text-muted py-4">게시글이 없습니다.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+          <span class="modern-post-date">{{ post.created_at.strftime("%Y-%m-%d") }}</span>
+        </div>
+        <h4 class="modern-post-title mt-2 mb-2">
+          <a href="/board/{{ post.id }}">{{ post.title }}</a>
+        </h4>
+        <div class="modern-post-bottom-meta">
+          <span><i class="bi bi-person-fill me-1"></i>{{ post.author.split('@')[0] }}@***.com</span>
+          <span class="ms-3">
+            {% if post.is_private %}
+            <span class="badge-tint badge-tint-rose"><i class="bi bi-lock-fill me-1"></i>Private</span>
+            {% else %}
+            <span class="badge-tint badge-tint-forest"><i class="bi bi-globe me-1"></i>Public</span>
+            {% endif %}
+          </span>
+        </div>
+      </div>
+      
+      <div class="modern-post-action">
+        <a href="/board/{{ post.id }}" class="modern-post-link">
+          Read Story <i class="bi bi-arrow-right-short ms-1"></i>
+        </a>
+      </div>
+    </article>
+    {% else %}
+    <div class="empty-state py-5">
+      <div class="empty-state-visual">
+        <svg class="empty-state-svg" viewBox="0 0 120 120" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="50" class="svg-compass-dial" />
+          <circle cx="60" cy="60" r="42" class="svg-compass-inner" />
+          <g class="svg-compass-needle">
+            <polygon points="60,25 65,60 60,65" class="needle-north" />
+            <polygon points="60,95 65,60 60,65" class="needle-south" />
+          </g>
+        </svg>
+      </div>
+      <p class="empty-state-title">게시글이 없습니다</p>
+    </div>
+    {% endfor %}
+  </div>
 
   <!-- ✅ Pagination Widget -->
   {% if total_pages > 1 %}

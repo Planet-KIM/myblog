@@ -118,13 +118,34 @@
 
 .main-cv .tech-badge {
   display: inline-block;
-  padding: 0.2rem 0.58rem;
-  font-size: 0.79rem;
-  border-radius: 999px;
-  margin: 0 0.25rem 0.25rem 0;
-  border: 1px solid color-mix(in srgb, var(--cv-border) 80%, transparent);
-  color: #0f172a;
+  padding: 0.22rem 0.65rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border-radius: 6px;
+  margin: 0 0.35rem 0.35rem 0;
+  border: 1px solid rgba(var(--primary-rgb, 56, 189, 248), 0.12);
+  background-color: rgba(var(--primary-rgb, 56, 189, 248), 0.08);
+  color: var(--primary) !important;
   line-height: 1.25;
+  font-family: var(--font-mono);
+  transition: all var(--transition-fast);
+}
+
+.main-cv .tech-badge:hover {
+  background-color: rgba(var(--primary-rgb, 56, 189, 248), 0.15);
+  border-color: rgba(var(--primary-rgb, 56, 189, 248), 0.25);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .main-cv .tech-badge {
+  background-color: rgba(var(--primary-rgb, 14, 165, 233), 0.06);
+  border-color: rgba(var(--primary-rgb, 14, 165, 233), 0.12);
+  color: var(--primary-dark) !important;
+}
+
+[data-theme="light"] .main-cv .tech-badge:hover {
+  background-color: rgba(var(--primary-rgb, 14, 165, 233), 0.12);
+  border-color: rgba(var(--primary-rgb, 14, 165, 233), 0.25);
 }
 
 .main-cv .timeline-item {
@@ -142,6 +163,29 @@
   height: 8px;
   border-radius: 50%;
   background-color: var(--cv-link);
+  transition: box-shadow var(--transition-base), background-color var(--transition-base);
+}
+
+.main-cv .timeline-item.is-present::before {
+  background-color: var(--primary);
+  animation: pulse-ring-cv 2s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring-cv {
+  0% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 56, 189, 248), 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(var(--primary-rgb, 56, 189, 248), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 56, 189, 248), 0); }
+}
+
+[data-theme="light"] .main-cv .timeline-item.is-present::before {
+  background-color: var(--primary-dark);
+  animation: pulse-ring-cv-light 2s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring-cv-light {
+  0% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 14, 165, 233), 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(var(--primary-rgb, 14, 165, 233), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 14, 165, 233), 0); }
 }
 
 .main-cv .timeline-item::after {

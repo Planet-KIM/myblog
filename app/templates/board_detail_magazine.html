@@ -616,6 +616,129 @@
   }
 
   [data-theme="dark"] .page-nav-btn { background: #1e293b; border-color: rgba(255,255,255,0.1); color: #e5e7eb; }
+
+  /* macOS Code Window styling */
+  .code-window-wrapper {
+    background: #1e293b;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    margin: 2rem 0;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .code-window-header {
+    background: #0f172a;
+    padding: 0.65rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .window-controls {
+    display: flex;
+    gap: 6px;
+  }
+
+  .window-controls .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .window-controls .dot.close { background: #ef4444; }
+  .window-controls .dot.minimize { background: #f59e0b; }
+  .window-controls .dot.expand { background: #10b981; }
+
+  .window-lang {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: #94a3b8;
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+
+  .window-copy-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+
+  .window-copy-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .magazine-content pre {
+    margin: 0 !important;
+    border-radius: 0 0 12px 12px !important;
+    box-shadow: none !important;
+  }
+
+  /* Circular scroll to top button */
+  .scroll-to-top {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 44px;
+    height: 44px;
+    background: var(--surface, #1e293b);
+    border-radius: 50%;
+    box-shadow: var(--shadow-lg);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: transform var(--transition-fast), opacity var(--transition-fast);
+    opacity: 0;
+    pointer-events: none;
+    border: 1px solid var(--border, #334155);
+  }
+
+  .scroll-to-top.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .scroll-to-top:hover {
+    transform: translateY(-4px) scale(1.08);
+    border-color: var(--primary);
+  }
+
+  .progress-ring {
+    position: absolute;
+    transform: rotate(-90deg);
+  }
+
+  .progress-ring-circle-bg {
+    transition: stroke var(--transition-base);
+  }
+
+  .progress-ring-circle {
+    stroke-dasharray: 100.53;
+    stroke-dashoffset: 100.53;
+    transition: stroke-dashoffset 0.1s ease;
+  }
+
+  .scroll-icon {
+    font-size: 1.45rem;
+    color: var(--primary);
+    position: relative;
+    z-index: 2;
+    transition: transform var(--transition-fast);
+  }
+
+  .scroll-to-top:hover .scroll-icon {
+    transform: translateY(-2px);
+  }
 </style>
 {% endblock %}
 
@@ -637,8 +760,12 @@
 
   <div class="magazine-meta">
     <div class="meta-item">
-      <span class="author-avatar">{{ post.author[0].upper() }}</span>
-      <span>{{ post.author }}</span>
+      <span class="author-avatar">{{ (post.user.display_name or post.user.handle or post.author or '?')[0]|upper }}</span>
+      {% if post.user and post.user.handle %}
+      <a href="/@{{ post.user.handle }}">{{ post.user.display_name or ('@' ~ post.user.handle) }}</a>
+      {% else %}
+      <span>{{ post.author.split('@')[0] }}</span>
+      {% endif %}
     </div>
     <span class="meta-item">
       {{ post.created_at.strftime('%B %d, %Y') }}
@@ -668,7 +795,7 @@
   <!-- content_blocks is parsed by JS viewer below -->
   <div id="magazine-viewer-root"></div>
   {% else %}
-  {{ post.content_html | safe }}
+  {{ post.content_html_safe | safe }}
   {% endif %}
 </article>
 
@@ -736,9 +863,18 @@
   </nav>
 </footer>
 
+<!-- Circular Scroll-to-Top Indicator -->
+<div id="scroll-to-top" class="scroll-to-top no-print" onclick="scrollToTop()" title="Go to top">
+  <svg class="progress-ring" width="40" height="40">
+    <circle class="progress-ring-circle-bg" stroke="rgba(var(--primary-rgb, 56, 189, 248), 0.12)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/>
+    <circle class="progress-ring-circle" id="scrollProgressRing" stroke="var(--primary)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/>
+  </svg>
+  <i class="bi bi-arrow-up-short scroll-icon"></i>
+</div>
+
 {% if post.content_blocks %}
 <script id="content-blocks-data" type="application/json">
-{{ post.content_blocks | safe }}
+{{ post.content_blocks_safe | safe }}
 </script>
 {% endif %}
 
@@ -976,14 +1112,100 @@ function saveRecentPost() {
   localStorage.setItem('recentPosts', JSON.stringify(list.slice(0, 15)));
 }
 
-// Theme
-const html = document.documentElement;
-const savedTheme = localStorage.getItem('theme') || 'light';
-html.setAttribute('data-theme', savedTheme);
+// Rework Code blocks into macOS Styled Panels
+function enhanceCodeBlocks() {
+  document.querySelectorAll('.magazine-content pre').forEach(pre => {
+    if (pre.parentElement.classList.contains('code-window-wrapper')) return;
+
+    const code = pre.querySelector('code');
+    let lang = 'code';
+    if (code) {
+      const classes = Array.from(code.classList);
+      const langClass = classes.find(c => c.startsWith('language-'));
+      if (langClass) {
+        lang = langClass.replace('language-', '').toUpperCase();
+      }
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'code-window-wrapper';
+
+    const header = document.createElement('div');
+    header.className = 'code-window-header';
+    header.innerHTML = `
+      <div class="window-controls">
+        <span class="dot close"></span>
+        <span class="dot minimize"></span>
+        <span class="dot expand"></span>
+      </div>
+      <div class="window-lang">${lang}</div>
+      <button class="window-copy-btn" title="Copy code">
+        <i class="bi bi-clipboard"></i>
+      </button>
+    `;
+
+    pre.parentNode.insertBefore(wrapper, pre);
+    wrapper.appendChild(header);
+    wrapper.appendChild(pre);
+
+    const copyBtn = header.querySelector('.window-copy-btn');
+    if (copyBtn && code) {
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(code.innerText).then(() => {
+          copyBtn.innerHTML = '<i class="bi bi-clipboard-check" style="color: var(--accent);"></i>';
+          setTimeout(() => {
+            copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+          }, 2000);
+        });
+      });
+    }
+  });
+}
+
+// Circular progress back-to-top setup
+function initScrollProgress() {
+  const scrollBtn = document.getElementById('scroll-to-top');
+  const ring = document.getElementById('scrollProgressRing');
+  
+  if (scrollBtn && ring) {
+    const radius = 16;
+    const circumference = 2 * Math.PI * radius; // 100.53
+    ring.style.strokeDasharray = `${circumference} ${circumference}`;
+    ring.style.strokeDashoffset = circumference;
+
+    function setProgress(percent) {
+      const offset = circumference - (percent / 100 * circumference);
+      ring.style.strokeDashoffset = offset;
+    }
+
+    window.addEventListener('scroll', () => {
+      const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
+      
+      setProgress(scrolled);
+
+      if (winScroll > 300) {
+        scrollBtn.classList.add('show');
+      } else {
+        scrollBtn.classList.remove('show');
+      }
+    });
+  }
+}
+
+function scrollToTop() {
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
 
 // Syntax highlighting
 document.addEventListener('DOMContentLoaded', () => {
   saveRecentPost();
+  enhanceCodeBlocks();
+  initScrollProgress();
 
   document.querySelectorAll('pre code').forEach((block) => {
     hljs.highlightElement(block);

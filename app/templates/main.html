@@ -13,9 +13,9 @@
   {% endif %}
 
   <div class="d-flex justify-content-between align-items-center mb-3 no-print cv-toolbar">
-    <div class="btn-group btn-group-sm">
-      <button id="btn-lang-ko" type="button" class="btn btn-primary">KO</button>
-      <button id="btn-lang-en" type="button" class="btn btn-outline-secondary">EN</button>
+    <div class="segmented-control" id="lang-segmented-control">
+      <button id="btn-lang-ko" type="button" class="segmented-item active">KO</button>
+      <button id="btn-lang-en" type="button" class="segmented-item">EN</button>
     </div>
     <div class="d-flex align-items-center gap-2">
       <button id="btn-theme" type="button" class="btn btn-outline-secondary btn-sm cv-btn-theme">
@@ -129,17 +129,14 @@
 
       <!-- SKILLS -->
       <section class="cv-section">
-        <div class="d-flex justify-content-between align-items-center">
-            <h2 class="cv-section-title">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h2 class="cv-section-title mb-0" style="border-bottom:none; padding-bottom:0;">
                 <span id="skill-section-title-text">기술 스택 (Skills)</span>
             </h2>
-            <!-- ★ 토글 버튼 -->
-            <button
-              id="btn-toggle-skill-mode"
-              type="button"
-              class="btn btn-sm btn-outline-primary no-print">
-              연구 관심사 보기
-            </button>
+            <div class="segmented-control" id="skills-segmented-control">
+              <button id="btn-skills-mode" type="button" class="segmented-item active">Skills</button>
+              <button id="btn-research-mode" type="button" class="segmented-item">Research</button>
+            </div>
         </div>
 
         <!-- 기존 Skills 뷰 -->
@@ -222,7 +219,7 @@
         <h2 class="cv-section-title">연구 및 프로젝트 경험 (Research &amp; Projects)</h2>
 
         {% for p in cv.projects %}
-          <div class="timeline-item">
+          <div class="timeline-item {% if not p.end_year %}is-present{% endif %}">
             <div class="d-flex justify-content-between">
               <div class="timeline-title">
                 {{ p.title_ko }}
@@ -412,7 +409,7 @@
         <h2 class="cv-section-title">Research &amp; Project Experience</h2>
 
         {% for p in cv.projects %}
-          <div class="timeline-item">
+          <div class="timeline-item {% if not p.end_year %}is-present{% endif %}">
             <div class="d-flex justify-content-between">
               <div class="timeline-title">
                 {{ p.title_en }}
@@ -495,10 +492,8 @@
       koCv.classList.toggle("d-none", !isKo);
       enCv.classList.toggle("d-none", isKo);
 
-      koBtn.classList.toggle("btn-primary", isKo);
-      koBtn.classList.toggle("btn-outline-secondary", !isKo);
-      enBtn.classList.toggle("btn-primary", !isKo);
-      enBtn.classList.toggle("btn-outline-secondary", isKo);
+      koBtn.classList.toggle("active", isKo);
+      enBtn.classList.toggle("active", !isKo);
 
       try {
         localStorage.setItem("cv-lang", lang);
@@ -567,45 +562,34 @@
   })();
 
     document.addEventListener("DOMContentLoaded", function () {
-        const btn = document.getElementById("btn-toggle-skill-mode");
-        const titleSpan = document.getElementById("skill-section-title-text");
-
-        if (!btn) {
-          console.warn("btn-toggle-skill-mode not found");
-          return;
-        }
-
-    btn.addEventListener("click", function () {
-      // 클릭 시점마다 DOM에서 다시 조회 (안전)
+      const btnSkills = document.getElementById("btn-skills-mode");
+      const btnResearch = document.getElementById("btn-research-mode");
       const skillView = document.getElementById("skills-view");
       const researchView = document.getElementById("research-view");
+      const titleSpan = document.getElementById("skill-section-title-text");
 
-      if (!skillView || !researchView) {
-        console.warn("skills-view or research-view not found");
-        return;
+      function setSkillMode(mode) {
+        if (!skillView || !researchView) return;
+        const isSkills = mode === "skills";
+        
+        skillView.classList.toggle("d-none", !isSkills);
+        researchView.classList.toggle("d-none", isSkills);
+        
+        if (btnSkills) btnSkills.classList.toggle("active", isSkills);
+        if (btnResearch) btnResearch.classList.toggle("active", !isSkills);
+        
+        if (titleSpan) {
+          titleSpan.textContent = isSkills ? "기술 스택 (Skills)" : "💡 Research Interest (연구 관심사)";
+        }
       }
 
-      const showingSkills = !skillView.classList.contains("d-none");
-
-      if (showingSkills) {
-        // Skills → Research Interest
-        skillView.classList.add("d-none");
-        researchView.classList.remove("d-none");
-        btn.textContent = "기술 스택 보기";
-        if (titleSpan) {
-          titleSpan.textContent = "💡 Research Interest (연구 관심사)";
-        }
-      } else {
-        // Research Interest → Skills
-        researchView.classList.add("d-none");
-        skillView.classList.remove("d-none");
-        btn.textContent = "연구 관심사 보기";
-        if (titleSpan) {
-          titleSpan.textContent = "기술 스택 (Skills)";
-        }
+      if (btnSkills) {
+        btnSkills.addEventListener("click", () => setSkillMode("skills"));
+      }
+      if (btnResearch) {
+        btnResearch.addEventListener("click", () => setSkillMode("research"));
       }
     });
-  });
 
 </script>
 
