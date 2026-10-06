@@ -107,15 +107,18 @@
    Light Theme
    ───────────────────────────────────────────── */
 [data-theme="light"] {
-  /* Primary Colors */
-  --primary: #0ea5e9;         /* Sky 500 */
-  --primary-light: #38bdf8;
-  --primary-dark: #0284c7;
+  /* Primary Colors — 라이트 배경에서 '텍스트'로 써도 WCAG AA를 통과하도록 더 진하게.
+     (흰 배경 대비: #0369a1 ≈ 5.9:1, 흰 글자/파랑 버튼도 ≈ 5.9:1) */
+  --primary: #0369a1;         /* Sky 700 */
+  --primary-light: #0ea5e9;
+  --primary-dark: #075985;
+  --primary-rgb: 3, 105, 161;
 
   /* Accent Colors */
-  --accent: #10b981;          /* Emerald 500 */
-  --accent-light: #34d399;
-  --accent-dark: #059669;
+  --accent: #047857;          /* Emerald 700 (텍스트 대비 확보) */
+  --accent-light: #10b981;
+  --accent-dark: #065f46;
+  --accent-rgb: 4, 120, 87;
 
   /* Surface Colors */
   --surface: #ffffff;
@@ -355,7 +358,13 @@
 @media (prefers-contrast: high) {
   :root {
     --border: #64748b;
-    --text-muted: #cbd5e1;
+    --text-muted: #cbd5e1;   /* 다크 기본 테마 기준 */
+  }
+  /* 라이트 테마에서는 반대로 더 진하게(연한 회색이 흰 배경에서 안 보이는 문제 방지) */
+  :root[data-theme="light"],
+  [data-theme="light"] {
+    --border: #475569;
+    --text-muted: #475569;
   }
 }
 
@@ -505,4 +514,29 @@
   background-color: rgba(251, 191, 36, 0.12);
   color: #fbbf24;
   border-color: rgba(251, 191, 36, 0.18);
+}
+
+/* 라이트 모드: 연한 틴트 배경 위 글자는 더 진한 색으로(WCAG AA) */
+[data-theme="light"] .badge-tint-sea,
+[data-theme="light"] .badge-tint-sky { color: #0369a1; }
+[data-theme="light"] .badge-tint-forest,
+[data-theme="light"] .badge-tint-emerald { color: #047857; }
+[data-theme="light"] .badge-tint-sunset,
+[data-theme="light"] .badge-tint-orange { color: #c2410c; }
+[data-theme="light"] .badge-tint-rose,
+[data-theme="light"] .badge-tint-pink { color: #be123c; }
+[data-theme="light"] .badge-tint-violet,
+[data-theme="light"] .badge-tint-purple { color: #6d28d9; }
+[data-theme="light"] .badge-tint-amber,
+[data-theme="light"] .badge-tint-yellow { color: #b45309; }
+/* ─────────────────────────────────────────────
+   한글 본문 줄바꿈 (단어 중간에서 끊기지 않도록)
+   ───────────────────────────────────────────── */
+.article-content,
+.magazine-content,
+.markdown-body,
+.card-preview,
+.story-preview {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }

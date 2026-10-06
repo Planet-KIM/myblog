@@ -2,40 +2,107 @@
 
 {% block title %}{{ owner.blog_title or owner.display_name or ('@' ~ owner.handle) }}{% endblock %}
 
+{% block extra_head %}
+<style>
+  .blog-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 2rem;
+  }
+  .blog-cover {
+    height: 110px;
+    background: var(--gradient-primary);
+    position: relative;
+  }
+  .blog-cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.12));
+  }
+  .blog-identity {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-end;
+    padding: 0 1.75rem 1.5rem;
+    margin-top: -40px;
+    position: relative;
+    flex-wrap: wrap;
+  }
+  .blog-avatar {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 4px solid var(--surface);
+    background: var(--surface-light);
+    box-shadow: var(--shadow-sm);
+  }
+  .blog-avatar-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--gradient-primary);
+  }
+  .blog-identity-main { flex: 1; min-width: 220px; padding-bottom: 0.25rem; }
+  .blog-name {
+    font-family: var(--font-mono), 'Pretendard Variable', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.15rem;
+    letter-spacing: -0.02em;
+  }
+  .blog-sub {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .blog-bio { color: var(--text-main); margin: 0.6rem 0 0; max-width: 60ch; }
+  .blog-actions { display: flex; gap: 0.5rem; align-items: center; padding-bottom: 0.4rem; }
+  @media (max-width: 560px) {
+    .blog-identity { padding-inline: 1rem; }
+    .blog-actions { width: 100%; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-content">
   <!-- Blog header -->
-  <header class="page-card mb-4" style="display:flex; gap:1.25rem; align-items:center; flex-wrap:wrap;">
-    {% if owner.avatar_url %}
-    <img src="{{ owner.avatar_url }}" alt="avatar"
-         style="width:72px; height:72px; border-radius:50%; object-fit:cover; flex-shrink:0;"
-         onerror="this.style.display='none';">
-    {% else %}
-    <div style="width:72px; height:72px; border-radius:50%; flex-shrink:0;
-                background:var(--gradient-primary); color:#fff; display:flex;
-                align-items:center; justify-content:center; font-size:1.8rem; font-weight:700;">
-      {{ (owner.display_name or owner.handle or '?')[0]|upper }}
-    </div>
-    {% endif %}
+  <header class="blog-header">
+    <div class="blog-cover"></div>
+    <div class="blog-identity">
+      {% if owner.avatar_url %}
+      <img src="{{ owner.avatar_url }}" alt="avatar" class="blog-avatar"
+           onerror="this.style.display='none';">
+      {% else %}
+      <div class="blog-avatar blog-avatar-fallback">{{ (owner.display_name or owner.handle or '?')[0]|upper }}</div>
+      {% endif %}
 
-    <div style="flex:1; min-width:200px;">
-      <h1 class="section-title" style="margin-bottom:0.25rem;">
-        {{ owner.blog_title or owner.display_name or ('@' ~ owner.handle) }}
-      </h1>
-      <div class="text-muted" style="font-family:var(--font-mono); font-size:0.85rem;">
-        @{{ owner.handle }} · 글 {{ total_posts }}개
+      <div class="blog-identity-main">
+        <h1 class="blog-name">{{ owner.blog_title or owner.display_name or ('@' ~ owner.handle) }}</h1>
+        <div class="blog-sub">@{{ owner.handle }} · 글 {{ total_posts }}개</div>
+        {% if owner.bio %}
+        <p class="blog-bio">{{ owner.bio }}</p>
+        {% endif %}
       </div>
-      {% if owner.bio %}
-      <p class="mb-0 mt-2" style="color:var(--text-main);">{{ owner.bio }}</p>
+
+      {% if is_owner %}
+      <div class="blog-actions">
+        <a href="/board/new" class="btn-travel">새 글</a>
+        <a href="/me/profile" class="btn btn-outline-secondary btn-sm">프로필 편집</a>
+      </div>
       {% endif %}
     </div>
-
-    {% if is_owner %}
-    <div class="d-flex gap-2">
-      <a href="/board/new" class="btn-travel">새 글</a>
-      <a href="/me/profile" class="btn btn-outline-secondary btn-sm">프로필 편집</a>
-    </div>
-    {% endif %}
   </header>
 
   <!-- Posts -->

@@ -87,7 +87,11 @@ class ToastManager {
 // ─────────────────────────────────────────────
 class ThemeManager {
   constructor() {
-    this.theme = localStorage.getItem('theme') || 'dark';
+    // <head>의 FOUC 방지 스크립트가 이미 정한 테마(저장값 또는 OS 설정)를 그대로 따른다.
+    this.theme =
+      document.documentElement.getAttribute('data-theme') ||
+      localStorage.getItem('theme') ||
+      'dark';
     this.init();
   }
 

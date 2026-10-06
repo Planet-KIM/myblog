@@ -3,7 +3,7 @@
 :root {
   /* Typography - Clean, readable, writer-focused */
   --font-writing: 'iA Writer Quattro', 'IBM Plex Mono', 'JetBrains Mono', monospace;
-  --font-reading: 'Merriweather', 'Georgia', serif;
+  --font-reading: 'Merriweather', 'Noto Serif KR', 'Georgia', serif;
   --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 
   /* Colors - Soft, paper-like with subtle tech accents */
