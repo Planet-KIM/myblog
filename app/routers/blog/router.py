@@ -528,7 +528,8 @@ def read_index(
         "random": HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
         "stable": HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
     }
-    layout_mode = request.query_params.get("layout", "random").strip().lower()
+    # 기본을 stable 로: 새로고침마다 카드 배치가 바뀌는 산만함 제거 (?layout=random 로 복귀 가능)
+    layout_mode = request.query_params.get("layout", "stable").strip().lower()
     if layout_mode not in available_layout_strategies:
         layout_mode = "random"
     layout_strategy = available_layout_strategies[layout_mode]
