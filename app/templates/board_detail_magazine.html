@@ -903,9 +903,9 @@
   // Build one slide's inner HTML from page data
   function buildSlideHTML(page) {
     const cw = page.cw || 1200, ch = page.ch || 800;
-    const ratio = (ch / cw * 100).toFixed(3);
-    let html = `<div class="magazine-layout" style="position:relative;width:100%;padding-bottom:${ratio}%;overflow:hidden;">`;
-    html += `<div style="position:absolute;top:0;left:0;width:100%;height:100%;">`;
+    // 원본 캔버스(cw×ch px)로 렌더한 뒤 폭에 맞춰 transform 축소 → 글자까지 균일 축소(모바일 잘림 방지)
+    let html = `<div class="mag-fit" data-cw="${cw}" data-ch="${ch}" style="position:relative;width:100%;overflow:hidden;">`;
+    html += `<div class="magazine-layout" style="position:absolute;top:0;left:0;width:${cw}px;height:${ch}px;transform-origin:top left;">`;
     (page.blocks || []).forEach(b => {
       const L = (b.x / cw * 100).toFixed(3);
       const T = (b.y / ch * 100).toFixed(3);
@@ -1031,6 +1031,24 @@
     const dx = e.changedTouches[0].clientX - tx;
     if (Math.abs(dx) > 50) goTo(current + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
   });
+
+  // 뷰어 폭에 맞춰 각 페이지(원본 캔버스)를 균일 축소. 숨김 슬라이드는 viewer 폭 기준으로 계산.
+  function scaleSlides() {
+    const w = viewer.clientWidth || viewer.offsetWidth || root.clientWidth;
+    if (!w) return;
+    slides.forEach(slide => {
+      const fit = slide.querySelector('.mag-fit');
+      if (!fit) return;
+      const cw = +fit.dataset.cw || 1200, ch = +fit.dataset.ch || 800;
+      const scale = Math.min(1, w / cw);
+      const canvas = fit.querySelector('.magazine-layout');
+      if (canvas) canvas.style.transform = 'scale(' + scale + ')';
+      fit.style.height = (ch * scale) + 'px';
+    });
+  }
+  scaleSlides();
+  let _rz;
+  window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(scaleSlides, 120); });
 
   showImmediate(0);
 })();
