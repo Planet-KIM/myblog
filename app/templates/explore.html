@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Explore · Planet KIM's Travel{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <header class="mb-4">
+    <h1 class="section-title">블로그 둘러보기</h1>
+    <p class="text-muted mb-0">활동 중인 블로그 {{ total_blogs }}개</p>
+  </header>
+
+  {% if blogs %}
+  <div class="row g-3">
+    {% for b in blogs %}
+    <div class="col-12 col-sm-6 col-lg-4">
+      <a href="/@{{ b.user.handle }}" class="page-card d-block h-100 text-decoration-none"
+         style="display:flex; gap:0.9rem; align-items:center;">
+        {% if b.user.avatar_url %}
+        <img src="{{ b.user.avatar_url }}" alt="" onerror="this.style.display='none';"
+             style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+        {% else %}
+        <span style="width:52px;height:52px;border-radius:50%;flex-shrink:0;background:var(--gradient-primary);
+                     color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.3rem;">
+          {{ (b.user.display_name or b.user.handle or '?')[0]|upper }}
+        </span>
+        {% endif %}
+        <span style="min-width:0;">
+          <span style="display:block;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            {{ b.user.blog_title or b.user.display_name or ('@' ~ b.user.handle) }}
+          </span>
+          <span style="display:block;font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);">
+            @{{ b.user.handle }} · 글 {{ b.post_count }}개
+          </span>
+          {% if b.user.bio %}
+          <span style="display:block;font-size:0.82rem;color:var(--text-main);margin-top:0.2rem;
+                       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ b.user.bio }}</span>
+          {% endif %}
+        </span>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if total_pages > 1 %}
+  <nav class="d-flex justify-content-center gap-2 mt-4">
+    {% if current_page > 1 %}
+    <a href="/explore?page={{ current_page - 1 }}" class="btn btn-outline-secondary btn-sm">← 이전</a>
+    {% endif %}
+    <span class="btn btn-sm disabled">{{ current_page }} / {{ total_pages }}</span>
+    {% if current_page < total_pages %}
+    <a href="/explore?page={{ current_page + 1 }}" class="btn btn-outline-secondary btn-sm">다음 →</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div class="page-card text-center text-muted">아직 공개된 블로그가 없습니다.</div>
+  {% endif %}
+</div>
+{% endblock %}

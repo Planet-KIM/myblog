@@ -1148,6 +1148,58 @@ def blog_rss(
     return Response(content=xml, media_type="application/rss+xml")
 
 
+# ─────────────────────────────────────────────
+# 블로그 디렉터리 (/explore) — 공개글이 있는 블로그 탐색
+# ─────────────────────────────────────────────
+@router.get("/explore", response_class=HTMLResponse)
+def explore(
+    request: Request,
+    page: int = 1,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+):
+    size = 24
+    page = max(1, page)
+
+    q = (
+        db.query(models.User, func.count(models.BoardPost.id).label("post_count"))
+        .join(
+            models.BoardPost,
+            (models.BoardPost.user_id == models.User.id)
+            & (models.BoardPost.is_private == False),  # noqa: E712
+        )
+        .filter(models.User.handle.isnot(None))
+        .group_by(models.User.id)
+    )
+
+    total_blogs = q.count()
+    total_pages = max(1, (total_blogs + size - 1) // size)
+    page = min(page, total_pages)
+
+    rows = (
+        q.order_by(func.count(models.BoardPost.id).desc(), models.User.id.asc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+    blogs = [{"user": u, "post_count": n} for (u, n) in rows]
+
+    return templates.TemplateResponse(
+        request,
+        "explore.html",
+        {
+            "request": request,
+            "blogs": blogs,
+            "current_user": current_user,
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_blogs": total_blogs,
+            "meta_description": "여행 블로그를 둘러보세요 — 활동 중인 블로그 모음",
+            "og_title": "Explore Blogs",
+        },
+    )
+
+
 @router.get("/posts/new")
 def legacy_posts_new_redirect():
     return RedirectResponse("/board/new", status_code=307)
