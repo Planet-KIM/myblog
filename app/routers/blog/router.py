@@ -15,7 +15,7 @@ from app import models
 from app.config import settings
 from app.database import get_db
 from app.auth_utils import get_current_user, get_current_user_optional
-from app.services.profile import validate_handle, validate_avatar_url
+from app.services.profile import validate_handle, validate_avatar_url, validate_accent_color
 from app.services.home_layout import (
     HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
     HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
@@ -877,6 +877,8 @@ def profile_edit_form(
                 "blog_title": current_user.blog_title or "",
                 "bio": current_user.bio or "",
                 "avatar_url": current_user.avatar_url or "",
+                "cover_url": current_user.cover_url or "",
+                "accent_color": current_user.accent_color or "",
             },
         },
     )
@@ -890,12 +892,14 @@ def profile_edit_save(
     blog_title: str = Form(""),
     bio: str = Form(""),
     avatar_url: str = Form(""),
+    cover_url: str = Form(""),
+    accent_color: str = Form(""),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     form = {
         "handle": handle, "display_name": display_name, "blog_title": blog_title,
-        "bio": bio, "avatar_url": avatar_url,
+        "bio": bio, "avatar_url": avatar_url, "cover_url": cover_url, "accent_color": accent_color,
     }
 
     def render_error(message: str):
@@ -924,11 +928,21 @@ def profile_edit_save(
     if avatar_err:
         return render_error(avatar_err)
 
+    cover_safe, cover_err = validate_avatar_url(cover_url)
+    if cover_err:
+        return render_error("커버 이미지 URL이 올바르지 않습니다. (http/https 또는 내부 경로만 허용)")
+
+    accent_safe, accent_err = validate_accent_color(accent_color)
+    if accent_err:
+        return render_error(accent_err)
+
     current_user.handle = handle_norm
     current_user.display_name = (display_name or "").strip()[:60] or None
     current_user.blog_title = (blog_title or "").strip()[:100] or None
     current_user.bio = (bio or "").strip()[:500] or None
     current_user.avatar_url = avatar_safe
+    current_user.cover_url = cover_safe
+    current_user.accent_color = accent_safe
     db.commit()
 
     return RedirectResponse(f"/@{handle_norm}", status_code=303)

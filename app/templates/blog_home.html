@@ -81,13 +81,17 @@
 <div class="page-content">
   <!-- Blog header -->
   <header class="blog-header">
-    <div class="blog-cover"></div>
+    <div class="blog-cover"
+         {% if owner.cover_url %}style="background-image:url('{{ owner.cover_url }}');background-size:cover;background-position:center;"
+         {% elif owner.accent_color %}style="background:linear-gradient(135deg, {{ owner.accent_color }}, {{ owner.accent_color }}99);"{% endif %}></div>
     <div class="blog-identity">
       {% if owner.avatar_url %}
       <img src="{{ owner.avatar_url }}" alt="avatar" class="blog-avatar"
+           {% if owner.accent_color %}style="border-color:{{ owner.accent_color }};"{% endif %}
            onerror="this.style.display='none';">
       {% else %}
-      <div class="blog-avatar blog-avatar-fallback">{{ (owner.display_name or owner.handle or '?')[0]|upper }}</div>
+      <div class="blog-avatar blog-avatar-fallback"
+           {% if owner.accent_color %}style="border-color:{{ owner.accent_color }};"{% endif %}>{{ (owner.display_name or owner.handle or '?')[0]|upper }}</div>
       {% endif %}
 
       <div class="blog-identity-main">

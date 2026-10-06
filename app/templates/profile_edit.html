@@ -60,6 +60,26 @@
         <div class="form-text">http/https 또는 내부 경로만 허용됩니다.</div>
       </div>
 
+      <div class="mb-3">
+        <label for="cover_url" class="form-label">커버(배너) 이미지 URL</label>
+        <input type="url" class="form-control" id="cover_url" name="cover_url"
+               value="{{ form.cover_url }}" placeholder="https://... 또는 /static/...">
+        <div class="form-text">블로그 홈 상단 배너로 표시됩니다. 비우면 강조색/기본 그라데이션.</div>
+      </div>
+
+      <div class="mb-3">
+        <label for="accent_color" class="form-label">강조색 (HEX)</label>
+        <div class="d-flex align-items-center gap-2">
+          <input type="text" class="form-control" id="accent_color" name="accent_color"
+                 value="{{ form.accent_color }}" placeholder="#0ea5e9"
+                 pattern="#[0-9a-fA-F]{6}" style="max-width:160px;">
+          <input type="color" id="accent_picker" value="{{ form.accent_color or '#0ea5e9' }}"
+                 aria-label="강조색 선택" style="width:42px;height:38px;padding:2px;border-radius:6px;"
+                 oninput="document.getElementById('accent_color').value=this.value">
+        </div>
+        <div class="form-text">아바타 테두리·커버 그라데이션에 쓰입니다. 비우면 기본 테마색.</div>
+      </div>
+
       <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary">저장</button>
         <a href="/me" class="btn btn-outline-secondary">내 대시보드</a>

@@ -45,6 +45,8 @@ class User(Base):
     blog_title = Column(String(100), nullable=True)     # 개인 블로그 이름
     bio = Column(String(500), nullable=True)            # 소개
     avatar_url = Column(String(500), nullable=True)     # 프로필 이미지 URL
+    cover_url = Column(String(500), nullable=True)      # 블로그 커버(배너) 이미지 URL
+    accent_color = Column(String(7), nullable=True)     # 블로그 강조색 (#rrggbb)
 
     # 사용자가 작성한 게시글들
     posts = relationship("BoardPost", back_populates="user")

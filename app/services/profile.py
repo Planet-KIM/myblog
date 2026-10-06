@@ -38,6 +38,19 @@ def validate_handle(raw: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
     return handle, None
 
 
+ACCENT_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def validate_accent_color(raw: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """(정규화된 #rrggbb 또는 None, error) 반환. 빈 값은 (None, None)."""
+    value = (raw or "").strip().lower()
+    if not value:
+        return None, None
+    if not ACCENT_RE.match(value):
+        return None, "강조색은 #rrggbb 형식의 HEX여야 합니다. (예: #0ea5e9)"
+    return value, None
+
+
 def validate_avatar_url(raw: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
     """(안전한 url 또는 None, error) 반환. 빈 값은 (None, None)."""
     value = (raw or "").strip()
