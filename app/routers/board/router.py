@@ -1055,6 +1055,16 @@ def board_detail(
     post.content_html_safe = sanitize_html(post.content_html)
     post.content_blocks_safe = sanitize_content_blocks(post.content_blocks)
 
+    # 공유/SEO 메타
+    meta_description = create_preview(post.content_html, post.content, 160)
+    img_match = (
+        re.search(r"!\[[^\]]*\]\(([^)\s]+)", post.content or "")
+        or re.search(r'<img[^>]+src=["\']([^"\']+)', (post.content_html or post.content or ""), re.I)
+    )
+    og_image = img_match.group(1) if img_match else ""
+    if og_image.startswith("/"):
+        og_image = str(request.base_url).rstrip("/") + og_image
+
     return templates.TemplateResponse(
         request,
         template_name,
@@ -1065,5 +1075,9 @@ def board_detail(
             "stats": stats,
             "prev_post": prev_post,
             "next_post": next_post,
+            "meta_description": meta_description,
+            "og_title": post.title,
+            "og_image": og_image,
+            "og_type": "article",
         },
     )

@@ -3,6 +3,7 @@
 {% block title %}{{ owner.blog_title or owner.display_name or ('@' ~ owner.handle) }}{% endblock %}
 
 {% block extra_head %}
+<link rel="alternate" type="application/rss+xml" title="{{ owner.blog_title or owner.display_name or ('@' ~ owner.handle) }} RSS" href="/@{{ owner.handle }}/rss">
 <style>
   .blog-header {
     background: var(--surface);

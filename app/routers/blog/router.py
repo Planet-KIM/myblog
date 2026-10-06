@@ -6,7 +6,7 @@ import markdown
 import copy
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session, joinedload
 from fastapi.templating import Jinja2Templates
@@ -997,6 +997,11 @@ def blog_home(
         .all()
     )
 
+    blog_name = owner.blog_title or owner.display_name or ("@" + owner.handle)
+    og_image = owner.avatar_url or ""
+    if og_image.startswith("/"):
+        og_image = str(request.base_url).rstrip("/") + og_image
+
     return templates.TemplateResponse(
         request,
         "blog_home.html",
@@ -1005,6 +1010,10 @@ def blog_home(
             "owner": owner,
             "is_owner": is_owner,
             "is_following": is_following,
+            "meta_description": owner.bio or f"@{owner.handle}의 블로그",
+            "og_title": blog_name,
+            "og_image": og_image,
+            "og_type": "profile",
             "posts": posts,
             "categories": categories,
             "current_user": current_user,
@@ -1079,8 +1088,64 @@ def tag_feed(
             "current_page": page,
             "total_pages": total_pages,
             "total_posts": total_posts,
+            "meta_description": f"#{tag.name} 태그의 글 {total_posts}개",
+            "og_title": f"#{tag.name}",
         },
     )
+
+
+# ─────────────────────────────────────────────
+# 블로그별 RSS 2.0 피드 (/@{handle}/rss)
+# ─────────────────────────────────────────────
+@router.get("/@{handle}/rss")
+def blog_rss(
+    handle: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    from xml.sax.saxutils import escape
+
+    owner = db.query(models.User).filter(models.User.handle == (handle or "").lower()).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="블로그를 찾을 수 없습니다.")
+
+    posts = (
+        db.query(models.BoardPost)
+        .filter(models.BoardPost.user_id == owner.id, models.BoardPost.is_private == False)  # noqa: E712
+        .order_by(models.BoardPost.created_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    base = str(request.base_url).rstrip("/")
+    blog_name = owner.blog_title or owner.display_name or ("@" + owner.handle)
+    self_url = f"{base}/@{owner.handle}"
+
+    items = []
+    for p in posts:
+        link = f"{base}/board/{p.id}"
+        desc = markdown_to_plain(p.content_html or p.content or "", max_len=300)
+        pub = p.created_at.strftime("%a, %d %b %Y %H:%M:%S +0900") if p.created_at else ""
+        items.append(
+            "<item>"
+            f"<title>{escape(p.title or 'Untitled')}</title>"
+            f"<link>{escape(link)}</link>"
+            f"<guid isPermaLink=\"true\">{escape(link)}</guid>"
+            f"<pubDate>{escape(pub)}</pubDate>"
+            f"<description>{escape(desc)}</description>"
+            "</item>"
+        )
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0"><channel>'
+        f"<title>{escape(blog_name)}</title>"
+        f"<link>{escape(self_url)}</link>"
+        f"<description>{escape(owner.bio or (blog_name + ' 블로그'))}</description>"
+        f"{''.join(items)}"
+        "</channel></rss>"
+    )
+    return Response(content=xml, media_type="application/rss+xml")
 
 
 @router.get("/posts/new")
