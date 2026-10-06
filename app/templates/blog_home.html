@@ -101,6 +101,17 @@
         <a href="/board/new" class="btn-travel">새 글</a>
         <a href="/me/profile" class="btn btn-outline-secondary btn-sm">프로필 편집</a>
       </div>
+      {% elif current_user %}
+      <div class="blog-actions">
+        <button type="button" class="btn-travel js-blog-follow" data-author-id="{{ owner.id }}"
+                aria-pressed="{{ 'true' if is_following else 'false' }}">
+          {{ '팔로잉' if is_following else '팔로우' }}
+        </button>
+      </div>
+      {% else %}
+      <div class="blog-actions">
+        <a href="/auth/login?next=/@{{ owner.handle }}" class="btn btn-outline-secondary btn-sm">로그인 후 팔로우</a>
+      </div>
       {% endif %}
     </div>
   </header>
@@ -165,4 +176,25 @@
   </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  (function () {
+    var btn = document.querySelector('.js-blog-follow');
+    if (!btn) return;
+    btn.addEventListener('click', async function () {
+      var id = btn.getAttribute('data-author-id');
+      try {
+        var res = await fetch('/api/follow/author/' + id, { method: 'POST', credentials: 'same-origin' });
+        if (!res.ok) throw new Error('failed');
+        var data = await res.json();
+        btn.textContent = data.active ? '팔로잉' : '팔로우';
+        btn.setAttribute('aria-pressed', data.active ? 'true' : 'false');
+      } catch (e) {
+        if (window.toast) { window.toast.warning('요청 처리에 실패했습니다.'); } else { alert('요청 실패'); }
+      }
+    });
+  })();
+</script>
 {% endblock %}

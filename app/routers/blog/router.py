@@ -954,6 +954,17 @@ def blog_home(
         raise HTTPException(status_code=404, detail="블로그를 찾을 수 없습니다.")
 
     is_owner = bool(current_user and current_user.id == owner.id)
+    is_following = False
+    if current_user and not is_owner:
+        is_following = (
+            db.query(models.AuthorFollow)
+            .filter(
+                models.AuthorFollow.user_id == current_user.id,
+                models.AuthorFollow.author_user_id == owner.id,
+            )
+            .first()
+            is not None
+        )
     size = 10
     page = max(1, page)
 
@@ -993,6 +1004,7 @@ def blog_home(
             "request": request,
             "owner": owner,
             "is_owner": is_owner,
+            "is_following": is_following,
             "posts": posts,
             "categories": categories,
             "current_user": current_user,
