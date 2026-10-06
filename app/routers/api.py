@@ -378,10 +378,16 @@ async def get_popular_tags(limit: int = 20, db: Session = Depends(get_db)):
 # ─────────────────────────────────────────────
 
 @router.post("/stats/update")
-async def update_post_stats(request: StatsUpdateRequest, db: Session = Depends(get_db)):
+async def update_post_stats(
+    request: StatsUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     post = db.query(models.BoardPost).filter(models.BoardPost.id == request.post_id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    if post.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="본인 게시글만 수정할 수 있습니다.")
 
     stats = db.query(models.PostStats).filter(
         models.PostStats.post_id == request.post_id
@@ -487,6 +493,10 @@ async def get_post_engagement(
     post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+
+    # 비공개 글은 작성자 본인만 상태 조회 가능
+    if post.is_private and (not current_user or post.user_id != current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="비공개 게시글입니다.")
 
     stats = db.query(models.PostStats).filter(models.PostStats.post_id == post_id).first()
     bookmarks = db.query(models.PostBookmark).filter(models.PostBookmark.post_id == post_id).count()

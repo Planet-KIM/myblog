@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -8,9 +10,12 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from urllib.parse import urlparse
 
+from app.config import settings
 from app.database import get_db
 from app import models
+from app.services.profile import generate_unique_handle
 from app.auth_utils import (
     get_password_hash,
     verify_password,
@@ -23,17 +28,41 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 templates = Jinja2Templates(directory="app/templates")
 
 
+def safe_next_url(next_url: Optional[str], default: str = "/board/") -> str:
+    """오픈 리다이렉트 방지: 로컬 경로만 허용한다."""
+    if not next_url:
+        return default
+    if any(c in next_url for c in "\r\n\t ") or not next_url.startswith("/") or next_url.startswith("//"):
+        return default
+    parsed = urlparse(next_url)
+    if parsed.scheme or parsed.netloc:
+        return default
+    return next_url
+
+
+def _admin_emails() -> set[str]:
+    return {e.strip().lower() for e in (settings.ADMIN_EMAILS or "").split(",") if e.strip()}
+
+
+def maybe_promote_admin(user: models.User, db: Session) -> None:
+    """ADMIN_EMAILS에 포함된 계정을 로그인 시 is_admin으로 승격."""
+    if user.email.lower() in _admin_emails() and not user.is_admin:
+        user.is_admin = True
+        db.commit()
+
+
 # ─────────────────────────────────────
 # 회원가입 폼
 # ─────────────────────────────────────
 @router.get("/signup", response_class=HTMLResponse)
 def signup_form(
     request: Request,
+    next: Optional[str] = None,
     current_user=Depends(get_current_user_optional),
 ):
     # 이미 로그인 되어 있으면 보드로 리다이렉트
     if current_user:
-        return RedirectResponse("/board/", status_code=303)
+        return RedirectResponse(safe_next_url(next), status_code=303)
 
     return templates.TemplateResponse(
         request,
@@ -42,6 +71,7 @@ def signup_form(
             "request": request,
             "error": None,
             "email": "",
+            "next": next or "",
         },
     )
 
@@ -55,6 +85,7 @@ def signup(
     email: str = Form(...),
     password: str = Form(...),
     password_confirm: str = Form(...),
+    next: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     email = email.strip().lower()
@@ -68,6 +99,7 @@ def signup(
                 "request": request,
                 "error": "비밀번호가 서로 일치하지 않습니다.",
                 "email": email,
+                "next": next or "",
             },
             status_code=400,
         )
@@ -83,6 +115,7 @@ def signup(
                 "request": request,
                 "error": e.detail,
                 "email": email,
+                "next": next or "",
             },
             status_code=400,
         )
@@ -97,6 +130,7 @@ def signup(
                 "request": request,
                 "error": "이미 사용 중인 이메일입니다.",
                 "email": email,
+                "next": next or "",
             },
             status_code=400,
         )
@@ -111,10 +145,17 @@ def signup(
     db.commit()
     db.refresh(user)
 
+    # 가입 시 블로그 핸들 자동 생성 (/@handle 즉시 사용 가능)
+    user.handle = generate_unique_handle(db, user.email)
+    db.commit()
+
+    # ADMIN_EMAILS에 해당하면 관리자 승격
+    maybe_promote_admin(user, db)
+
     # 가입 후 자동 로그인
     request.session["user_id"] = user.id
 
-    return RedirectResponse("/board/", status_code=303)
+    return RedirectResponse(safe_next_url(next), status_code=303)
 
 
 # ─────────────────────────────────────
@@ -123,10 +164,11 @@ def signup(
 @router.get("/login", response_class=HTMLResponse)
 def login_form(
     request: Request,
+    next: Optional[str] = None,
     current_user=Depends(get_current_user_optional),
 ):
     if current_user:
-        return RedirectResponse("/board/", status_code=303)
+        return RedirectResponse(safe_next_url(next), status_code=303)
 
     return templates.TemplateResponse(
         request,
@@ -135,6 +177,7 @@ def login_form(
             "request": request,
             "error": None,
             "email": "",
+            "next": next or "",
         },
     )
 
@@ -147,6 +190,7 @@ def login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
+    next: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     email = email.strip().lower()
@@ -160,14 +204,18 @@ def login(
                 "request": request,
                 "error": "이메일 또는 비밀번호가 올바르지 않습니다.",
                 "email": email,
+                "next": next or "",
             },
             status_code=400,
         )
 
+    # ADMIN_EMAILS에 포함된 계정이면 관리자로 승격
+    maybe_promote_admin(user, db)
+
     # 세션에 user_id 저장
     request.session["user_id"] = user.id
 
-    return RedirectResponse("/board/", status_code=303)
+    return RedirectResponse(safe_next_url(next), status_code=303)
 
 
 # ─────────────────────────────────────

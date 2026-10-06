@@ -49,11 +49,12 @@ def get_current_user(
     """
     user_id = request.session.get("user_id")
     if not user_id:
-        raise HTTPException(status_code=403, detail="로그인이 필요합니다.")
+        # 미인증: 401 (페이지는 로그인으로 리다이렉트, API는 JSON)
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
 
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=403, detail="사용자를 찾을 수 없습니다.")
+        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다.")
     return user
 
 

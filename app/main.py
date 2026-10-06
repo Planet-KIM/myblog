@@ -1,8 +1,9 @@
 import asyncio
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -95,6 +96,39 @@ async def not_found_exception_handler(request: Request, _exc):
 @app.exception_handler(500)
 async def internal_error_exception_handler(request: Request, _exc):
     return templates.TemplateResponse(request, "500.html", {"request": request}, status_code=500)
+
+
+def _is_api_request(request: Request) -> bool:
+    """API 경로 또는 XHR 요청이면 JSON으로 응답하도록 구분."""
+    return (
+        request.url.path.startswith("/api/")
+        or request.headers.get("x-requested-with", "").lower() == "xmlhttprequest"
+    )
+
+
+@app.exception_handler(401)
+async def unauthorized_exception_handler(request: Request, exc):
+    """미인증(401): 페이지는 로그인으로 리다이렉트(원위치 next 보존), API는 JSON."""
+    detail = getattr(exc, "detail", "로그인이 필요합니다.")
+    if _is_api_request(request):
+        return JSONResponse(status_code=401, content={"detail": detail})
+    if request.method == "GET":
+        next_path = request.url.path
+        if request.url.query:
+            next_path = f"{next_path}?{request.url.query}"
+        return RedirectResponse(f"/auth/login?next={quote(next_path, safe='/?=&')}", status_code=303)
+    return RedirectResponse("/auth/login", status_code=303)
+
+
+@app.exception_handler(403)
+async def forbidden_exception_handler(request: Request, exc):
+    """권한 없음(403): 로그인했지만 접근 불가. 페이지는 안내 화면, API는 JSON."""
+    detail = getattr(exc, "detail", "접근 권한이 없습니다.")
+    if _is_api_request(request):
+        return JSONResponse(status_code=403, content={"detail": detail})
+    return templates.TemplateResponse(
+        request, "403.html", {"request": request}, status_code=403
+    )
 
 
 app.include_router(auth.router)

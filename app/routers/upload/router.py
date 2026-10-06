@@ -18,7 +18,7 @@ Upload Router - 통합 파일 업로드 시스템
 import shutil
 from pathlib import Path
 from typing import Optional, Tuple
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -35,6 +35,35 @@ BASE_DIR   = Path(__file__).resolve().parent.parent.parent   # app/
 STATIC_DIR = BASE_DIR / "static"
 UPLOAD_ROOT = STATIC_DIR / "uploads"
 
+# ── 보안: 동일 출처에서 스크립트가 실행될 수 있는 액티브 콘텐츠 차단 ──
+# svg/html/xml 등은 브라우저가 문서로 렌더링하며 인라인 스크립트를 담을 수 있어
+# 업로드 자체를 거부한다. (추후 정제 + attachment 서빙으로 완화 가능)
+BLOCKED_EXTENSIONS = {".svg", ".html", ".htm", ".xhtml", ".xml", ".shtml"}
+
+
+def normalize_draft_id(draft_id: Optional[str]) -> Optional[str]:
+    """
+    draft_id를 표준 UUID 문자열로만 허용한다. (경로 조작 방지)
+
+    - 빈 값/None  → None
+    - 올바른 UUID → 정규화된 소문자 UUID 문자열
+    - 그 외       → HTTP 400
+    """
+    if not draft_id:
+        return None
+    try:
+        return str(UUID(str(draft_id)))
+    except (ValueError, AttributeError, TypeError):
+        raise HTTPException(status_code=400, detail="잘못된 draft_id 형식입니다.")
+
+
+def _is_within_upload_root(path: Path) -> bool:
+    """경로가 UPLOAD_ROOT 하위에 있는지 확인한다. (상대/절대 경로 탈출 방어)"""
+    try:
+        return path.resolve().is_relative_to(UPLOAD_ROOT.resolve())
+    except (OSError, ValueError):
+        return False
+
 # ── 파일 타입 분류 테이블 ──────────────────────────────────
 # key        : 파일 타입명 (UploadedFile.file_type 에 저장)
 # extensions : 허용 확장자 (소문자)
@@ -42,7 +71,7 @@ UPLOAD_ROOT = STATIC_DIR / "uploads"
 # folder     : 저장 서브폴더명
 FILE_TYPES = {
     "image": {
-        "extensions": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".avif"},
+        "extensions": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"},
         "max_mb": 10,
         "folder": "images",
     },
@@ -59,7 +88,7 @@ FILE_TYPES = {
     "code": {
         "extensions": {
             ".py", ".js", ".ts", ".go", ".rs", ".java", ".c", ".cpp",
-            ".sh", ".html", ".css", ".sql", ".rb", ".php", ".swift", ".kt",
+            ".sh", ".css", ".sql", ".rb", ".php", ".swift", ".kt",
         },
         "max_mb": 5,
         "folder": "files",
@@ -111,6 +140,8 @@ def _get_upload_dir(
         parts = [str(user_id), "drafts", "tmp", type_folder]
 
     target = UPLOAD_ROOT.joinpath(*parts)
+    if not _is_within_upload_root(target):
+        raise HTTPException(status_code=400, detail="잘못된 업로드 경로입니다.")
     target.mkdir(parents=True, exist_ok=True)
     url_prefix = "/static/uploads/" + "/".join(parts)
     return target, url_prefix
@@ -133,7 +164,26 @@ async def upload_file(
     - 업로드 기록을 DB(uploaded_files)에 저장합니다.
     - 응답: {"url": "...", "file_type": "...", "size_bytes": ...}
     """
+    draft_id = normalize_draft_id(draft_id)
+
+    # 업로드 대상이 게시글이면 본인 소유인지 확인 (타인 폴더 업로드 차단)
+    if post_id is not None:
+        owner_post = (
+            db.query(models.BoardPost)
+            .filter(models.BoardPost.id == post_id)
+            .first()
+        )
+        if not owner_post:
+            raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+        if owner_post.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="본인 게시글에만 업로드할 수 있습니다.")
+
     suffix = Path(file.filename or "unknown").suffix.lower()
+    if suffix in BLOCKED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="보안상 업로드할 수 없는 파일 형식입니다.",
+        )
     file_type, type_config = _classify_file(suffix)
 
     # 파일 내용 읽기 (크기 검사 포함)
@@ -222,7 +272,11 @@ def get_post_files(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    """게시글에 첨부된 모든 파일 목록을 반환합니다."""
+    """게시글에 첨부된 모든 파일 목록을 반환합니다. 비공개 글은 작성자만."""
+    post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
+    if post and post.is_private and (not current_user or post.user_id != current_user.id):
+        raise HTTPException(status_code=403, detail="비공개 게시글의 첨부는 볼 수 없습니다.")
+
     files = (
         db.query(models.UploadedFile)
         .filter(models.UploadedFile.post_id == post_id)
@@ -290,6 +344,10 @@ def relocate_draft_files(post: models.BoardPost, draft_id: str, db: Session) -> 
     # ── 신규 구조 처리 ─────────────────────────────────────
     draft_base = UPLOAD_ROOT / str(post.user_id) / "drafts" / str(draft_id)
     post_base  = UPLOAD_ROOT / str(post.user_id) / "posts"  / str(post.id)
+
+    # 방어적 경로 검증: 비정상 draft_id가 경계를 넘으면 조용히 무시
+    if not (_is_within_upload_root(draft_base) and _is_within_upload_root(post_base)):
+        return
 
     url_mapping: dict[str, str] = {}
 

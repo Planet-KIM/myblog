@@ -5,7 +5,7 @@ import html as html_module
 import markdown
 import copy
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session, joinedload
@@ -14,7 +14,8 @@ from fastapi.templating import Jinja2Templates
 from app import models
 from app.config import settings
 from app.database import get_db
-from app.auth_utils import get_current_user_optional
+from app.auth_utils import get_current_user, get_current_user_optional
+from app.services.profile import validate_handle, validate_avatar_url
 from app.services.home_layout import (
     HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
     HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
@@ -849,6 +850,155 @@ def my_page(
             "github_issue_has_prev": github_issue_has_prev,
             "github_issue_error": github_issue_error,
             "github_rate_remaining": github_rate_remaining,
+        },
+    )
+
+
+# ─────────────────────────────────────────────
+# 프로필 편집 (/me/profile)
+# ─────────────────────────────────────────────
+@router.get("/me/profile", response_class=HTMLResponse)
+def profile_edit_form(
+    request: Request,
+    saved: Optional[str] = None,
+    current_user: models.User = Depends(get_current_user),
+):
+    return templates.TemplateResponse(
+        request,
+        "profile_edit.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "error": None,
+            "success": "프로필이 저장되었습니다." if saved else None,
+            "form": {
+                "handle": current_user.handle or "",
+                "display_name": current_user.display_name or "",
+                "blog_title": current_user.blog_title or "",
+                "bio": current_user.bio or "",
+                "avatar_url": current_user.avatar_url or "",
+            },
+        },
+    )
+
+
+@router.post("/me/profile", response_class=HTMLResponse)
+def profile_edit_save(
+    request: Request,
+    handle: str = Form(...),
+    display_name: str = Form(""),
+    blog_title: str = Form(""),
+    bio: str = Form(""),
+    avatar_url: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    form = {
+        "handle": handle, "display_name": display_name, "blog_title": blog_title,
+        "bio": bio, "avatar_url": avatar_url,
+    }
+
+    def render_error(message: str):
+        return templates.TemplateResponse(
+            request,
+            "profile_edit.html",
+            {"request": request, "current_user": current_user, "error": message,
+             "success": None, "form": form},
+            status_code=400,
+        )
+
+    handle_norm, err = validate_handle(handle)
+    if err:
+        return render_error(err)
+
+    # 핸들 유니크 검사 (본인 제외)
+    taken = (
+        db.query(models.User)
+        .filter(models.User.handle == handle_norm, models.User.id != current_user.id)
+        .first()
+    )
+    if taken:
+        return render_error("이미 사용 중인 핸들입니다. 다른 값을 입력해주세요.")
+
+    avatar_safe, avatar_err = validate_avatar_url(avatar_url)
+    if avatar_err:
+        return render_error(avatar_err)
+
+    current_user.handle = handle_norm
+    current_user.display_name = (display_name or "").strip()[:60] or None
+    current_user.blog_title = (blog_title or "").strip()[:100] or None
+    current_user.bio = (bio or "").strip()[:500] or None
+    current_user.avatar_url = avatar_safe
+    db.commit()
+
+    return RedirectResponse(f"/@{handle_norm}", status_code=303)
+
+
+# ─────────────────────────────────────────────
+# 개인 블로그 홈 (/@handle)
+# ─────────────────────────────────────────────
+@router.get("/@{handle}", response_class=HTMLResponse)
+def blog_home(
+    handle: str,
+    request: Request,
+    page: int = 1,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+):
+    owner = (
+        db.query(models.User)
+        .filter(models.User.handle == (handle or "").lower())
+        .first()
+    )
+    if not owner:
+        raise HTTPException(status_code=404, detail="블로그를 찾을 수 없습니다.")
+
+    is_owner = bool(current_user and current_user.id == owner.id)
+    size = 10
+    page = max(1, page)
+
+    query = db.query(models.BoardPost).filter(models.BoardPost.user_id == owner.id)
+    if not is_owner:
+        query = query.filter(models.BoardPost.is_private == False)  # noqa: E712
+
+    total_posts = query.with_entities(func.count(models.BoardPost.id)).scalar() or 0
+    total_pages = max(1, (total_posts + size - 1) // size)
+    page = min(page, total_pages)
+
+    posts = (
+        query.options(joinedload(models.BoardPost.category), joinedload(models.BoardPost.stats))
+        .order_by(models.BoardPost.created_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+    for post in posts:
+        source = post.content_html or post.content or ""
+        post.preview = markdown_to_plain(source)
+        post.thumbnail = extract_first_image(source)
+        post.reading_minutes = estimate_reading_minutes(source)
+        post.view_count = post.stats.views if post.stats else 0
+
+    categories = (
+        db.query(models.BoardCategory)
+        .filter(models.BoardCategory.user_id == owner.id)
+        .order_by(models.BoardCategory.created_at.asc())
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        request,
+        "blog_home.html",
+        {
+            "request": request,
+            "owner": owner,
+            "is_owner": is_owner,
+            "posts": posts,
+            "categories": categories,
+            "current_user": current_user,
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_posts": total_posts,
         },
     )
 

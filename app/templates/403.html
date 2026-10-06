@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}접근 권한 없음{% endblock %}
+
+{% block content %}
+<div class="row min-vh-50 align-items-center justify-content-center text-center mt-5">
+    <div class="col-md-6 mt-5 pt-5">
+        <h1 class="display-1 text-danger fw-bold">403</h1>
+        <h2 class="mb-4">접근 권한이 없습니다</h2>
+        <p class="text-muted mb-4">이 페이지를 볼 수 있는 권한이 없습니다. 본인 소유의 콘텐츠인지 확인해 주세요.</p>
+        <a href="/" class="btn btn-dark px-4 py-2">홈으로</a>
+    </div>
+</div>
+{% endblock %}

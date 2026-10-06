@@ -38,6 +38,14 @@ class User(Base):
     # 관리자 여부
     is_admin = Column(Boolean, default=False)
 
+    # ── 포털 프로필 (블로그 소유자 정보) ─────────────────
+    # handle: URL에 노출되는 블로그 식별자 (/@handle). 내부 FK는 항상 id 사용.
+    handle = Column(String(30), unique=True, nullable=True, index=True)
+    display_name = Column(String(60), nullable=True)   # 표시 이름
+    blog_title = Column(String(100), nullable=True)     # 개인 블로그 이름
+    bio = Column(String(500), nullable=True)            # 소개
+    avatar_url = Column(String(500), nullable=True)     # 프로필 이미지 URL
+
     # 사용자가 작성한 게시글들
     posts = relationship("BoardPost", back_populates="user")
     bookmarks = relationship("PostBookmark", back_populates="user", cascade="all, delete-orphan")
@@ -60,14 +68,23 @@ class User(Base):
 # ─────────────────────────────
 class BoardCategory(Base):
     __tablename__ = "board_categories"
+    # 포털: 카테고리는 블로그(사용자)별 소유. 이름 유니크는 소유자 범위 안에서만.
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_board_category_owner_name"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # 예: "여행", "공부"
-    name = Column(String(100), nullable=False, unique=True)
+    # 예: "여행", "공부" (전역이 아니라 소유자 내에서 유니크)
+    name = Column(String(100), nullable=False)
 
     # 선택사항: 카테고리 설명
     description = Column(String(255), nullable=True)
+
+    # ── 소유자(블로그 주인) ───────────────────────────────
+    # 기존 데이터 호환 위해 nullable. 앞으로 생성 시 항상 채움.
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    owner = relationship("User")
 
     created_at = Column(DateTime, default=now_kst)
 
@@ -150,7 +167,7 @@ class BoardPost(Base):
     tags = relationship("Tag", secondary="post_tags", back_populates="posts")
 
     # ── 통계 관계 ─────────────────────
-    stats = relationship("PostStats", uselist=False, back_populates="post")
+    stats = relationship("PostStats", uselist=False, back_populates="post", cascade="all, delete-orphan")
     bookmarks = relationship("PostBookmark", back_populates="post", cascade="all, delete-orphan")
     likes_rel = relationship("PostLike", back_populates="post", cascade="all, delete-orphan")
 

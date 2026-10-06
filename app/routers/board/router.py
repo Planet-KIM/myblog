@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app import models
 from app.auth_utils import get_current_user, get_current_user_optional
-from app.routers.upload.router import relocate_draft_files
+from app.routers.upload.router import relocate_draft_files, normalize_draft_id
+from app.services.sanitize import sanitize_html, sanitize_content_blocks
 from app.services.category_counts import (
     collect_descendant_category_ids,
     order_categories_parent_first,
@@ -210,13 +211,19 @@ def create_preview(
 # ------------------------------------------------------------
 # normal 기본 카테고리 자동 생성
 # ------------------------------------------------------------
-def ensure_default_category(db: Session):
-    normal = db.query(models.BoardCategory).filter_by(name="normal").first()
+def ensure_default_category(db: Session, user: models.User):
+    """사용자(블로그 소유자)별 기본 'normal' 카테고리를 보장한다."""
+    normal = (
+        db.query(models.BoardCategory)
+        .filter_by(name="normal", user_id=user.id)
+        .first()
+    )
     if not normal:
         normal = models.BoardCategory(
             name="normal",
             description="Default category (auto created)",
             parent_id=None,   # 최상위
+            user_id=user.id,
         )
         db.add(normal)
         db.commit()
@@ -234,10 +241,11 @@ def category_list(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    ensure_default_category(db)
+    ensure_default_category(db, current_user)
 
     categories = (
         db.query(models.BoardCategory)
+        .filter(models.BoardCategory.user_id == current_user.id)
         .order_by(models.BoardCategory.created_at.asc())
         .all()
     )
@@ -274,7 +282,7 @@ def category_create(
     current_user: models.User = Depends(get_current_user),
 ):
 
-    ensure_default_category(db)
+    ensure_default_category(db, current_user)
 
     name = name.strip()
     error: Optional[str] = None
@@ -286,33 +294,37 @@ def category_create(
         error = "Category name is required."
 
     # ─────────────────────────────────────────
-    # 2) 중복 이름 체크
+    # 2) 중복 이름 체크 (본인 블로그 범위 내에서만)
     # ─────────────────────────────────────────
     if not error:
         exists = (
             db.query(models.BoardCategory)
-            .filter(models.BoardCategory.name == name)
+            .filter(
+                models.BoardCategory.name == name,
+                models.BoardCategory.user_id == current_user.id,
+            )
             .first()
         )
         if exists:
             error = "Category already exists."
 
     # ─────────────────────────────────────────
-    # 3) parent_id 해석 (빈 문자열이면 최상위)
+    # 3) parent_id 해석 (빈 문자열이면 최상위, 본인 소유만 허용)
     # ─────────────────────────────────────────
     parent = None
-    print(parent_id)
     if not error:
         if parent_id not in (None, ""):
             try:
                 parent_id = int(parent_id)
-                print(parent_id)
             except ValueError:
                 error = "Invalid parent category."
             else:
                 parent = (
                     db.query(models.BoardCategory)
-                    .filter(models.BoardCategory.id == parent_id)
+                    .filter(
+                        models.BoardCategory.id == parent_id,
+                        models.BoardCategory.user_id == current_user.id,
+                    )
                     .first()
                 )
                 if not parent:
@@ -324,6 +336,7 @@ def category_create(
     if error:
         categories = (
             db.query(models.BoardCategory)
+            .filter(models.BoardCategory.user_id == current_user.id)
             .order_by(models.BoardCategory.created_at.asc())
             .all()
         )
@@ -349,12 +362,13 @@ def category_create(
         )
 
     # ─────────────────────────────────────────
-    # 5) 실제 카테고리 생성 (parent_id 반영!)
+    # 5) 실제 카테고리 생성 (소유자 + parent_id 반영)
     # ─────────────────────────────────────────
     category = models.BoardCategory(
         name=name,
         description=description or None,
-        parent_id=parent.id if parent else None,  # ★ 핵심
+        parent_id=parent.id if parent else None,
+        user_id=current_user.id,
     )
     db.add(category)
     db.commit()
@@ -375,24 +389,36 @@ def category_move(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    category = db.query(models.BoardCategory).filter(models.BoardCategory.id == req.category_id).first()
+    category = db.query(models.BoardCategory).filter(
+        models.BoardCategory.id == req.category_id,
+        models.BoardCategory.user_id == current_user.id,
+    ).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
-        
+
     # Prevent circular dependency (e.g. moving parent into its own child)
     if req.new_parent_id == req.category_id:
         raise HTTPException(status_code=400, detail="Cannot move category into itself")
 
     if req.new_parent_id:
-        current_parent = db.query(models.BoardCategory).filter(models.BoardCategory.id == req.new_parent_id).first()
+        # 새 부모도 반드시 본인 소유여야 함
+        current_parent = db.query(models.BoardCategory).filter(
+            models.BoardCategory.id == req.new_parent_id,
+            models.BoardCategory.user_id == current_user.id,
+        ).first()
+        if not current_parent:
+            raise HTTPException(status_code=404, detail="Parent category not found")
         while current_parent:
             if current_parent.id == req.category_id:
                 raise HTTPException(status_code=400, detail="Cannot move a category into its own descendant")
             if current_parent.parent_id:
-                current_parent = db.query(models.BoardCategory).filter(models.BoardCategory.id == current_parent.parent_id).first()
+                current_parent = db.query(models.BoardCategory).filter(
+                    models.BoardCategory.id == current_parent.parent_id,
+                    models.BoardCategory.user_id == current_user.id,
+                ).first()
             else:
                 break
-                
+
     category.parent_id = req.new_parent_id
     db.commit()
     return {"status": "success"}
@@ -409,7 +435,8 @@ def category_delete(
     current_user: models.User = Depends(get_current_user),
 ):
     category = db.query(models.BoardCategory).filter(
-        models.BoardCategory.id == category_id
+        models.BoardCategory.id == category_id,
+        models.BoardCategory.user_id == current_user.id,
     ).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -433,7 +460,8 @@ def category_delete(
             raise HTTPException(status_code=400, detail="Invalid reassign_to value")
 
         target = db.query(models.BoardCategory).filter(
-            models.BoardCategory.id == reassign_id
+            models.BoardCategory.id == reassign_id,
+            models.BoardCategory.user_id == current_user.id,
         ).first()
         if not target:
             raise HTTPException(status_code=400, detail="Reassign target not found")
@@ -476,13 +504,15 @@ def category_rename(
         raise HTTPException(status_code=400, detail="Name too long (max 100 chars)")
 
     category = db.query(models.BoardCategory).filter(
-        models.BoardCategory.id == category_id
+        models.BoardCategory.id == category_id,
+        models.BoardCategory.user_id == current_user.id,
     ).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
     existing = db.query(models.BoardCategory).filter(
         models.BoardCategory.name == name,
+        models.BoardCategory.user_id == current_user.id,
         models.BoardCategory.id != category_id,
     ).first()
     if existing:
@@ -571,10 +601,11 @@ def board_new(
             {"request": request, "current_user": current_user},
         )
 
-    normal = ensure_default_category(db)
+    normal = ensure_default_category(db, current_user)
 
     categories = (
         db.query(models.BoardCategory)
+        .filter(models.BoardCategory.user_id == current_user.id)
         .order_by(models.BoardCategory.created_at.asc())
         .all()
     )
@@ -609,7 +640,10 @@ def board_create(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    normal = ensure_default_category(db)
+    # draft_id는 DB 기록 전에 검증 (잘못된 값이면 글 생성 전 400)
+    draft_id = normalize_draft_id(draft_id)
+
+    normal = ensure_default_category(db, current_user)
 
     # 카테고리 선택 없으면 normal 에 저장
     try:
@@ -617,10 +651,13 @@ def board_create(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid category ID format")
 
-    # 유효성 검사
+    # 유효성 검사: 반드시 본인 소유 카테고리여야 함
     category = (
         db.query(models.BoardCategory)
-        .filter(models.BoardCategory.id == category_id_int)
+        .filter(
+            models.BoardCategory.id == category_id_int,
+            models.BoardCategory.user_id == current_user.id,
+        )
         .first()
     )
     if not category:
@@ -687,7 +724,7 @@ def board_edit(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    normal = ensure_default_category(db)
+    normal = ensure_default_category(db, current_user)
 
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
     if not post:
@@ -698,11 +735,15 @@ def board_edit(
 
     categories = (
         db.query(models.BoardCategory)
+        .filter(models.BoardCategory.user_id == current_user.id)
         .order_by(models.BoardCategory.created_at.asc())
         .all()
     )
 
     template_name = "board_edit_tiptap.html" if post.editor_type == "tiptap" else "board_edit.html"
+
+    # XSS 방어: 에디터에 주입되는 content_blocks도 정제 (스크립트 태그 탈출 방지)
+    post.content_blocks_safe = sanitize_content_blocks(post.content_blocks)
 
     return templates.TemplateResponse(
         request,
@@ -732,7 +773,9 @@ def board_update(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    normal = ensure_default_category(db)
+    draft_id = normalize_draft_id(draft_id)
+
+    normal = ensure_default_category(db, current_user)
 
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
     if not post:
@@ -745,6 +788,14 @@ def board_update(
         category_id_int = int(category_id) if category_id not in (None, "", "0") else normal.id
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid category ID format")
+
+    # 선택 카테고리는 반드시 본인 소유여야 함 (아니면 기본 카테고리로)
+    owned = db.query(models.BoardCategory).filter(
+        models.BoardCategory.id == category_id_int,
+        models.BoardCategory.user_id == current_user.id,
+    ).first()
+    if not owned:
+        category_id_int = normal.id
 
     # 에디터 타입에 따라 제목 추출 분기
     effective_editor_type = editor_type or post.editor_type or "milkdown"
@@ -824,7 +875,9 @@ def board_list(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    ensure_default_category(db)
+    # 페이지네이션 파라미터 방어 (size=0 시 ZeroDivision 방지, 과대 size 제한)
+    page = max(1, page)
+    size = max(1, min(size, 50))
 
     categories = (
         db.query(models.BoardCategory)
@@ -956,8 +1009,6 @@ def board_detail(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    ensure_default_category(db)
-
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
     if not post:
         raise HTTPException(404, "Post not found")
@@ -975,19 +1026,25 @@ def board_detail(
     stats.last_viewed_at = datetime.utcnow()
     db.commit()
 
-    # Get previous and next posts
+    # 이전/다음 글: 같은 블로그(작성자) 안에서만, 공개 글 기준
     prev_post = db.query(models.BoardPost).filter(
         models.BoardPost.id < post_id,
+        models.BoardPost.user_id == post.user_id,
         models.BoardPost.is_private == False
     ).order_by(models.BoardPost.id.desc()).first()
 
     next_post = db.query(models.BoardPost).filter(
         models.BoardPost.id > post_id,
+        models.BoardPost.user_id == post.user_id,
         models.BoardPost.is_private == False
     ).order_by(models.BoardPost.id.asc()).first()
 
     # editor_type에 따라 다른 상세 템플릿 사용
     template_name = "board_detail_magazine.html" if post.editor_type == "tiptap" else "board_detail_writer.html"
+
+    # XSS 방어: 출력 직전 본문 정제 (저장값은 그대로, 렌더 시에만 정제)
+    post.content_html_safe = sanitize_html(post.content_html)
+    post.content_blocks_safe = sanitize_content_blocks(post.content_blocks)
 
     return templates.TemplateResponse(
         request,

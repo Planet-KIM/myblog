@@ -6,6 +6,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./app.db"
     SECRET_KEY: str  # .env에서 읽어옵니다. 값이 없으면 실행 시 에러 발생
 
+    # 쉼표로 구분된 관리자 이메일 목록. 로그인 시 해당 계정을 is_admin으로 자동 승격.
+    # 예: ADMIN_EMAILS="me@example.com,admin@example.com"
+    ADMIN_EMAILS: str = ""
+
     # Redis / Celery
     # 로컬 개발: redis://localhost:6379/x
     # Docker:   redis://redis:6379/x

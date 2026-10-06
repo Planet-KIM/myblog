@@ -14,6 +14,7 @@ pydantic-settings
 celery
 redis
 markdown
+bleach[css]
 passlib[bcrypt]
 # ── 맞춤법 검사 ──
 transformers>=4.40.0

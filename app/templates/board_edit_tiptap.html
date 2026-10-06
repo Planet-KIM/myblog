@@ -63,7 +63,7 @@
     <!-- Initial content (blocks JSON or HTML fallback) -->
     {% if post.content_blocks %}
     <script id="initial-blocks" type="application/json">
-      {{ post.content_blocks | safe }}
+      {{ post.content_blocks_safe | safe }}
     </script>
     {% else %}
     <script id="initial-content" type="application/json">
