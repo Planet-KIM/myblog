@@ -203,13 +203,19 @@ class LoadingOverlay {
 function initSmoothScroll() {
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) {
-      e.preventDefault();
-      const target = document.querySelector(this.getAttribute('href'));
+      const href = this.getAttribute('href');
+      // "#"만 있거나 CSS 선택자로 부적합한 값(#숫자로 시작 등)은 건너뜀
+      if (!href || href === '#') return;
+      let target = null;
+      try {
+        target = document.querySelector(href);
+      } catch (_err) {
+        const el = document.getElementById(href.slice(1));
+        target = el || null;
+      }
       if (target) {
-        target.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
   });

@@ -540,3 +540,6 @@
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
+
+/* 버튼으로 바뀐 scroll-to-top의 UA 기본 스타일 정규화 */
+.scroll-to-top { padding: 0; font: inherit; -webkit-appearance: none; appearance: none; }
