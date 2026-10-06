@@ -170,6 +170,12 @@ class BoardPost(Base):
     stats = relationship("PostStats", uselist=False, back_populates="post", cascade="all, delete-orphan")
     bookmarks = relationship("PostBookmark", back_populates="post", cascade="all, delete-orphan")
     likes_rel = relationship("PostLike", back_populates="post", cascade="all, delete-orphan")
+    comments = relationship(
+        "Comment",
+        back_populates="post",
+        cascade="all, delete-orphan",
+        order_by="Comment.created_at",
+    )
 
     def __repr__(self) -> str:
         return f"<BoardPost id={self.id} title={self.title!r}>"
@@ -354,3 +360,22 @@ class Draft(Base):
     updated_at = Column(DateTime, default=now_kst, onupdate=now_kst)
 
     user = relationship("User")
+
+
+# ─────────────────────────────
+# 댓글 모델 (평문 텍스트)
+# ─────────────────────────────
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("board_posts.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=now_kst)
+
+    post = relationship("BoardPost", back_populates="comments")
+    user = relationship("User")
+
+    def __repr__(self) -> str:
+        return f"<Comment id={self.id} post_id={self.post_id}>"

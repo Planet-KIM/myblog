@@ -1065,6 +1065,15 @@ def board_detail(
     if og_image.startswith("/"):
         og_image = str(request.base_url).rstrip("/") + og_image
 
+    # 댓글 목록 (작성 시간순)
+    comments = (
+        db.query(models.Comment)
+        .filter(models.Comment.post_id == post_id)
+        .options(joinedload(models.Comment.user))
+        .order_by(models.Comment.created_at.asc())
+        .all()
+    )
+
     return templates.TemplateResponse(
         request,
         template_name,
@@ -1075,9 +1084,61 @@ def board_detail(
             "stats": stats,
             "prev_post": prev_post,
             "next_post": next_post,
+            "comments": comments,
             "meta_description": meta_description,
             "og_title": post.title,
             "og_image": og_image,
             "og_type": "article",
         },
     )
+
+
+# ============================================================
+# ★ 댓글 작성 / 삭제 (평문, 서버 렌더 폼)
+# ============================================================
+@router.post("/{post_id}/comment")
+def board_comment_create(
+    post_id: int,
+    body: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    post = db.query(models.BoardPost).filter_by(id=post_id).first()
+    if not post:
+        raise HTTPException(404, "Post not found")
+    # 비공개 글은 작성자만 열람/댓글 가능
+    if post.is_private and post.user_id != current_user.id:
+        raise HTTPException(403, "비공개 게시글입니다.")
+
+    text = (body or "").strip()[:2000]
+    if text:
+        db.add(models.Comment(post_id=post.id, user_id=current_user.id, body=text))
+        db.commit()
+    return RedirectResponse(f"/board/{post_id}#comments", status_code=303)
+
+
+@router.post("/{post_id}/comment/{comment_id}/delete")
+def board_comment_delete(
+    post_id: int,
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    comment = (
+        db.query(models.Comment)
+        .filter(models.Comment.id == comment_id, models.Comment.post_id == post_id)
+        .first()
+    )
+    if not comment:
+        raise HTTPException(404, "Comment not found")
+    post = db.query(models.BoardPost).filter_by(id=post_id).first()
+    # 삭제 권한: 댓글 작성자 / 글 작성자 / 관리자
+    if not (
+        comment.user_id == current_user.id
+        or (post and post.user_id == current_user.id)
+        or current_user.is_admin
+    ):
+        raise HTTPException(403, "삭제 권한이 없습니다.")
+    db.delete(comment)
+    db.commit()
+    return RedirectResponse(f"/board/{post_id}#comments", status_code=303)
