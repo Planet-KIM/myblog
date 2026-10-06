@@ -43,6 +43,9 @@
         {% endfor %}
       </select>
 
+      <input type="text" name="tags" id="tags" placeholder="태그 (쉼표로 구분)"
+             value="{{ tags_value or '' }}" autocomplete="off" style="min-width:200px;">
+
       <label>
         <input type="checkbox" value="true" id="is_private" name="is_private" {% if post.is_private %}checked{% endif %}>
         Private

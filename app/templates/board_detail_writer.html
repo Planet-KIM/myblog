@@ -651,7 +651,7 @@
     {% if post.tags %}
     <div class="article-tags">
       {% for tag in post.tags %}
-      <a href="/board/?tag={{ tag }}" class="tag">#{{ tag }}</a>
+      <a href="/tags/{{ tag.slug }}" class="tag">#{{ tag.name }}</a>
       {% endfor %}
     </div>
     {% endif %}

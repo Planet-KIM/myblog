@@ -621,6 +621,7 @@ def board_new(
             "normal_category_id": normal.id,
             "current_user": current_user,
             "draft_id": str(uuid4()),
+            "tags_value": "",
         },
     )
 
@@ -754,6 +755,7 @@ def board_edit(
             "categories": categories,
             "normal_category_id": normal.id,
             "current_user": current_user,
+            "tags_value": ", ".join(t.name for t in post.tags),
         },
     )
 
@@ -770,6 +772,7 @@ def board_update(
     draft_id: Optional[str] = Form(None),
     editor_type: Optional[str] = Form(None),
     content_blocks: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -818,6 +821,12 @@ def board_update(
         post.content_blocks = content_blocks
 
     db.commit()
+
+    # 태그 갱신 (제출된 경우에만; 빈 문자열이면 전체 해제)
+    if tags is not None:
+        from ..api import process_post_tags
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+        process_post_tags(db, post, tag_list)
 
     if draft_id:
         relocate_draft_files(post, draft_id, db)

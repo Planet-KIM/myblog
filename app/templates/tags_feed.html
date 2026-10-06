@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}#{{ tag.name }}{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <header class="page-card mb-4">
+    <div class="text-muted" style="font-family:var(--font-mono); font-size:0.8rem;">TAG</div>
+    <h1 class="section-title" style="margin-bottom:0.25rem;">#{{ tag.name }}</h1>
+    <div class="text-muted" style="font-size:0.85rem;">이 태그의 공개 글 {{ total_posts }}개</div>
+  </header>
+
+  {% if popular_tags %}
+  <div class="mb-4" style="display:flex; flex-wrap:wrap; gap:0.4rem;">
+    {% for t in popular_tags %}
+    <a href="/tags/{{ t.slug }}"
+       class="badge-tint {% if t.id == tag.id %}badge-tint-sea{% else %}badge-tint-violet{% endif %}"
+       style="text-decoration:none;">#{{ t.name }} <span style="opacity:0.7;">{{ t.count }}</span></a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if posts %}
+  <div class="row g-3">
+    {% for post in posts %}
+    <div class="col-12 col-md-6">
+      <article class="travel-card h-100">
+        <a href="/board/{{ post.id }}" class="card-link-overlay" aria-label="{{ post.title }}"
+           style="position:absolute; inset:0; z-index:1;"></a>
+        {% if post.thumbnail %}
+        <div class="card-img-wrap" style="height:160px; overflow:hidden;">
+          <img src="{{ post.thumbnail }}" class="card-img" alt="thumbnail" loading="lazy"
+               style="width:100%; height:100%; object-fit:cover;"
+               onerror="this.parentElement.style.display='none';">
+        </div>
+        {% endif %}
+        <div class="card-body">
+          {% if post.category %}
+          <span class="badge-cat mb-2 d-inline-flex align-items-center" style="align-self:flex-start;">
+            <i class="bi bi-bookmark-fill me-1"></i>{{ post.category.name }}
+          </span>
+          {% endif %}
+          <h5 class="card-title mb-1">
+            <a href="/board/{{ post.id }}">
+              {% if post.show_title != False %}{{ post.title or 'Untitled' }}{% else %}Untitled{% endif %}
+            </a>
+          </h5>
+          <div class="card-preview mb-2">{{ post.preview }}</div>
+          <div class="card-meta">
+            {% if post.user and post.user.handle %}
+            <a href="/@{{ post.user.handle }}" style="position:relative; z-index:2;">{{ post.user.display_name or ('@' ~ post.user.handle) }}</a>
+            &nbsp;·&nbsp;
+            {% endif %}
+            <i class="bi bi-clock me-1"></i>{{ post.created_at.strftime("%Y-%m-%d") }}
+            &nbsp;·&nbsp;<i class="bi bi-eye me-1"></i>{{ post.view_count }}
+          </div>
+        </div>
+      </article>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if total_pages > 1 %}
+  <nav class="d-flex justify-content-center gap-2 mt-4">
+    {% if current_page > 1 %}
+    <a href="/tags/{{ tag.slug }}?page={{ current_page - 1 }}" class="btn btn-outline-secondary btn-sm">← 이전</a>
+    {% endif %}
+    <span class="btn btn-sm disabled">{{ current_page }} / {{ total_pages }}</span>
+    {% if current_page < total_pages %}
+    <a href="/tags/{{ tag.slug }}?page={{ current_page + 1 }}" class="btn btn-outline-secondary btn-sm">다음 →</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div class="page-card text-center text-muted">이 태그의 공개 글이 아직 없습니다.</div>
+  {% endif %}
+</div>
+{% endblock %}

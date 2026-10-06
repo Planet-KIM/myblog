@@ -1003,6 +1003,74 @@ def blog_home(
     )
 
 
+# ─────────────────────────────────────────────
+# 태그 피드 (/tags/{slug}) — 포털 전역 탐색 축
+# ─────────────────────────────────────────────
+@router.get("/tags/{slug}", response_class=HTMLResponse)
+def tag_feed(
+    slug: str,
+    request: Request,
+    page: int = 1,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+):
+    tag = db.query(models.Tag).filter(models.Tag.slug == (slug or "").lower()).first()
+    if not tag:
+        raise HTTPException(status_code=404, detail="태그를 찾을 수 없습니다.")
+
+    size = 12
+    page = max(1, page)
+
+    query = (
+        db.query(models.BoardPost)
+        .join(models.BoardPost.tags)
+        .filter(models.Tag.id == tag.id)
+        .options(joinedload(models.BoardPost.user), joinedload(models.BoardPost.stats))
+    )
+    if current_user:
+        query = query.filter(
+            or_(models.BoardPost.is_private == False, models.BoardPost.user_id == current_user.id)  # noqa: E712
+        )
+    else:
+        query = query.filter(models.BoardPost.is_private == False)  # noqa: E712
+
+    total_posts = query.with_entities(func.count(models.BoardPost.id)).scalar() or 0
+    total_pages = max(1, (total_posts + size - 1) // size)
+    page = min(page, total_pages)
+
+    posts = (
+        query.order_by(models.BoardPost.created_at.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+        .all()
+    )
+    for post in posts:
+        source = post.content_html or post.content or ""
+        post.preview = markdown_to_plain(source)
+        post.thumbnail = extract_first_image(source)
+        post.reading_minutes = estimate_reading_minutes(source)
+        post.view_count = post.stats.views if post.stats else 0
+
+    popular_tags = (
+        db.query(models.Tag).order_by(models.Tag.count.desc(), models.Tag.name.asc()).limit(20).all()
+    )
+
+    return templates.TemplateResponse(
+        request,
+        "tags_feed.html",
+        {
+            "request": request,
+            "tag": tag,
+            "posts": posts,
+            "popular_tags": popular_tags,
+            "current_user": current_user,
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_posts": total_posts,
+        },
+    )
+
+
 @router.get("/posts/new")
 def legacy_posts_new_redirect():
     return RedirectResponse("/board/new", status_code=307)
