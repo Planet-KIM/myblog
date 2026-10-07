@@ -213,12 +213,11 @@ body.home-page .site-nav .nav-link.active {
 }
 
 .hero-stat-label {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   margin-top: 0.3rem;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
 }
 
 /* ─── Hero CTA Button ─────────────────────────────────────── */
@@ -385,6 +384,110 @@ body.home-page .site-nav .nav-link.active {
 @media (max-width: 900px) {
   .featured-grid { grid-template-columns: 1fr; }
 }
+
+/* ─── Card author (작성자 중심) ────────────────────────────── */
+.card-author {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  text-decoration: none;
+  max-width: 100%;
+}
+.card-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid var(--blog-accent, var(--border));
+}
+.card-avatar.is-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  border: none;
+  background: linear-gradient(135deg, var(--blog-accent, var(--primary)), rgba(0, 0, 0, 0.22));
+}
+.card-author-meta { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.card-author-name {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-author:hover .card-author-name { color: var(--primary); }
+.card-author-handle { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
+
+/* ─── 주목받는 블로거 ─────────────────────────────────────── */
+.bloggers-section {
+  max-width: var(--max-width);
+  margin: 2.25rem auto 0;
+  padding: 0 1.25rem;
+}
+.bloggers-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.9rem;
+}
+.blogger-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.3rem;
+  padding: 1.15rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+.blogger-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--blog-accent, var(--primary));
+}
+.blogger-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--blog-accent, var(--border));
+  margin-bottom: 0.2rem;
+}
+.blogger-avatar.is-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.5rem;
+  border: none;
+  background: linear-gradient(135deg, var(--blog-accent, var(--primary)), rgba(0, 0, 0, 0.22));
+}
+.blogger-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.blogger-handle { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+.blogger-count { font-size: 0.72rem; color: var(--text-muted); }
 
 /* ─── Scroll Indicator ────────────────────────────────────── */
 .hero-scroll-indicator {

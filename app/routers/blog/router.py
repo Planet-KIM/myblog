@@ -496,6 +496,33 @@ def read_index(
         or 0
     )
 
+    # 포털 지표 & 사람(블로거) 노출
+    blogger_count = (
+        db.query(func.count(func.distinct(models.BoardPost.user_id)))
+        .filter(models.BoardPost.is_private == False)  # noqa: E712
+        .scalar()
+        or 0
+    )
+    tag_total = (
+        db.query(func.count(models.Tag.id)).filter(models.Tag.count > 0).scalar() or 0
+    )
+    featured_bloggers = [
+        {"user": u, "post_count": n}
+        for (u, n) in (
+            db.query(models.User, func.count(models.BoardPost.id).label("cnt"))
+            .join(
+                models.BoardPost,
+                (models.BoardPost.user_id == models.User.id)
+                & (models.BoardPost.is_private == False),  # noqa: E712
+            )
+            .filter(models.User.handle.isnot(None))
+            .group_by(models.User.id)
+            .order_by(func.count(models.BoardPost.id).desc(), func.max(models.BoardPost.created_at).desc())
+            .limit(8)
+            .all()
+        )
+    ]
+
     def enrich_post(post: models.BoardPost):
         source = post.content_html or post.content or ""
         preview = markdown_to_plain(source)
@@ -593,6 +620,9 @@ def read_index(
             "posts": posts,
             "board_posts": board_posts,
             "featured_posts": featured_posts,
+            "featured_bloggers": featured_bloggers,
+            "blogger_count": blogger_count,
+            "tag_total": tag_total,
             "categories": categories,
             "ordered_categories": ordered_categories,
             "category_depths": category_depths,
