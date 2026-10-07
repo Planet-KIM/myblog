@@ -1,6 +1,6 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, with_loader_criteria
 
 from .config import settings
 
@@ -16,6 +16,27 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+
+# ── 모더레이션: 숨김 콘텐츠 전역 제외 ─────────────────────
+# 모든 BoardPost/Comment SELECT에서 is_hidden=True 를 자동 제외한다.
+# 관리자 조회 등 숨김까지 봐야 할 때는 .execution_options(include_hidden=True) 로 우회.
+@event.listens_for(SessionLocal, "do_orm_execute")
+def _exclude_hidden(execute_state):
+    if not execute_state.is_select:
+        return
+    if execute_state.execution_options.get("include_hidden", False):
+        return
+    from app import models  # 지연 임포트(순환 방지)
+
+    execute_state.statement = execute_state.statement.options(
+        with_loader_criteria(
+            models.BoardPost, models.BoardPost.is_hidden == False, include_aliases=True  # noqa: E712
+        ),
+        with_loader_criteria(
+            models.Comment, models.Comment.is_hidden == False, include_aliases=True  # noqa: E712
+        ),
+    )
 
 
 def get_db():

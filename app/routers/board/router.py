@@ -1020,7 +1020,11 @@ def board_detail(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    post = db.query(models.BoardPost).filter_by(id=post_id).first()
+    # 관리자는 숨김 글도 열람 가능 (모더레이션)
+    post_q = db.query(models.BoardPost).filter_by(id=post_id)
+    if current_user and current_user.is_admin:
+        post_q = post_q.execution_options(include_hidden=True)
+    post = post_q.first()
     if not post:
         raise HTTPException(404, "Post not found")
 
@@ -1161,4 +1165,44 @@ def board_comment_delete(
         raise HTTPException(403, "삭제 권한이 없습니다.")
     db.delete(comment)
     db.commit()
+    return RedirectResponse(f"/board/{post_id}#comments", status_code=303)
+
+
+# ============================================================
+# ★ 신고 (모더레이션 입력)
+# ============================================================
+def _create_report(db, request, current_user, target_type, target_id, reason):
+    enforce(request, "report", 20, 3600, subject=str(current_user.id),
+            message="신고가 너무 많습니다. 잠시 후 다시 시도해주세요.")
+    db.add(models.Report(
+        reporter_user_id=current_user.id,
+        target_type=target_type,
+        target_id=target_id,
+        reason=(reason or "").strip()[:500] or None,
+    ))
+    db.commit()
+
+
+@router.post("/{post_id}/report")
+def board_report_post(
+    post_id: int,
+    request: Request,
+    reason: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _create_report(db, request, current_user, "post", post_id, reason)
+    return RedirectResponse(f"/board/{post_id}", status_code=303)
+
+
+@router.post("/{post_id}/comment/{comment_id}/report")
+def board_report_comment(
+    post_id: int,
+    comment_id: int,
+    request: Request,
+    reason: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _create_report(db, request, current_user, "comment", comment_id, reason)
     return RedirectResponse(f"/board/{post_id}#comments", status_code=303)

@@ -14,6 +14,41 @@
   </div>
 </div>
 
+<div class="row mb-4">
+  <div class="col-md-12">
+    <h4>신고 ({{ report_items|length }})</h4>
+    <ul class="list-group">
+      {% for it in report_items %}
+      <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <span class="badge bg-secondary">{{ it.report.target_type }}</span>
+          {% if it.exists %}<a href="{{ it.link }}">{{ it.summary }}</a>{% else %}<span class="text-muted">{{ it.summary }}</span>{% endif %}
+          {% if it.hidden %}<span class="badge bg-warning text-dark">숨김</span>{% endif %}
+          <div class="text-muted small">
+            사유: {{ it.report.reason or "-" }} · {{ it.report.created_at.strftime("%Y-%m-%d %H:%M") }}
+          </div>
+        </div>
+        <div class="d-flex gap-1">
+          {% if it.exists %}
+          <form method="post" action="/admin/moderate" style="margin:0;">
+            <input type="hidden" name="target_type" value="{{ it.report.target_type }}">
+            <input type="hidden" name="target_id" value="{{ it.report.target_id }}">
+            <input type="hidden" name="action" value="{{ 'unhide' if it.hidden else 'hide' }}">
+            <button class="btn btn-sm btn-outline-warning" type="submit">{{ '숨김 해제' if it.hidden else '숨기기' }}</button>
+          </form>
+          {% endif %}
+          <form method="post" action="/admin/reports/{{ it.report.id }}/resolve" style="margin:0;">
+            <button class="btn btn-sm btn-outline-secondary" type="submit">처리완료</button>
+          </form>
+        </div>
+      </li>
+      {% else %}
+      <li class="list-group-item text-muted">열린 신고가 없습니다.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
 <div class="row">
   <div class="col-md-12">
     <h4>Recent Posts</h4>

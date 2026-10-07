@@ -142,7 +142,10 @@ class BoardPost(Base):
 
     # 공개/비공개
     is_private = Column(Boolean, default=False)
-    
+
+    # 관리자 숨김(모더레이션). True면 작성자/관리자 외 비노출.
+    is_hidden = Column(Boolean, default=False, nullable=False)
+
     # 제목 표시 여부
     show_title = Column(Boolean, default=True)
 
@@ -374,6 +377,7 @@ class Comment(Base):
     post_id = Column(Integer, ForeignKey("board_posts.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     body = Column(Text, nullable=False)
+    is_hidden = Column(Boolean, default=False, nullable=False)  # 관리자 숨김
     created_at = Column(DateTime, default=now_kst)
 
     post = relationship("BoardPost", back_populates="comments")
@@ -381,3 +385,23 @@ class Comment(Base):
 
     def __repr__(self) -> str:
         return f"<Comment id={self.id} post_id={self.post_id}>"
+
+
+# ─────────────────────────────
+# 신고 (모더레이션)
+# ─────────────────────────────
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reporter_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    target_type = Column(String(20), nullable=False)   # "post" | "comment"
+    target_id = Column(Integer, nullable=False, index=True)
+    reason = Column(String(500), nullable=True)
+    resolved = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=now_kst)
+
+    reporter = relationship("User")
+
+    def __repr__(self) -> str:
+        return f"<Report id={self.id} {self.target_type}:{self.target_id}>"
