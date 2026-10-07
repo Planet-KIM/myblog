@@ -1074,6 +1074,19 @@ def board_detail(
         .all()
     )
 
+    # 작성자 카드용: 같은 블로그의 다른 공개 글 (최신 3)
+    author_other_posts = (
+        db.query(models.BoardPost)
+        .filter(
+            models.BoardPost.user_id == post.user_id,
+            models.BoardPost.id != post.id,
+            models.BoardPost.is_private == False,  # noqa: E712
+        )
+        .order_by(models.BoardPost.created_at.desc())
+        .limit(3)
+        .all()
+    )
+
     return templates.TemplateResponse(
         request,
         template_name,
@@ -1085,6 +1098,7 @@ def board_detail(
             "prev_post": prev_post,
             "next_post": next_post,
             "comments": comments,
+            "author_other_posts": author_other_posts,
             "meta_description": meta_description,
             "og_title": post.title,
             "og_image": og_image,

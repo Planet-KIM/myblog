@@ -1,0 +1,37 @@
+{# 글 하단 작성자 카드: 소개 + 블로그 방문 + 같은 블로그의 다른 글 #}
+{% if post.user and post.user.handle %}
+<section class="page-card no-print"
+         style="max-width:var(--reading-max-width, 720px);margin:2.5rem auto 0;display:flex;gap:1.1rem;flex-wrap:wrap;align-items:flex-start;">
+  {% if post.user.avatar_url %}
+  <img src="{{ post.user.avatar_url }}" alt="" onerror="this.style.display='none';"
+       style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0;border:3px solid {{ post.user.accent_color or 'var(--surface-light)' }};">
+  {% else %}
+  <span style="width:56px;height:56px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+               font-family:var(--font-mono);font-weight:700;font-size:1.4rem;color:#fff;
+               background:{{ post.user.accent_color or 'var(--gradient-primary)' }};">
+    {{ (post.user.display_name or post.user.handle or '?')[0]|upper }}
+  </span>
+  {% endif %}
+
+  <div style="flex:1;min-width:220px;">
+    <div class="text-muted" style="font-family:var(--font-mono);font-size:0.72rem;letter-spacing:0.04em;">WRITTEN BY</div>
+    <div style="margin:0.1rem 0 0.2rem;">
+      <a href="/@{{ post.user.handle }}" style="font-weight:700;color:var(--text-primary);text-decoration:none;">{{ post.user.blog_title or post.user.display_name or ('@' ~ post.user.handle) }}</a>
+      <span class="text-muted" style="font-family:var(--font-mono);font-size:0.8rem;margin-left:0.35rem;">@{{ post.user.handle }}</span>
+    </div>
+    {% if post.user.bio %}<p style="color:var(--text-main);font-size:0.9rem;margin:0 0 0.6rem;">{{ post.user.bio }}</p>{% endif %}
+    <a href="/@{{ post.user.handle }}" class="btn btn-outline-secondary btn-sm">블로그 방문</a>
+  </div>
+
+  {% if author_other_posts %}
+  <div style="min-width:200px;">
+    <div class="text-muted" style="font-family:var(--font-mono);font-size:0.72rem;letter-spacing:0.04em;margin-bottom:0.3rem;">MORE FROM THIS BLOG</div>
+    {% for p in author_other_posts %}
+    <a href="/board/{{ p.id }}" style="display:block;color:var(--text-main);text-decoration:none;font-size:0.88rem;padding:0.2rem 0;">
+      · {{ p.title or 'Untitled' }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
