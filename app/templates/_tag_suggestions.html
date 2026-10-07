@@ -1,0 +1,32 @@
+{# 태그 입력 보조. #tags 입력 바로 아래에 include.
+   - 항상: 간단한 입력 힌트
+   - popular_tags 가 있으면: 클릭하면 입력에 추가되는 인기 태그 칩 #}
+<div class="tag-suggest" style="margin-top:0.4rem; flex-basis:100%; width:100%;">
+  <div style="font-size:0.74rem; color:var(--text-muted); font-family:var(--font-mono); margin-bottom:0.3rem;">
+    쉼표로 구분해 입력 · 예: 여행, 방콕, 카페
+  </div>
+  {% if popular_tags %}
+  <div>
+    <span style="font-size:0.72rem; color:var(--text-muted); font-family:var(--font-mono); margin-right:0.25rem;">인기 태그</span>
+    {% for t in popular_tags %}
+    <button type="button" class="tag-suggest-chip" data-tag="{{ t.name }}"
+            style="font-size:0.74rem; padding:0.15rem 0.55rem; margin:0.15rem 0.15rem 0 0; border:1px solid var(--border); border-radius:999px; background:var(--surface); color:var(--text-muted); cursor:pointer;">#{{ t.name }}</button>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+<script>
+  (function () {
+    var input = document.getElementById('tags');
+    if (!input) return;
+    document.querySelectorAll('.tag-suggest-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var tag = chip.getAttribute('data-tag');
+        var cur = input.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        if (cur.indexOf(tag) === -1) { cur.push(tag); }
+        input.value = cur.join(', ');
+        input.focus();
+      });
+    });
+  })();
+</script>

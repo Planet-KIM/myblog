@@ -615,6 +615,13 @@ def board_new(
     )
 
     template_name = "board_new_tiptap.html" if editor == "tiptap" else "board_new_clean.html"
+    popular_tags = (
+        db.query(models.Tag)
+        .filter(models.Tag.count > 0)
+        .order_by(models.Tag.count.desc(), models.Tag.name.asc())
+        .limit(12)
+        .all()
+    )
 
     return templates.TemplateResponse(
         request,
@@ -626,6 +633,7 @@ def board_new(
             "current_user": current_user,
             "draft_id": str(uuid4()),
             "tags_value": "",
+            "popular_tags": popular_tags,
         },
     )
 
@@ -750,6 +758,14 @@ def board_edit(
     # XSS 방어: 에디터에 주입되는 content_blocks도 정제 (스크립트 태그 탈출 방지)
     post.content_blocks_safe = sanitize_content_blocks(post.content_blocks)
 
+    popular_tags = (
+        db.query(models.Tag)
+        .filter(models.Tag.count > 0)
+        .order_by(models.Tag.count.desc(), models.Tag.name.asc())
+        .limit(12)
+        .all()
+    )
+
     return templates.TemplateResponse(
         request,
         template_name,
@@ -760,6 +776,7 @@ def board_edit(
             "normal_category_id": normal.id,
             "current_user": current_user,
             "tags_value": ", ".join(t.name for t in post.tags),
+            "popular_tags": popular_tags,
         },
     )
 
