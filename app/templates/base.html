@@ -52,6 +52,10 @@
       line-height: 1.6;
       font-size: 15px;
       transition: background-color var(--transition-base), color var(--transition-base);
+      /* 또렷하고 가벼운 글자 렌더링 (프리미엄 느낌) */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
     }
 
     h1,
