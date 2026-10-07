@@ -38,8 +38,8 @@
 }
 
 .tiptap-toolbar-btn:hover {
-  background: rgba(249, 115, 22, 0.1);
-  color: #f97316;
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary);
 }
 
 .tiptap-toolbar-sep {
@@ -113,8 +113,8 @@
 }
 
 .fb.selected {
-  border-color: #f97316;
-  box-shadow: 0 0 0 3px rgba(249,115,22,0.12), 0 4px 20px rgba(0,0,0,0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb),0.12), 0 4px 20px rgba(0,0,0,0.1);
   z-index: 100 !important;
 }
 
@@ -147,9 +147,9 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #f97316;
+  color: var(--primary);
   padding: 1px 6px;
-  background: rgba(249,115,22,0.08);
+  background: rgba(var(--primary-rgb),0.08);
   border-radius: 4px;
 }
 
@@ -207,7 +207,7 @@
 .fb-editor .tiptap p { margin: 0.3rem 0; }
 
 .fb-editor .tiptap blockquote {
-  border-left: 3px solid #f97316;
+  border-left: 3px solid var(--primary);
   padding-left: 1rem;
   margin: 0.5rem 0;
   color: var(--text-muted, #6b7280);
@@ -231,7 +231,7 @@
   background: #f3f4f6;
   padding: 0.1em 0.3em;
   border-radius: 3px;
-  color: #f97316;
+  color: var(--primary);
 }
 
 .fb-editor .tiptap pre code { background: transparent; color: inherit; padding: 0; }
@@ -311,13 +311,13 @@
 }
 
 .page-tab:hover {
-  border-color: #f97316;
-  color: #f97316;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .page-tab.active {
-  background: #f97316;
-  border-color: #f97316;
+  background: var(--primary);
+  border-color: var(--primary);
   color: #fff;
 }
 
@@ -344,8 +344,8 @@
   font-family: inherit;
 }
 .page-tab-add:hover {
-  border-color: #f97316;
-  color: #f97316;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 [data-theme="dark"] .page-tab-bar { background: #1e293b; border-color: rgba(255,255,255,0.08); }
@@ -353,9 +353,9 @@
 
 /* ── Border toggle button active state ──────────────────── */
 .fb-btn-active {
-  background: rgba(249, 115, 22, 0.15) !important;
-  color: #f97316 !important;
-  border-color: #f97316 !important;
+  background: rgba(var(--primary-rgb), 0.15) !important;
+  color: var(--primary) !important;
+  border-color: var(--primary) !important;
 }
 
 /* ── Border color swatch (label wrapping hidden color input) */
@@ -410,8 +410,8 @@
 .fb-drop p { margin: 0; font-size: 0.8rem; color: #9ca3af; }
 
 .fb-drop:hover, .fb-drop.over {
-  border-color: #f97316;
-  background: rgba(249,115,22,0.03);
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb),0.03);
 }
 
 /* Spacer block */
@@ -445,7 +445,7 @@
   width: 14px;
   height: 14px;
   cursor: nwse-resize;
-  background: #f97316;
+  background: var(--primary);
   border-radius: 3px;
   border: 2px solid white;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
@@ -468,7 +468,7 @@
   transform: translate(-50%,-50%);
   width: 3px;
   height: 24px;
-  background: #f97316;
+  background: var(--primary);
   border-radius: 3px;
 }
 
@@ -489,7 +489,7 @@
   transform: translate(-50%,-50%);
   width: 24px;
   height: 3px;
-  background: #f97316;
+  background: var(--primary);
   border-radius: 3px;
 }
 
@@ -521,13 +521,13 @@
 }
 
 .tiptap-btn-primary {
-  background: linear-gradient(135deg, #f97316, #ec4899);
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
 }
 
 .tiptap-btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(249,115,22,0.3);
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb),0.3);
 }
 
 .tiptap-btn-secondary {
@@ -558,7 +558,7 @@
 }
 
 [data-theme="dark"] .tiptap-toolbar-btn { color: #e2e8f0; }
-[data-theme="dark"] .tiptap-toolbar-btn:hover { background: rgba(249,115,22,0.15); }
+[data-theme="dark"] .tiptap-toolbar-btn:hover { background: rgba(var(--primary-rgb),0.15); }
 
 [data-theme="dark"] #block-canvas {
   background:
@@ -589,7 +589,7 @@
 }
 
 [data-theme="dark"] .fb-drop { border-color: rgba(255,255,255,0.1); }
-[data-theme="dark"] .fb-drop:hover { background: rgba(249,115,22,0.05); }
+[data-theme="dark"] .fb-drop:hover { background: rgba(var(--primary-rgb),0.05); }
 
 /* ── Inline preview ──────────────────────────────────────── */
 .inline-preview {
@@ -639,9 +639,9 @@
 
 /* Hover state — subtle highlight to signal "clickable" */
 .inline-preview:hover .inline-preview-hint {
-  background: rgba(249,115,22,0.08);
-  border-color: #f97316;
-  color: #f97316;
+  background: rgba(var(--primary-rgb),0.08);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 [data-theme="dark"] .inline-preview { background: #0f172a; }

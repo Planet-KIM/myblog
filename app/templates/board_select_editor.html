@@ -56,8 +56,8 @@
   }
 
   .editor-option.tiptap:hover {
-    border-color: #f97316;
-    box-shadow: 0 12px 32px rgba(249, 115, 22, 0.15);
+    border-color: var(--primary);
+    box-shadow: 0 12px 32px rgba(var(--primary-rgb), 0.15);
   }
 
   .editor-option::before {
@@ -76,7 +76,7 @@
   }
 
   .editor-option.tiptap::before {
-    background: linear-gradient(90deg, #f97316, #ec4899);
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
   }
 
   .editor-option:hover::before {
@@ -189,7 +189,7 @@
   }
 
   .preview-tiptap .pt-toolbar-btn.active {
-    background: #f97316;
+    background: var(--primary);
     color: white;
   }
 
@@ -279,7 +279,7 @@
   }
 
   .editor-icon-tiptap {
-    background: linear-gradient(135deg, #f97316, #ec4899);
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
     color: white;
   }
 
@@ -306,8 +306,8 @@
   }
 
   .badge-new {
-    background: rgba(249, 115, 22, 0.15);
-    color: #f97316;
+    background: rgba(var(--primary-rgb), 0.15);
+    color: var(--primary);
   }
 
   .editor-option-desc {
@@ -343,7 +343,7 @@
   }
 
   .milkdown .editor-feature i { color: #3b82f6; }
-  .tiptap .editor-feature i { color: #f97316; }
+  .tiptap .editor-feature i { color: var(--primary); }
 
   /* ── 하단 비교표 ──────────────────────────── */
   .editor-compare {
@@ -377,7 +377,7 @@
   }
 
   .editor-compare th:nth-child(3) {
-    color: #f97316;
+    color: var(--primary);
     text-align: center;
   }
 

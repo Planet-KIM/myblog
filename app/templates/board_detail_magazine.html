@@ -30,7 +30,7 @@
 
   .reading-progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #f97316, #ec4899);
+    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
     width: 0%;
     transition: width 0.1s ease;
   }
@@ -40,7 +40,7 @@
     position: relative;
     padding: 4rem 2rem 3rem;
     text-align: center;
-    background: linear-gradient(135deg, rgba(249, 115, 22, 0.08), rgba(236, 72, 153, 0.08));
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08), rgba(var(--primary-rgb), 0.08));
     border-bottom: 1px solid var(--border, #e5e7eb);
     margin-bottom: 0;
   }
@@ -51,7 +51,7 @@
     font-weight: 700;
     padding: 0.2rem 0.7rem;
     border-radius: 20px;
-    background: linear-gradient(135deg, #f97316, #ec4899);
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
     color: white;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -61,7 +61,7 @@
   .magazine-category {
     display: inline-block;
     font-size: 0.8rem;
-    color: #f97316;
+    color: var(--primary);
     font-weight: 600;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -102,7 +102,7 @@
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #f97316, #ec4899);
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
     color: white;
     display: flex;
     align-items: center;
@@ -202,13 +202,13 @@
 
   /* 인용문 — 매거진 스타일 */
   .magazine-content blockquote {
-    border-left: 4px solid #f97316;
+    border-left: 4px solid var(--primary);
     padding: 1.25rem 0 1.25rem 2rem;
     margin: 2.5rem 0;
     font-style: italic;
     font-size: 1.2rem;
     color: var(--text-muted, #6b7280);
-    background: linear-gradient(90deg, rgba(249, 115, 22, 0.06), transparent);
+    background: linear-gradient(90deg, rgba(var(--primary-rgb), 0.06), transparent);
     border-radius: 0 12px 12px 0;
   }
 
@@ -232,7 +232,7 @@
     background: var(--surface, #f3f4f6);
     padding: 0.15em 0.4em;
     border-radius: 4px;
-    color: #f97316;
+    color: var(--primary);
   }
 
   .magazine-content pre code {
@@ -297,7 +297,7 @@
     transform: translate(-50%, -50%);
     background: var(--bg-body, #fff);
     padding: 0 1rem;
-    color: #f97316;
+    color: var(--primary);
     font-size: 0.9rem;
   }
 
@@ -309,11 +309,11 @@
   }
 
   .magazine-content th {
-    background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(236, 72, 153, 0.1));
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1), rgba(var(--primary-rgb), 0.1));
     padding: 0.85rem 1rem;
     text-align: left;
     font-weight: 600;
-    border-bottom: 2px solid #f97316;
+    border-bottom: 2px solid var(--primary);
   }
 
   .magazine-content td {
@@ -354,7 +354,7 @@
   }
 
   .magazine-footer .tag:hover {
-    background: #f97316;
+    background: var(--primary);
     color: white;
   }
 
@@ -390,12 +390,12 @@
   }
 
   .btn-action-edit {
-    border-color: #f97316;
-    color: #f97316;
+    border-color: var(--primary);
+    color: var(--primary);
   }
 
   .btn-action-edit:hover {
-    background: #f97316;
+    background: var(--primary);
     color: white;
   }
 
@@ -421,9 +421,9 @@
   }
 
   .btn-action-share:hover {
-    border-color: #f97316;
-    color: #f97316;
-    background: rgba(249, 115, 22, 0.05);
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.05);
   }
 
   .action-divider {
@@ -450,14 +450,14 @@
   }
 
   .nav-post:hover {
-    border-color: #f97316;
-    box-shadow: 0 4px 16px rgba(249, 115, 22, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.1);
     transform: translateY(-2px);
   }
 
   .nav-label {
     font-size: 0.8rem;
-    color: #f97316;
+    color: var(--primary);
     margin-bottom: 0.5rem;
     display: block;
     font-weight: 600;
@@ -485,11 +485,11 @@
 
   /* ── Dark theme ───────────────────────────────────── */
   [data-theme="dark"] .magazine-header {
-    background: linear-gradient(135deg, rgba(249, 115, 22, 0.05), rgba(236, 72, 153, 0.05));
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.05));
   }
 
   [data-theme="dark"] .magazine-content blockquote {
-    background: linear-gradient(90deg, rgba(249, 115, 22, 0.08), transparent);
+    background: linear-gradient(90deg, rgba(var(--primary-rgb), 0.08), transparent);
   }
 
   [data-theme="dark"] .nav-post {
@@ -597,10 +597,10 @@
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   }
   .page-nav-btn:hover:not(:disabled) {
-    background: #f97316;
-    border-color: #f97316;
+    background: var(--primary);
+    border-color: var(--primary);
     color: #fff;
-    box-shadow: 0 3px 12px rgba(249,115,22,0.28);
+    box-shadow: 0 3px 12px rgba(var(--primary-rgb),0.28);
     transform: scale(1.08);
   }
   .page-nav-btn:disabled { opacity: 0.25; cursor: default; transform: none; }
@@ -630,7 +630,7 @@
     transition: all 0.2s;
   }
   .page-dot.active {
-    background: #f97316;
+    background: var(--primary);
     width: 22px;
     border-radius: 4px;
   }
@@ -797,7 +797,7 @@
       {{ stats.likes if stats else 0 }} likes
     </span>
     {% if post.is_private %}
-    <span class="meta-item" style="color: #f97316;">
+    <span class="meta-item" style="color: var(--primary);">
       <i class="bi bi-lock-fill"></i> Private
     </span>
     {% endif %}
@@ -1149,7 +1149,7 @@ function copyLink() {
   toast.textContent = 'Link copied!';
   toast.style.cssText = `
     position: fixed; bottom: 2rem; right: 2rem;
-    background: #f97316; color: white;
+    background: var(--primary); color: white;
     padding: 1rem 1.5rem; border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 1000;
   `;
