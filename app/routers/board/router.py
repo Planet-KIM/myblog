@@ -216,16 +216,16 @@ def create_preview(
 # normal 기본 카테고리 자동 생성
 # ------------------------------------------------------------
 def ensure_default_category(db: Session, user: models.User):
-    """사용자(블로그 소유자)별 기본 'normal' 카테고리를 보장한다."""
+    """사용자(블로그 소유자)별 기본 '일반' 카테고리를 보장한다."""
     normal = (
         db.query(models.BoardCategory)
-        .filter_by(name="normal", user_id=user.id)
+        .filter_by(name="일반", user_id=user.id)
         .first()
     )
     if not normal:
         normal = models.BoardCategory(
-            name="normal",
-            description="Default category (auto created)",
+            name="일반",
+            description="기본 카테고리 (자동 생성)",
             parent_id=None,   # 최상위
             user_id=user.id,
         )
@@ -445,7 +445,7 @@ def category_delete(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    if category.name == "normal":
+    if category.name in ("일반", "normal"):
         raise HTTPException(status_code=400, detail="Cannot delete the default category")
 
     post_count = db.query(models.BoardPost).filter(
