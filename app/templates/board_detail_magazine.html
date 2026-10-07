@@ -172,6 +172,21 @@
   }
   .mag-mode-toggle:hover { border-color: var(--primary); color: var(--primary); }
 
+  /* ── 인쇄 / PDF: 리더(선형) 레이아웃으로 출력, 크롬 숨김 ── */
+  @media print {
+    .site-nav, .site-footer, .magazine-footer, .post-navigation,
+    #comments, .no-print,
+    #magazine-viewer-root .page-viewer,
+    #magazine-viewer-root .page-nav-bar,
+    #magazine-viewer-root .page-dots,
+    #magazine-viewer-root .mag-mode-toggle { display: none !important; }
+    #magazine-viewer-root .mag-reader { display: block !important; }
+    .mag-reader-inner { max-width: none; padding: 0; }
+    .mag-reader .reader-page-sep { break-before: page; border: none; height: 0; margin: 0; }
+    body { background: #fff !important; }
+    .magazine-header, .magazine-content { box-shadow: none !important; }
+  }
+
   /* 타이포그래피 */
   .magazine-content h1 {
     font-size: 2.5rem;
@@ -864,6 +879,9 @@
       </button>
       <button class="btn-action btn-action-share" onclick="copyLink()" title="Copy link">
         <i class="bi bi-link-45deg"></i>
+      </button>
+      <button class="btn-action btn-action-share" onclick="window.print()" title="인쇄 / PDF 저장">
+        <i class="bi bi-printer"></i>
       </button>
       <button class="btn-action btn-action-share" onclick="shareTwitter()" title="Share on X">
         <i class="bi bi-twitter-x"></i>
