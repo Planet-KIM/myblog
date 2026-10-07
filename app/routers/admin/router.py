@@ -70,6 +70,7 @@ def admin_dashboard(
             "posts": posts,
             "report_items": report_items,
             "current_user": current_user,
+            "digest_msg": request.query_params.get("digest"),
         },
     )
 
@@ -105,3 +106,32 @@ def admin_resolve_report(
     report.resolved = True
     db.commit()
     return RedirectResponse("/admin/", status_code=303)
+
+
+@router.get("/digest/preview", response_class=HTMLResponse)
+def admin_digest_preview(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _require_admin(current_user)
+    from app.services.digest import build_weekly_digest
+    digest = build_weekly_digest(db, str(request.base_url))
+    if not digest:
+        return HTMLResponse("<p style='font-family:sans-serif;padding:2rem;'>보낼 글이 없습니다.</p>")
+    return HTMLResponse(digest["html"])
+
+
+@router.post("/digest/send")
+def admin_digest_send(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    _require_admin(current_user)
+    from app.services.digest import send_weekly_digest
+    result = send_weekly_digest(db, str(request.base_url))
+    from urllib.parse import urlencode
+    msg = (f"발송 {result.get('sent', 0)}건" if not result.get("skipped")
+           else f"건너뜀 ({result.get('reason')})")
+    return RedirectResponse("/admin/?" + urlencode({"digest": msg}), status_code=303)

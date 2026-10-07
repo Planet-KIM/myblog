@@ -17,13 +17,14 @@ Celery 앱 인스턴스
 """
 
 from celery import Celery
+from celery.schedules import crontab
 from app.config import settings
 
 celery_app = Celery(
     "spellcheck_worker",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.tasks.spellcheck_task"],
+    include=["app.tasks.spellcheck_task", "app.tasks.digest_task"],
 )
 
 celery_app.conf.update(
@@ -54,4 +55,11 @@ celery_app.conf.update(
         "app.tasks.spellcheck_task.run_spellcheck": {"queue": "spellcheck"},
     },
     task_default_queue="default",
+    # 주간 다이제스트: 매주 월 09:00 (Asia/Seoul). 실제 발송은 DIGEST_ENABLE + SMTP 설정 필요.
+    beat_schedule={
+        "weekly-digest": {
+            "task": "app.tasks.digest_task.send_weekly_digest",
+            "schedule": crontab(hour=9, minute=0, day_of_week=1),
+        },
+    },
 )
