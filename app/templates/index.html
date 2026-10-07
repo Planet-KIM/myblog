@@ -100,7 +100,7 @@
        class="topic-chip {% if not selected_category_id %}active{% endif %}">
       전체
     </a>
-    {% for topic in trending_topics %}
+    {% for topic in trending_topics if topic.count > 0 or selected_category_id == topic.id %}
     <a href="/?feed={{ selected_feed }}&sort={{ selected_sort }}&category_id={{ topic.id }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}"
        class="topic-chip {% if topic.depth > 0 %}is-child{% endif %} {% if selected_category_id == topic.id %}active{% endif %}">
       {% if topic.depth > 0 %}<span class="topic-prefix">↳</span>{% endif %}{{ topic.name }} <span>{{ topic.count }}</span>
