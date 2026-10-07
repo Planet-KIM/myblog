@@ -426,3 +426,21 @@ class Notification(Base):
 
     def __repr__(self) -> str:
         return f"<Notification id={self.id} to={self.user_id} {self.type}>"
+
+
+# ─────────────────────────────
+# 매거진 레이아웃 템플릿 (사용자가 만든 레이아웃 저장·재사용)
+# ─────────────────────────────
+class LayoutTemplate(Base):
+    __tablename__ = "layout_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    content_blocks = Column(Text, nullable=False)   # 저장된 레이아웃(JSON)
+    created_at = Column(DateTime, default=now_kst)
+
+    user = relationship("User")
+
+    def __repr__(self) -> str:
+        return f"<LayoutTemplate id={self.id} {self.name!r}>"

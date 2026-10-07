@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}내 매거진 템플릿 · Planet KIM{% endblock %}
+
+{% block content %}
+<div class="page-content" style="max-width:860px; margin:0 auto;">
+  <header style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; margin-bottom:0.75rem;">
+    <h1 class="section-title" style="margin:0;">내 매거진 템플릿</h1>
+    <a href="/board/new?editor=tiptap" class="btn-travel">+ 새 매거진</a>
+  </header>
+  <p class="text-muted" style="font-size:0.9rem; margin-bottom:1.5rem;">
+    발행한 매거진 하단의 <strong>“레이아웃 저장”</strong>을 누르면 여기에 쌓입니다. 저장한 레이아웃으로 새 글을 바로 시작하세요.
+  </p>
+
+  {% if items %}
+  <div class="row g-3">
+    {% for it in items %}
+    <div class="col-12 col-md-6">
+      <div class="page-card" style="display:flex; flex-direction:column; gap:0.7rem; height:100%;">
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <span style="width:40px; height:40px; border-radius:11px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(var(--primary-rgb),0.1); color:var(--primary); font-size:1.1rem;"><i class="bi bi-grid-1x2-fill"></i></span>
+          <span style="min-width:0;">
+            <span style="display:block; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.t.name }}</span>
+            <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted);">{{ it.pages }}페이지 · {{ it.t.created_at.strftime('%Y-%m-%d') }}</span>
+          </span>
+        </div>
+        <div style="display:flex; gap:0.5rem; margin-top:auto;">
+          <form method="post" action="/board/from-template/{{ it.t.id }}" style="flex:1; margin:0;">
+            <button type="submit" class="btn-travel" style="width:100%;">이 레이아웃으로 새 글</button>
+          </form>
+          <form method="post" action="/me/templates/{{ it.t.id }}/delete" style="margin:0;"
+                onsubmit="return confirm('이 템플릿을 삭제할까요?');">
+            <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="삭제"><i class="bi bi-trash"></i></button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="page-card text-center text-muted" style="padding:3rem 1.5rem;">
+    <i class="bi bi-grid-1x2" style="font-size:1.9rem; opacity:0.6;"></i>
+    <p style="margin:0.8rem 0 0; font-weight:600; color:var(--text-main);">아직 저장한 레이아웃이 없어요</p>
+    <p style="font-size:0.88rem; margin:0.3rem 0 0;">매거진(Magazine 에디터)으로 글을 발행한 뒤, 글 하단의 “레이아웃 저장”을 눌러보세요.</p>
+    <a href="/board/new?editor=tiptap" class="btn-travel d-inline-block" style="margin-top:1.2rem;">매거진 만들기</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

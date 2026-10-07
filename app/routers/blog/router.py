@@ -1432,6 +1432,53 @@ def search_page(
 
 
 # ─────────────────────────────────────────────
+# 내 매거진 레이아웃 템플릿 (/me/templates)
+# ─────────────────────────────────────────────
+@router.get("/me/templates", response_class=HTMLResponse)
+def my_templates(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    tpls = (
+        db.query(models.LayoutTemplate)
+        .filter(models.LayoutTemplate.user_id == current_user.id)
+        .order_by(models.LayoutTemplate.created_at.desc())
+        .all()
+    )
+    # 각 템플릿의 페이지 수(간단 파싱)
+    import json as _json
+    items = []
+    for t in tpls:
+        pages = 1
+        try:
+            data = _json.loads(t.content_blocks or "{}")
+            if isinstance(data, dict) and isinstance(data.get("pages"), list):
+                pages = len(data["pages"]) or 1
+        except Exception:
+            pass
+        items.append({"t": t, "pages": pages})
+    return templates.TemplateResponse(
+        request,
+        "my_templates.html",
+        {"request": request, "current_user": current_user, "items": items},
+    )
+
+
+@router.post("/me/templates/{template_id}/delete")
+def delete_my_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    tpl = db.query(models.LayoutTemplate).filter_by(id=template_id, user_id=current_user.id).first()
+    if tpl:
+        db.delete(tpl)
+        db.commit()
+    return RedirectResponse("/me/templates", status_code=303)
+
+
+# ─────────────────────────────────────────────
 # 시리즈/컬렉션 (/series/{slug}) — series:<이름> 태그로 묶인 글
 # ─────────────────────────────────────────────
 @router.get("/series/{slug}", response_class=HTMLResponse)

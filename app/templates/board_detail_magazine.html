@@ -815,6 +815,16 @@
       <a href="/board/{{ post.id }}/edit" class="btn-action btn-action-edit">
         <i class="bi bi-pencil"></i> Edit
       </a>
+      {% if post.content_blocks %}
+      <div class="action-divider"></div>
+      <form method="post" action="/board/{{ post.id }}/save-template" style="display:inline;"
+            onsubmit="var n=prompt('레이아웃 이름', this.querySelector('[name=name]').value); if(n===null) return false; this.querySelector('[name=name]').value=n; return true;">
+        <input type="hidden" name="name" value="{{ post.title or '내 레이아웃' }}">
+        <button type="submit" class="btn-action btn-action-edit">
+          <i class="bi bi-grid-1x2"></i> 레이아웃 저장
+        </button>
+      </form>
+      {% endif %}
       <div class="action-divider"></div>
       <form method="post" action="/board/{{ post.id }}/delete" style="display:inline;"
             onsubmit="return confirm('Delete this story?');">

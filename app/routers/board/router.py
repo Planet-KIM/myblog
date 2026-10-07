@@ -1115,6 +1115,14 @@ def board_detail(
     # 태그를 공유하는 다른 공개 글 (블로그 경계 없이) — 토픽 기반 탐색
     related_posts = get_related_posts(db, post, limit=4)
 
+    # 시리즈(series:<이름> 태그) 감지
+    series_label = series_slug = None
+    for _t in (post.tags or []):
+        if (_t.name or "").lower().startswith("series:"):
+            series_label = _t.name.split(":", 1)[1].strip()
+            series_slug = series_label.lower()
+            break
+
     return templates.TemplateResponse(
         request,
         template_name,
@@ -1128,6 +1136,8 @@ def board_detail(
             "comments": comments,
             "author_other_posts": author_other_posts,
             "related_posts": related_posts,
+            "series_label": series_label,
+            "series_slug": series_slug,
             "meta_description": meta_description,
             "og_title": post.title,
             "og_image": og_image,
@@ -1199,6 +1209,62 @@ def board_comment_delete(
     db.delete(comment)
     db.commit()
     return RedirectResponse(f"/board/{post_id}#comments", status_code=303)
+
+
+# ============================================================
+# ★ 매거진 레이아웃 템플릿 (저장 / 재사용)
+# ============================================================
+@router.post("/{post_id}/save-template")
+def board_save_template(
+    post_id: int,
+    request: Request,
+    name: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    post = db.query(models.BoardPost).filter_by(id=post_id).first()
+    if not post:
+        raise HTTPException(404, "Post not found")
+    if post.user_id != current_user.id:
+        raise HTTPException(403, "Not authorized")
+    if not post.content_blocks:
+        raise HTTPException(400, "저장할 레이아웃이 없습니다 (매거진 글만 가능).")
+    tpl = models.LayoutTemplate(
+        user_id=current_user.id,
+        name=(name or "").strip()[:100] or (post.title or "내 레이아웃")[:100],
+        content_blocks=post.content_blocks,
+    )
+    db.add(tpl)
+    db.commit()
+    return RedirectResponse(f"/board/{post_id}?saved_template=1", status_code=303)
+
+
+@router.post("/from-template/{template_id}")
+def board_from_template(
+    template_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    tpl = db.query(models.LayoutTemplate).filter_by(id=template_id, user_id=current_user.id).first()
+    if not tpl:
+        raise HTTPException(404, "템플릿을 찾을 수 없습니다.")
+    normal = ensure_default_category(db, current_user)
+    post = models.BoardPost(
+        title="(제목 없는 매거진)",
+        content="",
+        content_html="",
+        content_blocks=tpl.content_blocks,
+        editor_type="tiptap",
+        is_private=True,   # 초안: 발행 전까지 비공개
+        show_title=True,
+        user_id=current_user.id,
+        author=current_user.email,
+        category_id=normal.id,
+    )
+    db.add(post)
+    db.commit()
+    return RedirectResponse(f"/board/{post.id}/edit", status_code=303)
 
 
 # ============================================================
