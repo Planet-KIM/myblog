@@ -321,9 +321,19 @@
               <circle cx="85" cy="35" r="1.5" class="svg-shimmer-dot" style="animation-delay: 1.2s;" />
             </svg>
           </div>
+          {% if search_query %}
+          <p class="empty-state-title">검색 결과가 없어요</p>
+          <p class="empty-state-body">'{{ search_query }}'와 일치하는 글을 찾지 못했어요. 다른 키워드로 찾아보세요.</p>
+          <a href="/" class="btn-travel">검색 초기화</a>
+          {% elif selected_feed == 'following' %}
+          <p class="empty-state-title">팔로잉 피드가 비어 있어요</p>
+          <p class="empty-state-body">관심 있는 블로거를 팔로우하면 여기에서 모아볼 수 있어요.</p>
+          <a href="/explore" class="btn-travel">블로거 둘러보기</a>
+          {% else %}
           <p class="empty-state-title">아직 글이 없습니다</p>
           <p class="empty-state-body">첫 글을 써보세요</p>
           <a href="/board/new" class="btn-travel">글 쓰기</a>
+          {% endif %}
         </div>
       {% endif %}
     </div>
