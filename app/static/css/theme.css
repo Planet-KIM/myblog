@@ -550,3 +550,111 @@
 
 /* 버튼으로 바뀐 scroll-to-top의 UA 기본 스타일 정규화 */
 .scroll-to-top { padding: 0; font: inherit; -webkit-appearance: none; appearance: none; }
+
+/* ============================================
+   Component Polish — Warm Editorial
+   Bootstrap 컴포넌트를 테마 토큰에 맞춰 전 페이지 톤을 통일한다.
+   (theme.css 는 bootstrap 뒤에 로드되므로 아래 오버라이드가 우선한다)
+   ============================================ */
+
+/* Bootstrap 테마 변수 매핑 (text-bg-primary, .text-primary, 링크 등) */
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+  --bs-primary: var(--primary);
+  --bs-primary-rgb: var(--primary-rgb);
+  --bs-link-color: var(--primary);
+  --bs-link-color-rgb: var(--primary-rgb);
+  --bs-link-hover-color: var(--primary-dark);
+  --bs-border-color: var(--border);
+  --bs-body-color: var(--text-main);
+  --bs-body-bg: var(--bg-body);
+  --bs-secondary-color: var(--text-muted);
+  --bs-emphasis-color: var(--text-primary);
+}
+
+/* Buttons */
+.btn { border-radius: var(--btn-radius); font-weight: 600; }
+.btn-primary {
+  --bs-btn-bg: var(--primary);
+  --bs-btn-border-color: var(--primary);
+  --bs-btn-hover-bg: var(--primary-dark);
+  --bs-btn-hover-border-color: var(--primary-dark);
+  --bs-btn-active-bg: var(--primary-dark);
+  --bs-btn-active-border-color: var(--primary-dark);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-color: #fff;
+  --bs-btn-disabled-bg: var(--primary);
+  --bs-btn-disabled-border-color: var(--primary);
+  --bs-btn-disabled-color: #fff;
+}
+.btn-outline-secondary {
+  --bs-btn-color: var(--text-main);
+  --bs-btn-border-color: var(--border-dark);
+  --bs-btn-bg: transparent;
+  --bs-btn-hover-bg: var(--surface-light);
+  --bs-btn-hover-border-color: var(--text-muted);
+  --bs-btn-hover-color: var(--text-primary);
+  --bs-btn-active-bg: var(--surface-light);
+  --bs-btn-active-border-color: var(--text-muted);
+  --bs-btn-active-color: var(--text-primary);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--primary);
+  --bs-btn-border-color: var(--primary);
+  --bs-btn-hover-bg: var(--primary);
+  --bs-btn-hover-border-color: var(--primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--primary);
+  --bs-btn-active-color: #fff;
+}
+
+/* Forms */
+.form-control,
+.form-select {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: var(--input-radius);
+  padding: 0.6rem 0.8rem;
+}
+.form-control::placeholder { color: var(--text-disabled); }
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--surface);
+  border-color: var(--primary);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15);
+}
+.form-label { color: var(--text-main); font-weight: 500; margin-bottom: 0.35rem; }
+.form-check-input:checked { background-color: var(--primary); border-color: var(--primary); }
+
+/* Alerts */
+.alert-danger {
+  --bs-alert-bg: rgba(192, 57, 43, 0.08);
+  --bs-alert-border-color: rgba(192, 57, 43, 0.25);
+  --bs-alert-color: var(--danger);
+}
+.alert-success {
+  --bs-alert-bg: rgba(31, 122, 104, 0.08);
+  --bs-alert-border-color: rgba(31, 122, 104, 0.25);
+  --bs-alert-color: var(--accent-dark);
+}
+
+/* Bootstrap cards / list groups (admin 등) */
+.card {
+  --bs-card-bg: var(--surface);
+  --bs-card-border-color: var(--border);
+  --bs-card-color: var(--text-main);
+  border-radius: var(--card-radius);
+}
+.list-group {
+  --bs-list-group-bg: var(--surface);
+  --bs-list-group-border-color: var(--border);
+  --bs-list-group-color: var(--text-main);
+  --bs-list-group-action-hover-bg: var(--surface-light);
+}
+
+/* 단순 페이지 리듬 (로그인/가입 등) */
+.container > h2 { margin-bottom: 1.25rem; }
