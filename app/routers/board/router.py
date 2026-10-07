@@ -1249,12 +1249,30 @@ def board_from_template(
     tpl = db.query(models.LayoutTemplate).filter_by(id=template_id, user_id=current_user.id).first()
     if not tpl:
         raise HTTPException(404, "템플릿을 찾을 수 없습니다.")
+    return _create_draft_from_blocks(db, current_user, tpl.content_blocks)
+
+
+@router.post("/from-starter/{key}")
+def board_from_starter(
+    key: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    from app.services.starter_templates import get_starter_blocks
+    blocks = get_starter_blocks(key)
+    if not blocks:
+        raise HTTPException(404, "시작 템플릿을 찾을 수 없습니다.")
+    return _create_draft_from_blocks(db, current_user, blocks)
+
+
+def _create_draft_from_blocks(db, current_user, content_blocks):
     normal = ensure_default_category(db, current_user)
     post = models.BoardPost(
         title="(제목 없는 매거진)",
         content="",
         content_html="",
-        content_blocks=tpl.content_blocks,
+        content_blocks=content_blocks,
         editor_type="tiptap",
         is_private=True,   # 초안: 발행 전까지 비공개
         show_title=True,

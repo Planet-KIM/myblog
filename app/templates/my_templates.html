@@ -11,6 +11,26 @@
     발행한 매거진 하단의 <strong>“레이아웃 저장”</strong>을 누르면 여기에 쌓입니다. 저장한 레이아웃으로 새 글을 바로 시작하세요.
   </p>
 
+  {% if starters %}
+  <h2 style="font-family:var(--font-display); font-size:1.05rem; font-weight:700; color:var(--text-primary); margin:0 0 0.8rem;">시작 템플릿</h2>
+  <div class="row g-3" style="margin-bottom:2rem;">
+    {% for st in starters %}
+    <div class="col-12 col-sm-4">
+      <form method="post" action="/board/from-starter/{{ st.key }}" style="margin:0; height:100%;">
+        <button type="submit" class="page-card" style="width:100%; height:100%; text-align:left; border:1px solid var(--border); cursor:pointer; background:var(--surface); display:flex; flex-direction:column; gap:0.4rem; transition:border-color var(--transition-fast), transform var(--transition-fast);"
+                onmouseover="this.style.borderColor='var(--primary)';this.style.transform='translateY(-3px)';"
+                onmouseout="this.style.borderColor='var(--border)';this.style.transform='none';">
+          <span style="width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center; background:rgba(var(--primary-rgb),0.1); color:var(--primary); font-size:1.15rem;"><i class="bi {{ st.icon }}"></i></span>
+          <span style="font-weight:600; color:var(--text-primary);">{{ st.name }}</span>
+          <span style="font-size:0.8rem; color:var(--text-muted);">{{ st.description }}</span>
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  <h2 style="font-family:var(--font-display); font-size:1.05rem; font-weight:700; color:var(--text-primary); margin:0 0 0.8rem;">내 레이아웃</h2>
+  {% endif %}
+
   {% if items %}
   <div class="row g-3">
     {% for it in items %}

@@ -1480,10 +1480,11 @@ def my_templates(
         except Exception:
             pass
         items.append({"t": t, "pages": pages})
+    from app.services.starter_templates import list_starters
     return templates.TemplateResponse(
         request,
         "my_templates.html",
-        {"request": request, "current_user": current_user, "items": items},
+        {"request": request, "current_user": current_user, "items": items, "starters": list_starters()},
     )
 
 
