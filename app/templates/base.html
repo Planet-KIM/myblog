@@ -387,31 +387,50 @@
     .btn-travel:hover::before {
       left: 100%;
     }
+
+    /* ─── 접근성: 본문 바로가기(키보드 Tab 시 첫 포커스) ─── */
+    .skip-link {
+      position: absolute;
+      left: 8px;
+      top: -48px;
+      z-index: var(--z-toast, 1080);
+      padding: 0.5rem 0.9rem;
+      background: var(--primary);
+      color: #fff;
+      border-radius: var(--btn-radius, 8px);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: top var(--transition-fast, 150ms);
+    }
+    .skip-link:focus { top: 8px; }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
 
 <body class="{% block body_class %}{% endblock %}">
+  <a class="skip-link" href="#main">본문 바로가기</a>
+  {% set _path = request.url.path %}
   <!-- ─── Navigation ─────────────────────────────── -->
-  <nav class="navbar navbar-expand-lg site-nav">
+  <nav class="navbar navbar-expand-lg site-nav" aria-label="주 메뉴">
     <div class="container">
       <a class="navbar-brand" href="/">
         <i class="bi bi-airplane-fill me-1"></i>Planet <span class="accent">KIM</span>'s Travel
       </a>
       <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-        aria-controls="navbarNav" aria-expanded="false">
+        aria-controls="navbarNav" aria-expanded="false" aria-label="메뉴 열기">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
-            <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>Home</a>
+            <a class="nav-link{% if _path == '/' %} active{% endif %}" href="/"{% if _path == '/' %} aria-current="page"{% endif %}><i class="bi bi-house me-1"></i>Home</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/board/"><i class="bi bi-journal-text me-1"></i>Archive</a>
+            <a class="nav-link{% if _path.startswith('/board') %} active{% endif %}" href="/board/"{% if _path.startswith('/board') %} aria-current="page"{% endif %}><i class="bi bi-journal-text me-1"></i>Archive</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/explore"><i class="bi bi-compass me-1"></i>Explore</a>
+            <a class="nav-link{% if _path.startswith('/explore') %} active{% endif %}" href="/explore"{% if _path.startswith('/explore') %} aria-current="page"{% endif %}><i class="bi bi-compass me-1"></i>Explore</a>
           </li>
           {% if current_user %}
           <li class="nav-item">
@@ -427,11 +446,11 @@
           {% endif %}
           {% endif %}
           <li class="nav-item">
-            <a class="nav-link" href="/main"><i class="bi bi-person me-1"></i>About</a>
+            <a class="nav-link{% if _path == '/main' %} active{% endif %}" href="/main"{% if _path == '/main' %} aria-current="page"{% endif %}><i class="bi bi-person me-1"></i>About</a>
           </li>
           {% if current_user and current_user.is_admin %}
           <li class="nav-item">
-            <a class="nav-link" href="/admin/"><i class="bi bi-gear me-1"></i>Admin</a>
+            <a class="nav-link{% if _path.startswith('/admin') %} active{% endif %}" href="/admin/"{% if _path.startswith('/admin') %} aria-current="page"{% endif %}><i class="bi bi-gear me-1"></i>Admin</a>
           </li>
           {% endif %}
         </ul>
@@ -461,7 +480,7 @@
   </nav>
 
   <!-- ─── Main Content ───────────────────────────── -->
-  <main class="container" style="max-width:1400px;">
+  <main id="main" class="container" style="max-width:1400px;">
     {% block content %}{% endblock %}
   </main>
 
