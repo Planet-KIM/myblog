@@ -959,6 +959,7 @@ def blog_home(
     handle: str,
     request: Request,
     page: int = 1,
+    category: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
@@ -982,19 +983,35 @@ def blog_home(
             .first()
             is not None
         )
+    follower_count = (
+        db.query(models.AuthorFollow)
+        .filter(models.AuthorFollow.author_user_id == owner.id)
+        .count()
+    )
     size = 10
     page = max(1, page)
 
-    query = db.query(models.BoardPost).filter(models.BoardPost.user_id == owner.id)
+    base_query = db.query(models.BoardPost).filter(models.BoardPost.user_id == owner.id)
     if not is_owner:
-        query = query.filter(models.BoardPost.is_private == False)  # noqa: E712
+        base_query = base_query.filter(models.BoardPost.is_private == False)  # noqa: E712
 
-    total_posts = query.with_entities(func.count(models.BoardPost.id)).scalar() or 0
-    total_pages = max(1, (total_posts + size - 1) // size)
+    # 헤더 통계는 블로그 전체 기준, 목록은 선택한 카테고리로 필터
+    total_posts = base_query.with_entities(func.count(models.BoardPost.id)).scalar() or 0
+
+    active_category = None
+    list_query = base_query
+    if category:
+        cat = db.query(models.BoardCategory).filter_by(id=category, user_id=owner.id).first()
+        if cat:
+            active_category = cat.id
+            list_query = base_query.filter(models.BoardPost.category_id == cat.id)
+
+    filtered_total = list_query.with_entities(func.count(models.BoardPost.id)).scalar() or 0
+    total_pages = max(1, (filtered_total + size - 1) // size)
     page = min(page, total_pages)
 
     posts = (
-        query.options(joinedload(models.BoardPost.category), joinedload(models.BoardPost.stats))
+        list_query.options(joinedload(models.BoardPost.category), joinedload(models.BoardPost.stats))
         .order_by(models.BoardPost.created_at.desc())
         .offset((page - 1) * size)
         .limit(size)
@@ -1035,6 +1052,8 @@ def blog_home(
             "jsonld": blog_jsonld(request, owner),
             "posts": posts,
             "categories": categories,
+            "active_category": active_category,
+            "follower_count": follower_count,
             "current_user": current_user,
             "current_page": page,
             "total_pages": total_pages,
