@@ -47,6 +47,37 @@ def get_recommended_blogs(db, viewer=None, limit: int = 5) -> list[dict[str, Any
     return [{"user": u, "post_count": n} for (u, n) in rows]
 
 
+def get_related_posts(db, post, limit: int = 4) -> list:
+    """태그를 공유하는 다른 공개 글(블로그 경계 없이).
+
+    공유 태그 수 → 최신 순으로 정렬한다. 글에 태그가 없으면 빈 목록을 반환해
+    호출부가 '같은 블로그의 다른 글'로 폴백하게 한다.
+    """
+    from sqlalchemy import func
+    from sqlalchemy.orm import joinedload
+
+    from app import models
+
+    tag_ids = [t.id for t in (post.tags or [])]
+    if not tag_ids:
+        return []
+
+    shared = func.count(models.Tag.id).label("shared")
+    rows = (
+        db.query(models.BoardPost, shared)
+        .join(models.BoardPost.tags)
+        .filter(models.Tag.id.in_(tag_ids))
+        .filter(models.BoardPost.id != post.id)
+        .filter(models.BoardPost.is_private == False)  # noqa: E712
+        .options(joinedload(models.BoardPost.user))
+        .group_by(models.BoardPost.id)
+        .order_by(shared.desc(), models.BoardPost.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [p for (p, _shared) in rows]
+
+
 def get_curated_home_recommendations() -> list[dict[str, Any]]:
     """
     홈 화면 추천 슬롯용 수동 큐레이션 데이터.

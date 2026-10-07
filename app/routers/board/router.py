@@ -21,6 +21,7 @@ from app.routers.upload.router import relocate_draft_files, normalize_draft_id
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
 from app.services.ratelimit import enforce
 from app.services.seo import post_jsonld, breadcrumb_jsonld, post_meta
+from app.services.recommendations import get_related_posts
 from app.config import settings
 from app.services.category_counts import (
     collect_descendant_category_ids,
@@ -1094,6 +1095,9 @@ def board_detail(
         .all()
     )
 
+    # 태그를 공유하는 다른 공개 글 (블로그 경계 없이) — 토픽 기반 탐색
+    related_posts = get_related_posts(db, post, limit=4)
+
     return templates.TemplateResponse(
         request,
         template_name,
@@ -1106,6 +1110,7 @@ def board_detail(
             "next_post": next_post,
             "comments": comments,
             "author_other_posts": author_other_posts,
+            "related_posts": related_posts,
             "meta_description": meta_description,
             "og_title": post.title,
             "og_image": og_image,
