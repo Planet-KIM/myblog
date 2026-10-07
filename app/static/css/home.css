@@ -435,11 +435,16 @@ body.home-page .site-nav .nav-link.active {
   padding: 0 1.25rem;
 }
 .bloggers-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  display: flex;
   gap: 0.9rem;
+  overflow-x: auto;
+  padding: 0.1rem 0.1rem 0.5rem;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
 }
 .blogger-card {
+  flex: 0 0 158px;
+  scroll-snap-align: start;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -452,6 +457,24 @@ body.home-page .site-nav .nav-link.active {
   text-decoration: none;
   box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+.blogger-card-cta {
+  justify-content: center;
+  border-style: dashed;
+  background: var(--surface-light);
+}
+.blogger-card-cta .blogger-name { color: var(--primary); }
+.blogger-cta-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.1);
+  margin-bottom: 0.2rem;
 }
 .blogger-card:hover {
   transform: translateY(-3px);
@@ -751,7 +774,16 @@ body.home-page .site-nav .nav-link.active {
 }
 
 /* ─── Card Image Zoom ─────────────────────────────────────── */
-.card-img-wrap { overflow: hidden; }
+.card-img-wrap {
+  overflow: hidden;
+  /* 이미지 로드 전 스켈레톤 시머 (로드되면 이미지가 덮음) */
+  background: linear-gradient(90deg, var(--surface-light) 0%, var(--surface-dark) 50%, var(--surface-light) 100%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-img-wrap { animation: none; }
+}
 
 .card-img {
   width: 100%;
@@ -1314,10 +1346,7 @@ body.home-page .site-nav .nav-link.active {
   color: var(--text-muted);
 }
 
-.post-type-badge.type-essay { border-color: rgba(56, 189, 248, 0.35); color: #7dd3fc; }
-.post-type-badge.type-photo { border-color: rgba(167, 139, 250, 0.42); color: #c4b5fd; }
-.post-type-badge.type-link { border-color: rgba(16, 185, 129, 0.42); color: #86efac; }
-.post-type-badge.type-note { border-color: rgba(251, 191, 36, 0.45); color: #fde68a; }
+/* 글 유형 배지는 중립 톤으로 통일 (옛 밝은 색 제거) */
 
 .card-insight {
   display: flex;

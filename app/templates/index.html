@@ -17,9 +17,6 @@
     <div class="hero-eyebrow">블로그 포털</div>
     <h1 class="hero-title">모든 이야기가<br>여기 모입니다</h1>
     <p class="hero-summary">코드·강의·일상까지, 다양한 블로그의 글을 한 화면에서 둘러보세요.</p>
-    <div class="hero-typed-wrap">
-      <span id="typed-text"></span>
-    </div>
     <div class="hero-stats">
       <div class="hero-stat-item">
         <div class="hero-stat-num">{{ blogger_count }}</div>
@@ -42,10 +39,6 @@
         <i class="bi bi-pencil me-2"></i>{% if current_user %}글 쓰기{% else %}내 블로그 시작{% endif %}
       </a>
     </div>
-  </div>
-  <div class="hero-scroll-indicator">
-    <span>scroll</span>
-    <div class="scroll-arrow"></div>
   </div>
 </section>
 
@@ -102,6 +95,19 @@
       <span class="blogger-count">글 {{ b.post_count }}</span>
     </a>
     {% endfor %}
+    {% if current_user %}
+    <a href="/me/profile" class="blogger-card blogger-card-cta">
+      <span class="blogger-cta-icon"><i class="bi bi-person-gear"></i></span>
+      <span class="blogger-name">내 블로그 꾸미기</span>
+      <span class="blogger-handle">프로필 편집</span>
+    </a>
+    {% else %}
+    <a href="/auth/signup" class="blogger-card blogger-card-cta">
+      <span class="blogger-cta-icon"><i class="bi bi-plus-lg"></i></span>
+      <span class="blogger-name">블로거 되기</span>
+      <span class="blogger-handle">무료로 시작</span>
+    </a>
+    {% endif %}
   </div>
 </section>
 {% endif %}
