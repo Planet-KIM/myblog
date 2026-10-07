@@ -1344,6 +1344,94 @@ def notifications_page(
 
 
 # ─────────────────────────────────────────────
+# 전용 검색 (/search) — 전 블로그 교차 검색 + 태그/작성자 필터
+# ─────────────────────────────────────────────
+@router.get("/search", response_class=HTMLResponse)
+def search_page(
+    request: Request,
+    q: Optional[str] = None,
+    tag: Optional[str] = None,
+    author: Optional[str] = None,
+    page: int = 1,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+):
+    size = 12
+    page = max(1, page)
+    q = (q or "").strip()
+    tag = (tag or "").strip().lower()
+    author = (author or "").strip().lstrip("@").lower()
+
+    query = db.query(models.BoardPost).options(
+        joinedload(models.BoardPost.user),
+        joinedload(models.BoardPost.category),
+        joinedload(models.BoardPost.stats),
+    )
+    if current_user:
+        query = query.filter(
+            or_(models.BoardPost.is_private == False, models.BoardPost.user_id == current_user.id)  # noqa: E712
+        )
+    else:
+        query = query.filter(models.BoardPost.is_private == False)  # noqa: E712
+
+    author_user = None
+    if author:
+        author_user = db.query(models.User).filter(models.User.handle == author).first()
+        query = query.filter(models.BoardPost.user_id == (author_user.id if author_user else -1))
+    if tag:
+        query = query.join(models.BoardPost.tags).filter(models.Tag.slug == tag)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            or_(
+                models.BoardPost.title.ilike(like),
+                models.BoardPost.content.ilike(like),
+                models.BoardPost.content_html.ilike(like),
+            )
+        )
+
+    has_criteria = bool(q or tag or author)
+    total = query.with_entities(func.count(func.distinct(models.BoardPost.id))).scalar() or 0 if has_criteria else 0
+    total_pages = max(1, (total + size - 1) // size)
+    page = min(page, total_pages)
+
+    posts = []
+    if has_criteria:
+        posts = (
+            query.order_by(models.BoardPost.created_at.desc())
+            .offset((page - 1) * size)
+            .limit(size)
+            .all()
+        )
+        for post in posts:
+            source = post.content_html or post.content or ""
+            post.preview = markdown_to_plain(source)
+            post.thumbnail = extract_first_image(source)
+            post.reading_minutes = estimate_reading_minutes(source)
+            post.view_count = post.stats.views if post.stats else 0
+
+    return templates.TemplateResponse(
+        request,
+        "search.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "posts": posts,
+            "q": q,
+            "tag": tag,
+            "author": author,
+            "author_user": author_user,
+            "has_criteria": has_criteria,
+            "total": total,
+            "current_page": page,
+            "total_pages": total_pages,
+            "meta_description": (f"'{q}' 검색 결과" if q else "검색"),
+            "og_title": (f"'{q}' 검색" if q else "검색"),
+        },
+    )
+
+
+# ─────────────────────────────────────────────
 # 블로그 디렉터리 (/explore) — 공개글이 있는 블로그 탐색
 # ─────────────────────────────────────────────
 @router.get("/explore", response_class=HTMLResponse)

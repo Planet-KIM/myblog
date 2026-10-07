@@ -115,12 +115,7 @@
 {# ─── Curation Bar ───────────────────────────────────────── #}
 <section class="curation-bar" id="home-curation-bar">
   <div class="curation-inner">
-    <form method="get" action="/" class="curation-search-wrap" id="home-search-form">
-      <input type="hidden" name="feed" value="{{ selected_feed }}">
-      {% if selected_category_id %}
-      <input type="hidden" name="category_id" value="{{ selected_category_id }}">
-      {% endif %}
-      <input type="hidden" name="sort" value="{{ selected_sort }}">
+    <form method="get" action="/search" class="curation-search-wrap" id="home-search-form">
       <label for="home-search-input" class="visually-hidden">검색</label>
       <input
         id="home-search-input"
@@ -128,7 +123,7 @@
         type="search"
         value="{{ search_query }}"
         class="curation-search"
-        placeholder="검색 (⌘/Ctrl + K)"
+        placeholder="모든 블로그 검색 (⌘/Ctrl + K)"
         autocomplete="off"
       />
       <button type="submit" class="curation-search-btn">
