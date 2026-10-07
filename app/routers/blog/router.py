@@ -1215,6 +1215,50 @@ def explore(
     )
 
 
+# ─────────────────────────────────────────────
+# robots.txt / sitemap.xml (퍼블리시: 검색 노출)
+# ─────────────────────────────────────────────
+@router.get("/robots.txt")
+def robots_txt(request: Request):
+    base = str(request.base_url).rstrip("/")
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /admin\n"
+        "Disallow: /me\n"
+        "Disallow: /auth\n"
+        "Disallow: /board/new\n"
+        f"Sitemap: {base}/sitemap.xml\n"
+    )
+    return Response(content=body, media_type="text/plain")
+
+
+@router.get("/sitemap.xml")
+def sitemap_xml(request: Request, db: Session = Depends(get_db)):
+    from xml.sax.saxutils import escape
+
+    base = str(request.base_url).rstrip("/")
+    urls = [f"{base}/", f"{base}/explore"]
+
+    posts = (
+        db.query(models.BoardPost.id)
+        .filter(models.BoardPost.is_private == False)  # noqa: E712
+        .order_by(models.BoardPost.id.desc())
+        .limit(2000)
+        .all()
+    )
+    urls += [f"{base}/board/{pid}" for (pid,) in posts]
+
+    handles = db.query(models.User.handle).filter(models.User.handle.isnot(None)).all()
+    urls += [f"{base}/@{h}" for (h,) in handles if h]
+
+    body = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    body += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    body += "".join(f"<url><loc>{escape(u)}</loc></url>" for u in urls)
+    body += "</urlset>"
+    return Response(content=body, media_type="application/xml")
+
+
 @router.get("/posts/new")
 def legacy_posts_new_redirect():
     return RedirectResponse("/board/new", status_code=307)
