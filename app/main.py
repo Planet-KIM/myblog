@@ -84,6 +84,24 @@ async def limit_body_size(request: Request, call_next):
         )
     return await call_next(request)
 
+
+# ── 보안 응답 헤더 ────────────────────────────────────────
+# 마지막에 선언돼 스택 가장 바깥 → 에러/413 응답을 포함한 모든 응답에 적용.
+# CSP는 CDN·인라인 스크립트/스타일 사용이 많아 깨질 위험이 커 제외(후속 과제).
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    # HTTPS로 제공될 때만 HSTS (Nginx 등 프록시의 X-Forwarded-Proto 도 인정)
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    if request.url.scheme == "https" or forwarded_proto == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
+
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 templates = Jinja2Templates(directory="app/templates")
