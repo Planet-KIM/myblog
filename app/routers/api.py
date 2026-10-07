@@ -865,12 +865,28 @@ def get_or_create_tag(db: Session, tag_name: str) -> models.Tag:
 
 
 def process_post_tags(db: Session, post: models.BoardPost, tag_names: List[str]):
-    post.tags.clear()
+    """게시글 태그를 교체하고 영향받은 태그의 count를 정확히 유지한다.
+
+    count는 연관(post_tags)을 커밋한 뒤 재계산해야 새로 추가된 링크가 반영된다.
+    제거된 태그도 다시 세어 untag 시 수치가 과대 계상되지 않도록 한다.
+    """
+    previous = set(post.tags)
+    new_tags = []
+    seen = set()
     for tag_name in tag_names:
-        if tag_name:
-            tag = get_or_create_tag(db, tag_name)
-            post.tags.append(tag)
-            tag.count = db.query(models.BoardPost).filter(
-                models.BoardPost.tags.contains(tag)
-            ).count()
+        name = (tag_name or "").strip().lower()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        new_tags.append(get_or_create_tag(db, name))
+
+    post.tags = new_tags
+    db.commit()  # 먼저 연관을 반영
+
+    for tag in set(new_tags) | previous:
+        tag.count = (
+            db.query(models.BoardPost)
+            .filter(models.BoardPost.tags.contains(tag))
+            .count()
+        )
     db.commit()
