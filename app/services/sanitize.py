@@ -58,6 +58,7 @@ ALLOWED_CSS_PROPERTIES = [
     "margin", "margin-top", "margin-bottom", "margin-left", "margin-right",
     "object-fit", "object-position",
     "border", "border-radius", "border-width", "border-color", "border-style",
+    "border-left", "border-right", "border-top", "border-bottom",
 ]
 
 # ── 속성 허용 규칙 ─────────────────────────────────────────

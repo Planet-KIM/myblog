@@ -1097,6 +1097,9 @@ function buildToolbar() {
     { icon: '<i class="bi bi-type-h1"></i>', tip: 'Heading block', fn: () => addBlock('heading') },
     { icon: '<i class="bi bi-image"></i>', tip: 'Image block', fn: () => addBlock('image') },
     { icon: '<i class="bi bi-code-slash"></i>', tip: 'Code block', fn: () => addBlock('code') },
+    { icon: '<i class="bi bi-quote"></i>', tip: '인용 (Pull quote)', fn: () => addBlock('text', { content: '<blockquote style="border-left:4px solid #b4542f;padding-left:0.8em;margin:0;font-size:1.4em;font-style:italic;color:#4c4239;">인용문을 입력하세요</blockquote>', h: 150 }) },
+    { icon: '<i class="bi bi-dash-lg"></i>', tip: '구분선 (Divider)', fn: () => addBlock('text', { content: '<div style="height:3px;background-color:#b4542f;width:100%;border-radius:2px;"></div>', h: 24 }) },
+    { icon: '<i class="bi bi-card-text"></i>', tip: '캡션 (Caption)', fn: () => addBlock('text', { content: '<p style="font-size:0.82em;color:#8a7c6d;">사진 캡션을 입력하세요</p>', h: 44 }) },
     { icon: '<i class="bi bi-arrows-expand"></i>', tip: 'Spacer', fn: () => addBlock('spacer', { h: 60 }) },
     { icon: '<span style="font-size:0.72rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>', tip: '맞춤법 검사 (Ctrl+Shift+S)', fn: () => triggerSpellCheck(), wide: true },
   ].forEach(({ icon, tip, fn, wide }) => {
