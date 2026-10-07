@@ -176,7 +176,7 @@ body.home-page .site-nav .nav-link.active {
 }
 
 .hero-title {
-  font-family: 'Noto Serif KR', 'Pretendard Variable', serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: clamp(2.2rem, 5.5vw, 3.8rem);
   line-height: 1.2;
@@ -620,7 +620,7 @@ body.home-page .site-nav .nav-link.active {
 }
 
 .empty-state-title {
-  font-family: 'Noto Serif KR', var(--font-sans), serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 1.15rem;
   color: var(--text-primary);
@@ -796,7 +796,7 @@ body.home-page .site-nav .nav-link.active {
 
 /* ── Title: Noto Serif KR, size varies with card size ───── */
 .bento-grid .travel-card .card-title a {
-  font-family: 'Noto Serif KR', serif;
+  font-family: var(--font-display);
   font-weight: 600;
   line-height: 1.4;
   letter-spacing: -0.2px;

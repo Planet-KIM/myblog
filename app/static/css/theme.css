@@ -3,70 +3,72 @@
    ============================================ */
 
 /* ─────────────────────────────────────────────
-   Root Variables - Dark Theme (Default)
+   Root Variables — Warm Editorial (Light, default)
+   밝고 따뜻한 에디토리얼: 모래빛 종이 배경 + 테라코타/딥틸 브랜드 + 세리프 헤드라인.
    ───────────────────────────────────────────── */
 :root {
-  /* Primary Colors */
-  --primary: #38bdf8;        /* Sky Blue */
-  --primary-light: #7dd3fc;
-  --primary-dark: #0284c7;
-  --primary-rgb: 56, 189, 248;
+  /* Brand — 테라코타 (흰 배경 대비 ≈ 5:1, 텍스트/버튼 겸용) */
+  --primary: #b4542f;
+  --primary-light: #cf6f49;
+  --primary-dark: #8f3f20;
+  --primary-rgb: 180, 84, 47;
 
-  /* Accent Colors */
-  --accent: #10b981;          /* Emerald */
-  --accent-light: #34d399;
-  --accent-dark: #059669;
-  --accent-rgb: 16, 185, 129;
+  /* Accent — 딥 틸그린 (따뜻한 톤의 산뜻한 대비) */
+  --accent: #1f7a68;
+  --accent-light: #2f9d86;
+  --accent-dark: #155a4d;
+  --accent-rgb: 31, 122, 104;
 
-  /* Secondary Colors */
-  --secondary: #a78bfa;       /* Purple */
-  --secondary-light: #c4b5fd;
-  --secondary-dark: #8b5cf6;
+  /* Secondary — 따뜻한 오커 */
+  --secondary: #9a6a1f;
+  --secondary-light: #c08a2d;
+  --secondary-dark: #74500f;
 
   /* Alert Colors */
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #06b6d4;
+  --success: #1f7a68;
+  --warning: #c4820e;
+  --danger: #c0392b;
+  --info: #2b7a8f;
 
-  /* Surface Colors */
-  --surface: #1e293b;         /* Slate 800 */
-  --surface-light: #334155;   /* Slate 700 */
-  --surface-dark: #0f172a;    /* Slate 900 */
+  /* Surfaces — 따뜻한 종이 */
+  --surface: #ffffff;
+  --surface-light: #f6f1e8;
+  --surface-dark: #efe7d9;
 
-  /* Background Colors */
-  --bg-body: #0f172a;         /* Slate 900 */
-  --bg-overlay: rgba(15, 23, 42, 0.85);
+  /* Background */
+  --bg-body: #faf6f0;         /* warm ivory */
+  --bg-overlay: rgba(250, 246, 240, 0.85);
 
-  /* Text Colors */
-  --text-primary: #f1f5f9;    /* Slate 100 */
-  --text-main: #cbd5e1;       /* Slate 300 */
-  --text-muted: #94a3b8;      /* Slate 400 */
-  --text-disabled: #64748b;   /* Slate 500 */
+  /* Text — 따뜻한 near-black */
+  --text-primary: #241d16;
+  --text-main: #4b4138;
+  --text-muted: #8a7b6c;
+  --text-disabled: #b6a897;
 
-  /* Border Colors */
-  --border: #334155;          /* Slate 700 */
-  --border-light: #475569;    /* Slate 600 */
-  --border-dark: #1e293b;     /* Slate 800 */
+  /* Borders — 모래빛 */
+  --border: #e7ddcd;
+  --border-light: #f1e9dc;
+  --border-dark: #d6c8b4;
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, var(--primary), var(--accent));
-  --gradient-hero: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(16, 185, 129, 0.1));
-  --gradient-card: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.1));
+  --gradient-primary: linear-gradient(135deg, var(--primary), var(--secondary));
+  --gradient-hero: linear-gradient(135deg, rgba(180, 84, 47, 0.07), rgba(31, 122, 104, 0.05));
+  --gradient-card: linear-gradient(180deg, transparent, rgba(60, 45, 30, 0.03));
   --gradient-text: linear-gradient(135deg, var(--primary), var(--secondary));
 
-  /* Category Colors */
-  --cat-travel: #06b6d4;      /* Cyan */
-  --cat-food: #f59e0b;        /* Amber */
-  --cat-tech: #8b5cf6;        /* Violet */
-  --cat-life: #ec4899;        /* Pink */
-  --cat-nature: #10b981;      /* Emerald */
+  /* Category Colors (warm set) */
+  --cat-travel: #2b7a8f;      /* Teal */
+  --cat-food: #c4820e;        /* Amber */
+  --cat-tech: #7a5bbf;        /* Violet */
+  --cat-life: #c0567f;        /* Rose */
+  --cat-nature: #1f7a68;      /* Pine */
 
   /* Layout */
-  --card-radius: 12px;
-  --btn-radius: 8px;
-  --input-radius: 6px;
+  --card-radius: 14px;
+  --btn-radius: 9px;
+  --input-radius: 8px;
   --max-width: 1200px;
+  --reading-max-width: 720px;
 
   /* Spacing */
   --space-xs: 0.25rem;
@@ -78,14 +80,16 @@
 
   /* Typography */
   --font-sans: 'Pretendard Variable', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-serif: 'Fraunces', 'Noto Serif KR', Georgia, 'Times New Roman', serif;
+  --font-display: var(--font-serif);
   --font-mono: 'Fira Code', 'JetBrains Mono', monospace;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(56, 189, 248, 0.3);
+  /* Shadows — soft & warm-tinted */
+  --shadow-sm: 0 1px 2px rgba(60, 45, 30, 0.06);
+  --shadow-md: 0 4px 14px rgba(60, 45, 30, 0.08);
+  --shadow-lg: 0 14px 32px rgba(60, 45, 30, 0.10);
+  --shadow-xl: 0 26px 50px rgba(60, 45, 30, 0.12);
+  --shadow-glow: 0 0 0 3px rgba(180, 84, 47, 0.15);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -104,53 +108,56 @@
 }
 
 /* ─────────────────────────────────────────────
-   Light Theme
+   Warm Dark Theme (opt-in / OS dark)
    ───────────────────────────────────────────── */
-[data-theme="light"] {
-  /* Primary Colors — 라이트 배경에서 '텍스트'로 써도 WCAG AA를 통과하도록 더 진하게.
-     (흰 배경 대비: #0369a1 ≈ 5.9:1, 흰 글자/파랑 버튼도 ≈ 5.9:1) */
-  --primary: #0369a1;         /* Sky 700 */
-  --primary-light: #0ea5e9;
-  --primary-dark: #075985;
-  --primary-rgb: 3, 105, 161;
+[data-theme="dark"] {
+  --primary: #e07a52;
+  --primary-light: #ec9270;
+  --primary-dark: #c05e38;
+  --primary-rgb: 224, 122, 82;
 
-  /* Accent Colors */
-  --accent: #047857;          /* Emerald 700 (텍스트 대비 확보) */
-  --accent-light: #10b981;
-  --accent-dark: #065f46;
-  --accent-rgb: 4, 120, 87;
+  --accent: #3fae95;
+  --accent-light: #5fc9b0;
+  --accent-dark: #2d8a74;
+  --accent-rgb: 63, 174, 149;
 
-  /* Surface Colors */
-  --surface: #ffffff;
-  --surface-light: #f8fafc;
-  --surface-dark: #f1f5f9;
+  --secondary: #d9a441;
+  --secondary-light: #e8bb63;
+  --secondary-dark: #b4842b;
 
-  /* Background Colors */
-  --bg-body: #f8fafc;         /* Slate 50 */
-  --bg-overlay: rgba(255, 255, 255, 0.85);
+  --success: #3fae95;
+  --warning: #e0a53a;
+  --danger: #e06a5a;
+  --info: #5aa9bf;
 
-  /* Text Colors */
-  --text-primary: #0f172a;    /* Slate 900 */
-  --text-main: #334155;       /* Slate 700 */
-  --text-muted: #64748b;      /* Slate 500 */
-  --text-disabled: #94a3b8;   /* Slate 400 */
+  /* Surfaces — 따뜻한 차콜 */
+  --surface: #231e1a;
+  --surface-light: #2f2823;
+  --surface-dark: #17130f;
 
-  /* Border Colors */
-  --border: #e2e8f0;          /* Slate 200 */
-  --border-light: #f1f5f9;    /* Slate 100 */
-  --border-dark: #cbd5e1;     /* Slate 300 */
+  --bg-body: #1a1511;
+  --bg-overlay: rgba(26, 21, 17, 0.85);
 
-  /* Gradients */
-  --gradient-hero: linear-gradient(135deg, rgba(14, 165, 233, 0.05), rgba(16, 185, 129, 0.05));
-  --gradient-card: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.02));
+  --text-primary: #f4ece1;
+  --text-main: #d6c9ba;
+  --text-muted: #a39586;
+  --text-disabled: #7a6e60;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 20px rgba(14, 165, 233, 0.2);
+  --border: #352d26;
+  --border-light: #473d34;
+  --border-dark: #241e19;
+
+  --gradient-hero: linear-gradient(135deg, rgba(224, 122, 82, 0.10), rgba(63, 174, 149, 0.08));
+  --gradient-card: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.18));
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 14px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 26px 50px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 0 3px rgba(224, 122, 82, 0.25);
 }
+
+/* 기존 코드가 참조하는 [data-theme="light"] 는 기본(:root)과 동일하게 둔다. */
 
 /* ─────────────────────────────────────────────
    Utility Classes
