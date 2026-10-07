@@ -477,6 +477,18 @@ def read_index(
     latest_query = visible_posts_query(with_options=True)
     board_posts = latest_query.order_by(models.BoardPost.created_at.desc()).limit(5).all()
 
+    # 히어로 아래 featured: 조회수 높은 공개 글 3개 (없으면 최신)
+    featured_posts = (
+        visible_posts_query(with_options=True)
+        .outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id)
+        .order_by(
+            func.coalesce(models.PostStats.views, 0).desc(),
+            models.BoardPost.created_at.desc(),
+        )
+        .limit(3)
+        .all()
+    )
+
     visible_post_total = (
         visible_posts_query(with_options=False)
         .with_entities(func.count(models.BoardPost.id))
@@ -518,7 +530,7 @@ def read_index(
             post.card_variant = "with-thumb"
 
     seen_ids = set()
-    for item in posts + board_posts:
+    for item in posts + board_posts + featured_posts:
         if item.id in seen_ids:
             continue
         enrich_post(item)
@@ -580,6 +592,7 @@ def read_index(
             "jsonld": website_jsonld(request),
             "posts": posts,
             "board_posts": board_posts,
+            "featured_posts": featured_posts,
             "categories": categories,
             "ordered_categories": ordered_categories,
             "category_depths": category_depths,

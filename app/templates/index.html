@@ -45,6 +45,37 @@
   </div>
 </section>
 
+{# ─── Featured (지금 인기 있는 글) ───────────────────────────── #}
+{% if featured_posts and not search_query and not selected_category_id %}
+<section class="featured-section">
+  <div class="featured-head">
+    <span class="featured-eyebrow"><i class="bi bi-fire"></i> 지금 인기 있는 글</span>
+    <a href="/board/?sort=popular" class="featured-more">더 보기 <i class="bi bi-arrow-right"></i></a>
+  </div>
+  <div class="featured-grid">
+    {% for post in featured_posts %}
+    <a href="/board/{{ post.id }}" class="featured-card">
+      <span class="featured-thumb">
+        {% if post.thumbnail %}
+        <img src="{{ post.thumbnail }}" alt="" loading="lazy" onerror="this.closest('.featured-thumb').classList.add('no-img');">
+        {% endif %}
+        {% if post.category %}<span class="featured-cat">{{ post.category.name }}</span>{% endif %}
+      </span>
+      <span class="featured-body">
+        <span class="featured-title">{% if post.show_title != False %}{{ post.title or 'Untitled' }}{% else %}Untitled{% endif %}</span>
+        <span class="featured-preview">{{ post.preview }}</span>
+        <span class="featured-meta">
+          {% if post.user and post.user.handle %}@{{ post.user.handle }} · {% endif %}
+          <i class="bi bi-eye"></i> {{ post.view_count }}
+          {% if post.reading_minutes %} · {{ post.reading_minutes }}분{% endif %}
+        </span>
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {# ─── Curation Bar ───────────────────────────────────────── #}
 <section class="curation-bar" id="home-curation-bar">
   <div class="curation-inner">
