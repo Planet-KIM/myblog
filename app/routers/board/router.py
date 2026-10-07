@@ -20,6 +20,7 @@ from app.auth_utils import get_current_user, get_current_user_optional
 from app.routers.upload.router import relocate_draft_files, normalize_draft_id
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
 from app.services.ratelimit import enforce
+from app.services.seo import post_jsonld
 from app.config import settings
 from app.services.category_counts import (
     collect_descendant_category_ids,
@@ -1109,6 +1110,7 @@ def board_detail(
             "og_title": post.title,
             "og_image": og_image,
             "og_type": "article",
+            "jsonld": post_jsonld(request, post, meta_description, og_image),
         },
     )
 

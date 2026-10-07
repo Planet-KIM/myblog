@@ -16,6 +16,7 @@ from app.config import settings
 from app.database import get_db
 from app.auth_utils import get_current_user, get_current_user_optional
 from app.services.profile import validate_handle, validate_avatar_url, validate_accent_color
+from app.services.seo import website_jsonld, blog_jsonld
 from app.services.home_layout import (
     HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
     HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
@@ -568,6 +569,7 @@ def read_index(
         "index.html",
         {
             "request": request,
+            "jsonld": website_jsonld(request),
             "posts": posts,
             "board_posts": board_posts,
             "categories": categories,
@@ -1029,6 +1031,7 @@ def blog_home(
             "og_title": blog_name,
             "og_image": og_image,
             "og_type": "profile",
+            "jsonld": blog_jsonld(request, owner),
             "posts": posts,
             "categories": categories,
             "current_user": current_user,

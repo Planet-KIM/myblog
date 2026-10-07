@@ -29,6 +29,8 @@
   {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
   <meta name="twitter:card" content="{% if og_image %}summary_large_image{% else %}summary{% endif %}">
   {% block head_extra_meta %}{% endblock %}
+  <!-- 구조화 데이터(JSON-LD): 라우트가 jsonld 를 넘길 때만 출력 (seo.py 에서 이스케이프 완료) -->
+  {% if jsonld %}<script type="application/ld+json">{{ jsonld | safe }}</script>{% endif %}
   <!-- Favicon & theme color -->
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}">
   <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
