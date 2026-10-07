@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}시리즈: {{ label }} · Planet KIM{% endblock %}
+
+{% block content %}
+<div class="page-content" style="max-width:720px; margin:0 auto;">
+  <header class="page-card" style="margin-bottom:1.5rem;">
+    <div class="text-muted" style="font-family:var(--font-mono); font-size:0.78rem; letter-spacing:0.05em;">SERIES · {{ total }}편</div>
+    <h1 class="section-title" style="margin:0.2rem 0 0;">{{ label }}</h1>
+  </header>
+
+  {% if posts %}
+  <ol class="page-card" style="list-style:none; padding:0.3rem 1.25rem; margin:0;">
+    {% for post in posts %}
+    <li style="border-top:1px solid var(--border);{% if loop.first %}border-top:none;{% endif %}">
+      <a href="/board/{{ post.id }}" style="display:flex; gap:1rem; align-items:baseline; padding:0.9rem 0; text-decoration:none;">
+        <span style="font-family:var(--font-display); font-weight:700; color:var(--primary); font-size:1.15rem; min-width:2ch; text-align:center;">{{ loop.index }}</span>
+        <span style="flex:1; min-width:0;">
+          <span style="display:block; font-weight:600; color:var(--text-primary); line-height:1.4;">{{ post.title or 'Untitled' }}</span>
+          <span style="font-family:var(--font-mono); font-size:0.74rem; color:var(--text-muted);">
+            {% if post.user and post.user.handle %}@{{ post.user.handle }} · {% endif %}{{ post.created_at.strftime('%Y-%m-%d') }} · <i class="bi bi-eye"></i> {{ post.view_count }}
+          </span>
+        </span>
+        <i class="bi bi-chevron-right" style="color:var(--text-muted);"></i>
+      </a>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="page-card text-center text-muted">이 시리즈에 공개된 글이 없습니다.</div>
+  {% endif %}
+</div>
+{% endblock %}

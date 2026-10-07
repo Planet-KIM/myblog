@@ -1,0 +1,10 @@
+{# 시리즈(series:<이름> 태그) 배너 — series_label 이 있을 때만 #}
+{% if series_label %}
+<section class="page-card no-print" style="max-width:var(--reading-max-width, 720px); margin:2rem auto 0; display:flex; align-items:center; justify-content:space-between; gap:1rem; border-left:3px solid var(--primary);">
+  <span style="min-width:0;">
+    <span style="font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.05em; color:var(--text-muted);">SERIES</span>
+    <span style="display:block; font-weight:700; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ series_label }}</span>
+  </span>
+  <a href="/series/{{ series_slug|urlencode }}" class="btn-travel" style="flex-shrink:0;">시리즈 전체 보기</a>
+</section>
+{% endif %}

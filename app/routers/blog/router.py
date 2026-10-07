@@ -1432,6 +1432,57 @@ def search_page(
 
 
 # ─────────────────────────────────────────────
+# 시리즈/컬렉션 (/series/{slug}) — series:<이름> 태그로 묶인 글
+# ─────────────────────────────────────────────
+@router.get("/series/{slug}", response_class=HTMLResponse)
+def series_page(
+    slug: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+):
+    name = ("series:" + (slug or "").strip()).lower()
+    tag = db.query(models.Tag).filter(func.lower(models.Tag.name) == name).first()
+    if not tag:
+        raise HTTPException(status_code=404, detail="시리즈를 찾을 수 없습니다.")
+
+    label = tag.name.split(":", 1)[1].strip() if ":" in tag.name else tag.name
+
+    query = (
+        db.query(models.BoardPost)
+        .join(models.BoardPost.tags)
+        .filter(models.Tag.id == tag.id)
+        .options(joinedload(models.BoardPost.user), joinedload(models.BoardPost.stats))
+    )
+    if current_user:
+        query = query.filter(
+            or_(models.BoardPost.is_private == False, models.BoardPost.user_id == current_user.id)  # noqa: E712
+        )
+    else:
+        query = query.filter(models.BoardPost.is_private == False)  # noqa: E712
+
+    # 시리즈는 읽는 순서(오래된 → 최신)
+    posts = query.order_by(models.BoardPost.created_at.asc()).all()
+    for p in posts:
+        p.view_count = p.stats.views if p.stats else 0
+
+    return templates.TemplateResponse(
+        request,
+        "series.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "label": label,
+            "slug": slug,
+            "posts": posts,
+            "total": len(posts),
+            "meta_description": f"시리즈 '{label}' — {len(posts)}편",
+            "og_title": f"시리즈: {label}",
+        },
+    )
+
+
+# ─────────────────────────────────────────────
 # 블로그 디렉터리 (/explore) — 공개글이 있는 블로그 탐색
 # ─────────────────────────────────────────────
 @router.get("/explore", response_class=HTMLResponse)
