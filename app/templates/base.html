@@ -18,11 +18,11 @@
       } catch (e) {}
     })();
   </script>
-  <title>{% block title %}Planet KIM's Travel{% endblock %}</title>
+  <title>{% block title %}Planet KIM{% endblock %}</title>
   <!-- SEO / 공유(OG) 메타: 라우트가 넘긴 값 우선, 없으면 기본값 -->
-  {% set _meta_desc = meta_description | default("세상의 모든 여행을 기록하는 블로그 포털", true) %}
+  {% set _meta_desc = meta_description | default("누구나 자기만의 블로그를 열고 이야기를 나누는 포털", true) %}
   <meta name="description" content="{{ _meta_desc }}">
-  <meta property="og:site_name" content="Planet KIM's Travel">
+  <meta property="og:site_name" content="Planet KIM">
   <meta property="og:type" content="{{ og_type | default('website', true) }}">
   <meta property="og:title" content="{{ og_title | default(self.title(), true) }}">
   <meta property="og:description" content="{{ _meta_desc }}">
@@ -102,16 +102,16 @@
     }
 
     .site-nav .navbar-brand {
-      font-family: var(--font-mono);
-      font-size: 1.25rem;
-      font-weight: 600;
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 700;
       color: var(--text-primary) !important;
-      letter-spacing: -0.5px;
-      transition: transform var(--transition-fast);
+      letter-spacing: -0.01em;
+      transition: opacity var(--transition-fast);
     }
 
     .site-nav .navbar-brand:hover {
-      transform: translateX(5px);
+      opacity: 0.85;
     }
 
     .site-nav .navbar-brand .accent {
@@ -417,7 +417,7 @@
   <nav class="navbar navbar-expand-lg site-nav" aria-label="주 메뉴">
     <div class="container">
       <a class="navbar-brand" href="/">
-        <i class="bi bi-airplane-fill me-1"></i>Planet <span class="accent">KIM</span>'s Travel
+        Planet <span class="accent">KIM</span>
       </a>
       <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
         aria-controls="navbarNav" aria-expanded="false" aria-label="메뉴 열기">
@@ -490,11 +490,10 @@
   <footer class="site-footer">
     <div class="container">
       <p class="mb-1">
-        <i class="bi bi-airplane-fill me-1"></i>
-        <strong style="color:var(--text-primary);">Planet KIM's Travel</strong>
+        <strong class="display-font" style="color:var(--text-primary);">Planet KIM</strong>
       </p>
       <p class="mb-0">
-        &copy; 2025 <a href="https://github.com/Planet-KIM" target="_blank">Planet-KIM</a> · 세상의 모든 여행을 기록합니다
+        &copy; 2025 <a href="https://github.com/Planet-KIM" target="_blank">Planet-KIM</a> · 모두의 블로그가 모이는 공간
       </p>
     </div>
   </footer>

@@ -12,7 +12,7 @@ import json
 from datetime import datetime
 from typing import Optional
 
-SITE_NAME = "Planet KIM's Travel"
+SITE_NAME = "Planet KIM"
 
 
 def _abs(request, path_or_url: str) -> str:

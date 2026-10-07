@@ -1251,7 +1251,7 @@ def explore(
             "current_page": page,
             "total_pages": total_pages,
             "total_blogs": total_blogs,
-            "meta_description": "여행 블로그를 둘러보세요 — 활동 중인 블로그 모음",
+            "meta_description": "다양한 주제의 블로그를 둘러보세요 — 활동 중인 블로그 모음",
             "og_title": "Explore Blogs",
         },
     )

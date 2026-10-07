@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-label="Planet KIM's Travel">
-  <rect width="16" height="16" rx="3.5" fill="#0ea5e9"/>
-  <g transform="translate(2.4 2.4) scale(0.7)" fill="#ffffff">
-    <path d="M6.428 1.151C6.708.591 7.213 0 8 0s1.292.592 1.572 1.151C9.853 1.715 10 2.447 10 3v3.75l6 3.428V12l-6-1.714v2.879l1.573.782A.5.5 0 0 1 12 14.382V15.5a.5.5 0 0 1-.634.482L8 15.118l-3.366.864A.5.5 0 0 1 4 15.5v-1.118a.5.5 0 0 1 .316-.465L6 13.03V10.286L0 12v-1.822l6-3.428V3c0-.553.147-1.285.428-1.849z"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-label="Planet KIM">
+  <rect width="16" height="16" rx="3.5" fill="#b4542f"/>
+  <circle cx="8" cy="8" r="3.1" fill="#ffffff"/>
+  <ellipse cx="8" cy="8" rx="5.6" ry="2.1" fill="none" stroke="#ffffff" stroke-width="0.9" opacity="0.9" transform="rotate(-20 8 8)"/>
 </svg>

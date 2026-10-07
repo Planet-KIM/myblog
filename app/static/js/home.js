@@ -33,14 +33,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const typedEl = document.getElementById('typed-text');
   if (typedEl) {
     if (prefersReducedMotion) {
-      typedEl.textContent = '모든 순간을 기록합니다';
+      typedEl.textContent = '모든 이야기를 기록합니다';
     } else if (typeof Typed !== 'undefined') {
       new Typed('#typed-text', {
         strings: [
-          '음식을 기록합니다',
-          '풍경을 기록합니다',
-          '사람을 기록합니다',
-          '모든 순간을 기록합니다'
+          '코드를 기록합니다',
+          '배움을 기록합니다',
+          '일상을 기록합니다',
+          '모든 이야기를 기록합니다'
         ],
         typeSpeed: 60,
         backSpeed: 35,

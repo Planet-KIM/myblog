@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Planet KIM's Travel – 홈{% endblock %}
+{% block title %}Planet KIM — 홈{% endblock %}
 {% block body_class %}home-page{% endblock %}
 
 {% block extra_head %}
@@ -14,9 +14,9 @@
 {# ─── Hero ───────────────────────────────────────────────── #}
 <section class="hero">
   <div class="hero-body">
-    <div class="hero-eyebrow">✈ Travel Blog</div>
-    <h1 class="hero-title">세상의 모든 여행을<br>기록합니다</h1>
-    <p class="hero-summary">오늘의 기록부터 지난 여정까지, 한 화면에서 빠르게 둘러보세요.</p>
+    <div class="hero-eyebrow">블로그 포털</div>
+    <h1 class="hero-title">모든 이야기가<br>여기 모입니다</h1>
+    <p class="hero-summary">코드·강의·일상까지, 다양한 블로그의 글을 한 화면에서 둘러보세요.</p>
     <div class="hero-typed-wrap">
       <span id="typed-text"></span>
     </div>
@@ -240,9 +240,9 @@
               <circle cx="85" cy="35" r="1.5" class="svg-shimmer-dot" style="animation-delay: 1.2s;" />
             </svg>
           </div>
-          <p class="empty-state-title">아직 여행 기록이 없습니다</p>
-          <p class="empty-state-body">첫 번째 여행을 기록해보세요</p>
-          <a href="/board/new" class="btn-travel">여행 기록 쓰기</a>
+          <p class="empty-state-title">아직 글이 없습니다</p>
+          <p class="empty-state-body">첫 글을 써보세요</p>
+          <a href="/board/new" class="btn-travel">글 쓰기</a>
         </div>
       {% endif %}
     </div>
@@ -251,7 +251,7 @@
       {% if current_user %}
       <div class="bento-widget text-center">
         <a href="/board/new" class="btn-travel d-block py-2" style="font-size:0.82rem;">
-          <i class="bi bi-pencil-fill me-1"></i> 새 여행 기록 쓰기
+          <i class="bi bi-pencil-fill me-1"></i> 새 글 쓰기
         </a>
       </div>
       {% endif %}

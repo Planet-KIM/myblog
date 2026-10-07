@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # 실제 발송을 사용하려면 SMTP 설정을 채우고 ENABLE_SEND=true로 둡니다.
     NEWSLETTER_ENABLE_SEND: bool = False
     NEWSLETTER_FROM_EMAIL: str = "no-reply@example.com"
-    NEWSLETTER_FROM_NAME: str = "Planet KIM's Travel"
+    NEWSLETTER_FROM_NAME: str = "Planet KIM"
     NEWSLETTER_SMTP_HOST: str = ""
     NEWSLETTER_SMTP_PORT: int = 587
     NEWSLETTER_SMTP_USERNAME: str = ""
