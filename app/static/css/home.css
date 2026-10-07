@@ -741,12 +741,21 @@ body.home-page .site-nav .nav-link.active {
 .cat-tone-violet { border-left: 2px solid rgba(167, 139, 250, 0.7); }
 .cat-tone-amber { border-left: 2px solid rgba(251, 191, 36, 0.7); }
 
-.badge-tone-sea { background: rgba(56, 189, 248, 0.16); color: #7dd3fc; }
-.badge-tone-forest { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; }
-.badge-tone-sunset { background: rgba(249, 115, 22, 0.18); color: #fdba74; }
-.badge-tone-rose { background: rgba(244, 63, 94, 0.18); color: #fda4af; }
-.badge-tone-violet { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
-.badge-tone-amber { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+/* 카테고리 배지 톤 — 색 variety는 유지하되 라이트 배경에서 읽히도록 진한 글자 */
+.badge-tone-sea { background: rgba(56, 189, 248, 0.14); color: #1d6ea3; }
+.badge-tone-forest { background: rgba(16, 185, 129, 0.14); color: #2f7047; }
+.badge-tone-sunset { background: rgba(249, 115, 22, 0.14); color: #c2410c; }
+.badge-tone-rose { background: rgba(244, 63, 94, 0.14); color: #be123c; }
+.badge-tone-violet { background: rgba(139, 92, 246, 0.14); color: #6d28d9; }
+.badge-tone-amber { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+
+/* 다크 테마에서는 밝은 톤으로 */
+[data-theme="dark"] .badge-tone-sea { color: #7dd3fc; }
+[data-theme="dark"] .badge-tone-forest { color: #6ee7b7; }
+[data-theme="dark"] .badge-tone-sunset { color: #fdba74; }
+[data-theme="dark"] .badge-tone-rose { color: #fda4af; }
+[data-theme="dark"] .badge-tone-violet { color: #c4b5fd; }
+[data-theme="dark"] .badge-tone-amber { color: #fcd34d; }
 
 /* ─── Recent posts list (sidebar) ────────────────────────── */
 .recent-post-item {
