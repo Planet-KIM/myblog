@@ -25,12 +25,22 @@
   <meta property="og:type" content="{{ og_type | default('website', true) }}">
   <meta property="og:title" content="{{ og_title | default(self.title(), true) }}">
   <meta property="og:description" content="{{ _meta_desc }}">
-  <meta property="og:url" content="{{ request.url }}">
+  {# Canonical: 쿼리스트링을 뺀 대표 URL. 라우트가 canonical_url 을 주면 우선. #}
+  {% set _canonical = canonical_url | default((request.base_url | string).rstrip('/') ~ request.url.path, true) %}
+  <link rel="canonical" href="{{ _canonical }}">
+  <meta property="og:url" content="{{ _canonical }}">
   {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
   <meta name="twitter:card" content="{% if og_image %}summary_large_image{% else %}summary{% endif %}">
+  {% if og_type == 'article' %}
+  {% if article_published %}<meta property="article:published_time" content="{{ article_published }}">{% endif %}
+  {% if article_modified %}<meta property="article:modified_time" content="{{ article_modified }}">{% endif %}
+  {% if article_author_url %}<meta property="article:author" content="{{ article_author_url }}">{% endif %}
+  {% endif %}
   {% block head_extra_meta %}{% endblock %}
-  <!-- 구조화 데이터(JSON-LD): 라우트가 jsonld 를 넘길 때만 출력 (seo.py 에서 이스케이프 완료) -->
-  {% if jsonld %}<script type="application/ld+json">{{ jsonld | safe }}</script>{% endif %}
+  <!-- 구조화 데이터(JSON-LD): 라우트가 jsonld(문자열 또는 리스트)를 줄 때만 출력. seo.py 에서 이스케이프 완료 -->
+  {% if jsonld %}{% if jsonld is string %}<script type="application/ld+json">{{ jsonld | safe }}</script>
+  {% else %}{% for _block in jsonld %}<script type="application/ld+json">{{ _block | safe }}</script>
+  {% endfor %}{% endif %}{% endif %}
   <!-- Favicon & theme color -->
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}">
   <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">

@@ -1031,6 +1031,7 @@ def blog_home(
             "og_title": blog_name,
             "og_image": og_image,
             "og_type": "profile",
+            "canonical_url": str(request.base_url).rstrip("/") + f"/@{owner.handle}",
             "jsonld": blog_jsonld(request, owner),
             "posts": posts,
             "categories": categories,

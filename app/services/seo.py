@@ -98,6 +98,39 @@ def post_jsonld(request, post, description: str = "", image: str = "") -> str:
     return _dump(data)
 
 
+def breadcrumb_jsonld(request, post) -> str:
+    """글 상세: BreadcrumbList (사이트 › 블로그 › 글)."""
+    author = getattr(post, "user", None)
+    items = [{"@type": "ListItem", "position": 1, "name": SITE_NAME, "item": _abs(request, "/")}]
+    if author and author.handle:
+        blog_name = author.blog_title or author.display_name or ("@" + author.handle)
+        items.append({
+            "@type": "ListItem", "position": 2,
+            "name": blog_name, "item": _abs(request, f"/@{author.handle}"),
+        })
+    items.append({
+        "@type": "ListItem", "position": len(items) + 1,
+        "name": (post.title or "")[:110], "item": _abs(request, f"/board/{post.id}"),
+    })
+    return _dump({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": items,
+    })
+
+
+def post_meta(request, post) -> dict:
+    """글 상세용 canonical URL + OpenGraph article 메타를 컨텍스트로 반환."""
+    author = getattr(post, "user", None)
+    author_url = _abs(request, f"/@{author.handle}") if (author and author.handle) else None
+    return {
+        "canonical_url": _abs(request, f"/board/{post.id}"),
+        "article_published": _iso(getattr(post, "created_at", None)),
+        "article_modified": _iso(getattr(post, "updated_at", None) or getattr(post, "created_at", None)),
+        "article_author_url": author_url,
+    }
+
+
 def blog_jsonld(request, owner) -> str:
     """블로그 홈(/@handle): Blog + 주인 Person."""
     blog_url = _abs(request, f"/@{owner.handle}")
