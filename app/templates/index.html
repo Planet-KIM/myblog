@@ -30,9 +30,14 @@
         <div class="hero-stat-label">Categories</div>
       </div>
     </div>
-    <a href="/board/" class="hero-cta">
-      <i class="bi bi-journal-text me-2"></i>아카이브 탐색하기
-    </a>
+    <div class="hero-cta-row">
+      <a href="/explore" class="hero-cta">
+        <i class="bi bi-compass me-2"></i>블로그 둘러보기
+      </a>
+      <a href="{% if current_user %}/board/new{% else %}/auth/signup{% endif %}" class="hero-cta hero-cta-ghost">
+        <i class="bi bi-pencil me-2"></i>{% if current_user %}글 쓰기{% else %}내 블로그 시작{% endif %}
+      </a>
+    </div>
   </div>
   <div class="hero-scroll-indicator">
     <span>scroll</span>
