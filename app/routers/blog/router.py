@@ -1242,23 +1242,37 @@ def sitemap_xml(request: Request, db: Session = Depends(get_db)):
     from xml.sax.saxutils import escape
 
     base = str(request.base_url).rstrip("/")
-    urls = [f"{base}/", f"{base}/explore"]
 
+    def entry(loc: str, lastmod=None) -> str:
+        s = f"<url><loc>{escape(loc)}</loc>"
+        if lastmod is not None:
+            s += f"<lastmod>{lastmod.date().isoformat()}</lastmod>"
+        s += "</url>"
+        return s
+
+    parts = [entry(f"{base}/"), entry(f"{base}/explore")]
+
+    # 공개 글 (숨김 글은 전역 필터로 자동 제외) — 최종 수정일 포함
     posts = (
-        db.query(models.BoardPost.id)
+        db.query(models.BoardPost.id, models.BoardPost.updated_at)
         .filter(models.BoardPost.is_private == False)  # noqa: E712
         .order_by(models.BoardPost.id.desc())
         .limit(2000)
         .all()
     )
-    urls += [f"{base}/board/{pid}" for (pid,) in posts]
+    parts += [entry(f"{base}/board/{pid}", updated) for (pid, updated) in posts]
 
+    # 블로그 홈
     handles = db.query(models.User.handle).filter(models.User.handle.isnot(None)).all()
-    urls += [f"{base}/@{h}" for (h,) in handles if h]
+    parts += [entry(f"{base}/@{h}") for (h,) in handles if h]
+
+    # 실제 사용 중인 태그 피드
+    tags = db.query(models.Tag.slug).filter(models.Tag.count > 0).order_by(models.Tag.count.desc()).all()
+    parts += [entry(f"{base}/tags/{slug}") for (slug,) in tags if slug]
 
     body = '<?xml version="1.0" encoding="UTF-8"?>\n'
     body += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-    body += "".join(f"<url><loc>{escape(u)}</loc></url>" for u in urls)
+    body += "".join(parts)
     body += "</urlset>"
     return Response(content=body, media_type="application/xml")
 
