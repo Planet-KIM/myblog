@@ -44,11 +44,14 @@ pnpm-debug.log*
 app/static/editor/**
 app/static/images/**
 app/static/uploads/**
+# 동적 OG 이미지 캐시(런타임 생성물) — 추적 안 함
+app/static/og_cache/**
 
 # Keep directories
 !app/static/editor/.gitkeep
 !app/static/images/.gitkeep
 !app/static/uploads/.gitkeep
+!app/static/og_cache/.gitkeep
 
 ############################
 # Build / Distribution

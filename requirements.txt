@@ -16,6 +16,9 @@ redis
 markdown
 bleach[css]
 passlib[bcrypt]
+# ── 글별 동적 OG 이미지(공유 썸네일) 생성 ──
+Pillow>=10,<12
+fonttools>=4.40
 # ── 맞춤법 검사 ──
 transformers>=4.40.0
 torch>=2.0.0

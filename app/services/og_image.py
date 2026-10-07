@@ -1,0 +1,244 @@
+"""
+글별 동적 OG 이미지 생성 (1200×630 PNG)
+========================================
+글 제목·작성자를 브랜드 카드로 그려, 본문에 대표 이미지가 없는 글도
+SNS 공유 시 밋밋한 기본 썸네일 대신 '매거진 표지' 같은 미리보기를 갖게 한다.
+
+- 폰트: 저장소에 번들된 Pretendard(OFL, 한글 포함). 없으면 PIL 기본 폰트로 폴백.
+- 색: theme.css 브랜드 토큰(테라코타/스카이/세이지 + 웜 페이퍼)과 일치.
+- 순수 Pillow만 사용(헤드리스 서버 안전). 네트워크/브라우저 불필요.
+"""
+from __future__ import annotations
+
+import logging
+from functools import lru_cache
+from pathlib import Path
+from typing import Optional
+
+from PIL import Image, ImageDraw, ImageFont
+
+logger = logging.getLogger(__name__)
+
+# ── 캔버스 ────────────────────────────────────────────────
+W, H = 1200, 630
+PAD = 84  # 좌우 안전 여백
+
+# ── 브랜드 색 (theme.css 와 동일) ──────────────────────────
+PAPER = (248, 244, 238)   # #f8f4ee  웜 페이퍼
+PAPER_HI = (253, 249, 243) # 살짝 밝은 상단
+INK = (42, 35, 32)        # #2a2320  본문 잉크
+MUTED = (138, 124, 109)   # #8a7c6d  보조 텍스트
+TERRA = (180, 84, 47)     # #b4542f  테라코타(주색)
+SKY = (42, 130, 196)      # #2a82c4  스카이(강조)
+SAGE = (63, 143, 92)      # #3f8f5c  세이지(보조)
+CREAM = (253, 248, 242)   # 마크 안쪽 글자
+
+_FONT_DIR = Path(__file__).resolve().parent.parent / "static" / "fonts"
+_FONT_BOLD = _FONT_DIR / "Pretendard-Bold.ttf"
+
+
+@lru_cache(maxsize=32)
+def _font(size: int) -> ImageFont.FreeTypeFont:
+    """Pretendard-Bold 를 크기별 캐시. 폰트 파일이 없으면 기본 폰트."""
+    try:
+        return ImageFont.truetype(str(_FONT_BOLD), size)
+    except Exception:  # noqa: BLE001 — 폰트 누락 시에도 500 금지
+        logger.warning("Pretendard 폰트를 찾지 못해 기본 폰트로 OG 이미지를 그립니다.")
+        return ImageFont.load_default()
+
+
+@lru_cache(maxsize=1)
+def _supported() -> Optional[frozenset]:
+    """번들 폰트가 지원하는 코드포인트 집합(없으면 None → 필터 생략)."""
+    try:
+        from fontTools.ttLib import TTFont
+
+        cmap = TTFont(str(_FONT_BOLD)).getBestCmap()
+        return frozenset(cmap.keys())
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _clean(text: str) -> str:
+    """폰트에 없는 글자(이모지·변형선택자 등)를 제거해 두부(□)·줄무늬 상자를 방지."""
+    if not text:
+        return ""
+    text = " ".join(text.split())  # 개행/연속 공백 정리
+    cps = _supported()
+    if cps is None:
+        return text
+    out = "".join(ch for ch in text if ch == " " or ord(ch) in cps)
+    return " ".join(out.split()).strip()
+
+
+def _text_w(draw: ImageDraw.ImageDraw, text: str, font) -> float:
+    return draw.textlength(text, font=font)
+
+
+def _wrap(draw, text: str, font, max_w: float, max_lines: int) -> list[str]:
+    """
+    공백 우선 그리디 줄바꿈. 한 단어(긴 한글 연속)가 폭을 넘으면 글자 단위로 쪼갠다.
+    max_lines 를 넘으면 마지막 줄 끝을 … 로 처리.
+    """
+    words = text.split(" ")
+    lines: list[str] = []
+    cur = ""
+
+    def push(line: str):
+        lines.append(line)
+
+    for word in words:
+        candidate = word if not cur else cur + " " + word
+        if _text_w(draw, candidate, font) <= max_w:
+            cur = candidate
+            continue
+        # 현재 줄을 확정하고 새 단어 시작 (단어 자체가 너무 길면 글자 단위 분할)
+        if cur:
+            push(cur)
+            cur = ""
+            if len(lines) >= max_lines:
+                break
+        if _text_w(draw, word, font) <= max_w:
+            cur = word
+        else:
+            piece = ""
+            for ch in word:
+                if _text_w(draw, piece + ch, font) <= max_w:
+                    piece += ch
+                else:
+                    push(piece)
+                    piece = ch
+                    if len(lines) >= max_lines:
+                        break
+            cur = piece
+        if len(lines) >= max_lines:
+            break
+    if cur and len(lines) < max_lines:
+        push(cur)
+
+    # 잘렸으면 말줄임
+    if len(lines) >= max_lines:
+        last = lines[max_lines - 1]
+        if _text_w(draw, text, font) > _text_w(draw, " ".join(lines[:max_lines]), font):
+            while last and _text_w(draw, last + "…", font) > max_w:
+                last = last[:-1]
+            lines[max_lines - 1] = (last + "…") if last else "…"
+    return lines[:max_lines]
+
+
+def _fit_title(draw, title: str, max_w: float, max_lines: int = 3):
+    """제목이 max_lines 안에 들어오는 가장 큰 폰트 크기를 찾는다."""
+    for size in range(84, 45, -4):
+        font = _font(size)
+        lines = _wrap(draw, title, font, max_w, max_lines + 1)
+        if len(lines) <= max_lines:
+            return font, _wrap(draw, title, font, max_w, max_lines), size
+    font = _font(46)
+    return font, _wrap(draw, title, font, max_w, max_lines), 46
+
+
+def _vgradient(top: tuple, bottom: tuple) -> Image.Image:
+    """위→아래 수직 그라데이션 배경(웜 페이퍼의 은은한 깊이)."""
+    base = Image.new("RGB", (1, H))
+    for y in range(H):
+        t = y / (H - 1)
+        base.putpixel((0, y), tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(3)))
+    return base.resize((W, H))
+
+
+def _planet_mark(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int):
+    """브랜드 행성(원 + 기울어진 고리) 마크."""
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=TERRA)
+    # 고리: 얇은 타원 외곽선
+    rw, rh = int(r * 1.7), int(r * 0.6)
+    for off in range(0, 5):  # 두께
+        draw.ellipse(
+            [cx - rw, cy - rh + off - 2, cx + rw, cy + rh + off - 2],
+            outline=TERRA, width=2,
+        )
+
+
+def _initial_avatar(draw, cx, cy, r, letter: str, color):
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=color)
+    f = _font(int(r * 1.1))
+    bbox = draw.textbbox((0, 0), letter, font=f)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    draw.text((cx - tw / 2 - bbox[0], cy - th / 2 - bbox[1]), letter, font=f, fill=CREAM)
+
+
+def render_post_og(
+    title: str,
+    author_name: str = "",
+    *,
+    handle: str = "",
+    tag: str = "",
+    site: str = "Planet KIM",
+) -> bytes:
+    """글 제목·작성자로 브랜드 OG 카드(PNG 바이트)를 만든다."""
+    title = _clean(title) or "제목 없는 글"
+    author_name = _clean(author_name)
+    handle = _clean(handle)
+    tag = _clean(tag)
+    site = _clean(site) or "Planet KIM"
+
+    img = _vgradient(PAPER_HI, PAPER)
+    draw = ImageDraw.Draw(img)
+
+    # 좌측 브랜드 액센트 바 + 하단 브랜드 3색 점
+    draw.rectangle([0, 0, 12, H], fill=TERRA)
+
+    # ── 헤더: 행성 마크 + 워드마크 ─────────────────────────
+    hx, hy = PAD, 74
+    _planet_mark(draw, hx + 16, hy + 2, 18)
+    wf = _font(30)
+    draw.text((hx + 52, hy - 16), site, font=wf, fill=TERRA)
+    # 상단 우측: 글 종류 라벨
+    label = (tag or "글").strip()
+    lf = _font(24)
+    lw = _text_w(draw, label, lf)
+    chip_pad = 18
+    draw.rounded_rectangle(
+        [W - PAD - lw - chip_pad * 2, hy - 18, W - PAD, hy + 24],
+        radius=21, fill=(237, 229, 220),
+    )
+    draw.text((W - PAD - lw - chip_pad, hy - 12), label, font=lf, fill=TERRA)
+
+    # 헤더 구분선
+    draw.line([(PAD, hy + 52), (W - PAD, hy + 52)], fill=(226, 216, 205), width=2)
+
+    # ── 제목 (자동 맞춤, 중앙 영역) ────────────────────────
+    max_w = W - PAD * 2
+    font, lines, size = _fit_title(draw, title, max_w, max_lines=3)
+    line_h = int(size * 1.22)
+    block_h = line_h * len(lines)
+    ty = int((H - block_h) / 2) + 18
+    for ln in lines:
+        draw.text((PAD, ty), ln, font=font, fill=INK)
+        ty += line_h
+
+    # ── 푸터: 작성자 ──────────────────────────────────────
+    fy = H - 92
+    draw.line([(PAD, fy - 20), (W - PAD, fy - 20)], fill=(226, 216, 205), width=2)
+    if author_name:
+        ar = 28
+        acx, acy = PAD + ar, fy + ar
+        initial = next((c for c in author_name if c.isalnum()), author_name[:1] or "·").upper()
+        _initial_avatar(draw, acx, acy, ar, initial, TERRA)
+        nf = _font(32)
+        # @handle 줄을 따로 보일 때만 이름을 위로 올려 2줄 배치
+        show_handle = bool(handle) and handle.lower() != author_name.lstrip("@").lower()
+        if show_handle:
+            draw.text((acx + ar + 20, fy + 4), author_name, font=nf, fill=INK)
+            draw.text((acx + ar + 20, fy + 44), "@" + handle, font=_font(24), fill=MUTED)
+        else:
+            draw.text((acx + ar + 20, fy + 18), author_name, font=nf, fill=INK)
+    # 우측 하단 브랜드 3색 점
+    dots_y = fy + 30
+    for i, c in enumerate((TERRA, SKY, SAGE)):
+        dx = W - PAD - 10 - i * 34
+        draw.ellipse([dx - 11, dots_y - 11, dx + 11, dots_y + 11], fill=c)
+
+    import io
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()

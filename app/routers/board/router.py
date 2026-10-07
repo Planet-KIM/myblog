@@ -1,4 +1,5 @@
 from typing import Optional
+import logging
 import re
 from uuid import uuid4
 from pathlib import Path
@@ -8,7 +9,7 @@ from urllib.parse import quote
 from fastapi import (
     APIRouter, Depends, Form, HTTPException, Request
 )
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import or_, func
@@ -32,6 +33,8 @@ from app.services.category_counts import (
 router = APIRouter(prefix="/board", tags=["board"])
 
 templates = Jinja2Templates(directory="app/templates")
+
+logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------
@@ -1089,6 +1092,9 @@ def board_detail(
     og_image = img_match.group(1) if img_match else ""
     if og_image.startswith("/"):
         og_image = str(request.base_url).rstrip("/") + og_image
+    # 본문에 대표 이미지가 없으면 제목·작성자로 브랜드 OG 카드를 동적 생성
+    if not og_image:
+        og_image = str(request.base_url).rstrip("/") + f"/board/{post.id}/og.png"
 
     # 댓글 목록 (작성 시간순)
     comments = (
@@ -1149,6 +1155,67 @@ def board_detail(
             **post_meta(request, post),
         },
     )
+
+
+# ============================================================
+# ★ 글별 동적 OG 이미지 (제목·작성자 브랜드 카드)
+#   본문에 대표 이미지가 없을 때 공유 썸네일로 사용.
+#   디스크 캐시: 제목/작성자/수정시각이 바뀌면 자동 재생성.
+# ============================================================
+_OG_CACHE_DIR = Path("app/static/og_cache")
+
+
+@router.get("/{post_id}/og.png")
+def board_post_og(post_id: int, db: Session = Depends(get_db)):
+    # 공개(숨김 아님) 글만 — 비공개/숨김은 미리보기 노출 금지
+    post = db.query(models.BoardPost).filter_by(id=post_id).first()
+    if not post or post.is_private:
+        raise HTTPException(404, "Not found")
+
+    author = getattr(post, "user", None)
+    author_name = ""
+    handle = ""
+    if author:
+        handle = (author.handle or "").strip()
+        author_name = (author.display_name or handle or "").strip()
+
+    # 토픽 칩: series: 접두어가 아닌 첫 태그, 없으면 '글'
+    label = "글"
+    for _t in (post.tags or []):
+        nm = (_t.name or "").strip()
+        if nm and not nm.lower().startswith("series:"):
+            label = nm
+            break
+
+    # 캐시 키: 표시에 쓰는 값 + 수정시각 → 내용이 바뀌면 파일명이 바뀜
+    import hashlib
+
+    sig_src = f"{post.title}|{author_name}|{handle}|{label}|{getattr(post, 'updated_at', None)}"
+    sig = hashlib.md5(sig_src.encode("utf-8")).hexdigest()[:10]
+    cache_path = _OG_CACHE_DIR / f"post-{post_id}-{sig}.png"
+
+    headers = {"Cache-Control": "public, max-age=86400"}
+    try:
+        if cache_path.exists():
+            data = cache_path.read_bytes()
+        else:
+            from app.services.og_image import render_post_og
+
+            data = render_post_og(post.title, author_name, handle=handle, tag=label)
+            _OG_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            # 오래된 버전 정리(같은 글의 이전 해시 파일 제거)
+            for old in _OG_CACHE_DIR.glob(f"post-{post_id}-*.png"):
+                if old != cache_path:
+                    try:
+                        old.unlink()
+                    except OSError:
+                        pass
+            cache_path.write_bytes(data)
+    except Exception:  # noqa: BLE001 — 이미지 실패해도 사이트는 멀쩡해야 함
+        logger.exception("OG 이미지 생성 실패 post_id=%s", post_id)
+        raise HTTPException(500, "OG render failed")
+
+    return Response(content=data, media_type="image/png", headers=headers)
 
 
 # ============================================================
