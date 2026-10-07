@@ -1201,7 +1201,7 @@ body.home-page .site-nav .nav-link.active {
 
 .feed-tab.active {
   color: var(--text-primary);
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(16, 185, 129, 0.16));
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.16), rgba(var(--accent-rgb), 0.12));
 }
 
 .feed-tab:hover {
