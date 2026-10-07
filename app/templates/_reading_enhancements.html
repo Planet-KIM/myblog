@@ -1,0 +1,110 @@
+{# 글 상세 읽기 보조: 목차(TOC) 자동 생성 + 코드블록 복사 버튼.
+   점진적 향상이라 JS가 실패해도 본문은 그대로 보인다. 표준 마크다운 뷰(.article-content) 전용. #}
+<style>
+  .article-content h2,
+  .article-content h3 { scroll-margin-top: 90px; }
+
+  .post-toc {
+    margin: 1.5rem 0 2rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--card-radius);
+    background: var(--surface);
+  }
+  .post-toc-title {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+  }
+  .post-toc ul { list-style: none; margin: 0; padding: 0; }
+  .post-toc li { margin: 0.22rem 0; }
+  .post-toc li.lvl-3 { padding-left: 1rem; }
+  .post-toc a {
+    color: var(--text-main);
+    text-decoration: none;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    border-bottom: 1px solid transparent;
+  }
+  .post-toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .code-wrap { position: relative; }
+  .code-copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+    background: rgba(15, 23, 42, 0.72);
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast), color var(--transition-fast);
+  }
+  .code-wrap:hover .code-copy-btn,
+  .code-copy-btn:focus-visible { opacity: 1; }
+  .code-copy-btn:hover { color: var(--text-primary); }
+  .code-copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+</style>
+<script>
+  (function () {
+    var article = document.querySelector('.article-content');
+    if (!article) return;
+
+    // ── 목차 (h2/h3) — 제목이 3개 이상일 때만 ──
+    var heads = article.querySelectorAll('h2, h3');
+    if (heads.length >= 3) {
+      var used = {};
+      var toc = document.createElement('nav');
+      toc.className = 'post-toc';
+      toc.setAttribute('aria-label', '목차');
+      var items = '';
+      heads.forEach(function (h, i) {
+        var text = (h.textContent || '').trim();
+        if (!text) return;
+        var slug = text.toLowerCase().replace(/[^\w가-힣]+/g, '-').replace(/^-+|-+$/g, '') || ('section-' + i);
+        if (used[slug]) slug = slug + '-' + i;
+        used[slug] = true;
+        if (!h.id) h.id = slug;
+        var lvl = h.tagName === 'H3' ? ' class="lvl-3"' : '';
+        var a = document.createElement('a');
+        a.textContent = text;          // 텍스트로 넣어 XSS 없이 안전
+        items += '<li' + lvl + '><a href="#' + h.id + '">' + a.innerHTML + '</a></li>';
+      });
+      if (items) {
+        toc.innerHTML = '<div class="post-toc-title">목차</div><ul>' + items + '</ul>';
+        article.parentNode.insertBefore(toc, article);
+      }
+    }
+
+    // ── 코드블록 복사 버튼 ──
+    if (navigator.clipboard) {
+      article.querySelectorAll('pre').forEach(function (pre) {
+        var wrap = document.createElement('div');
+        wrap.className = 'code-wrap';
+        pre.parentNode.insertBefore(wrap, pre);
+        wrap.appendChild(pre);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'code-copy-btn';
+        btn.textContent = 'Copy';
+        btn.setAttribute('aria-label', '코드 복사');
+        btn.addEventListener('click', function () {
+          navigator.clipboard.writeText(pre.innerText).then(function () {
+            btn.textContent = 'Copied';
+            btn.classList.add('copied');
+            setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+          }).catch(function () {});
+        });
+        wrap.appendChild(btn);
+      });
+    }
+  })();
+</script>

@@ -646,6 +646,9 @@
     {{ post.content_html_safe | safe }}
   </article>
 
+  {# 목차 + 코드 복사 버튼 (점진적 향상) #}
+  {% include "_reading_enhancements.html" %}
+
   <!-- Article footer -->
   <footer class="article-footer">
     {% if post.tags %}
