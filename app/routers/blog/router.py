@@ -1083,6 +1083,27 @@ def blog_home(
         .all()
     )
 
+    # 이 블로거의 매거진/시리즈 (series:<이름> 태그로 묶인 공개 글)
+    owner_series = [
+        {
+            "label": t.name.split(":", 1)[1].strip(),
+            "slug": t.name.split(":", 1)[1].strip().lower(),
+            "count": c,
+        }
+        for (t, c) in (
+            db.query(models.Tag, func.count(models.BoardPost.id))
+            .join(models.BoardPost.tags)
+            .filter(
+                models.BoardPost.user_id == owner.id,
+                models.BoardPost.is_private == False,  # noqa: E712
+                func.lower(models.Tag.name).like("series:%"),
+            )
+            .group_by(models.Tag.id)
+            .order_by(func.count(models.BoardPost.id).desc())
+            .all()
+        )
+    ]
+
     blog_name = owner.blog_title or owner.display_name or ("@" + owner.handle)
     og_image = owner.avatar_url or ""
     if og_image.startswith("/"):
@@ -1106,6 +1127,7 @@ def blog_home(
             "categories": categories,
             "active_category": active_category,
             "follower_count": follower_count,
+            "owner_series": owner_series,
             "current_user": current_user,
             "current_page": page,
             "total_pages": total_pages,
@@ -1510,8 +1532,19 @@ def series_page(
 
     # 시리즈는 읽는 순서(오래된 → 최신)
     posts = query.order_by(models.BoardPost.created_at.asc()).all()
+    cover_image = None
+    author = None
     for p in posts:
         p.view_count = p.stats.views if p.stats else 0
+        p.thumbnail = extract_first_image(p.content_html or p.content or "")
+        if cover_image is None and p.thumbnail:
+            cover_image = p.thumbnail
+        if author is None and p.user:
+            author = p.user
+
+    og_image = cover_image
+    if og_image and og_image.startswith("/"):
+        og_image = str(request.base_url).rstrip("/") + og_image
 
     return templates.TemplateResponse(
         request,
@@ -1523,8 +1556,11 @@ def series_page(
             "slug": slug,
             "posts": posts,
             "total": len(posts),
+            "cover_image": cover_image,
+            "author": author,
             "meta_description": f"시리즈 '{label}' — {len(posts)}편",
             "og_title": f"시리즈: {label}",
+            "og_image": og_image,
         },
     )
 

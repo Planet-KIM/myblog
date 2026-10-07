@@ -206,6 +206,25 @@
   </nav>
   {% endif %}
 
+  <!-- 매거진 / 시리즈 -->
+  {% if owner_series %}
+  <section style="margin-bottom:1.5rem;">
+    <h2 style="font-family:var(--font-display); font-size:1.1rem; font-weight:700; color:var(--text-primary); margin:0 0 0.8rem;">
+      <i class="bi bi-journal-album" style="color:var(--primary);"></i> 매거진 · 시리즈
+    </h2>
+    <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+      {% for s in owner_series %}
+      <a href="/series/{{ s.slug|urlencode }}"
+         style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.45rem 0.85rem; border:1px solid var(--border); border-radius:10px; text-decoration:none; color:var(--text-main); background:var(--surface);">
+        <i class="bi bi-collection" style="color:var(--primary);"></i>
+        <span style="font-weight:600;">{{ s.label }}</span>
+        <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted);">{{ s.count }}편</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   <!-- Posts -->
   {% if posts %}
   <div class="row g-3">

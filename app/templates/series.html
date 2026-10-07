@@ -1,32 +1,73 @@
 {% extends "base.html" %}
-{% block title %}시리즈: {{ label }} · Planet KIM{% endblock %}
+{% block title %}{{ label }} · 매거진 · Planet KIM{% endblock %}
+
+{% block extra_head %}
+<style>
+  .issue-cover {
+    position: relative;
+    border-radius: var(--card-radius);
+    overflow: hidden;
+    min-height: 240px;
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: 1.75rem;
+    box-shadow: var(--shadow-md);
+    background: var(--gradient-primary);
+  }
+  .issue-cover.has-img { min-height: 300px; }
+  .issue-cover .cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .issue-cover .cover-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.05) 30%, rgba(0,0,0,0.72) 100%); }
+  .issue-cover .cover-body { position: relative; padding: 1.75rem; color: #fff; }
+  .issue-eyebrow { font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.9; }
+  .issue-title { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.8rem, 5vw, 2.8rem); line-height: 1.15; margin: 0.3rem 0 0.2rem; color: #fff; }
+  .issue-meta { font-family: var(--font-mono); font-size: 0.8rem; opacity: 0.92; }
+
+  .toc-item { display: flex; gap: 1rem; align-items: center; padding: 0.95rem 0; border-top: 1px solid var(--border); text-decoration: none; }
+  .toc-item:first-child { border-top: none; }
+  .toc-num { font-family: var(--font-display); font-weight: 700; color: var(--primary); font-size: 1.2rem; min-width: 2ch; text-align: center; }
+  .toc-thumb { width: 84px; height: 60px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--surface-light); }
+  .toc-thumb-ph { display:flex; align-items:center; justify-content:center; color: var(--text-disabled); }
+  .toc-main { flex: 1; min-width: 0; }
+  .toc-title { display: block; font-weight: 600; color: var(--text-primary); line-height: 1.4; }
+  .toc-sub { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-content" style="max-width:720px; margin:0 auto;">
-  <header class="page-card" style="margin-bottom:1.5rem;">
-    <div class="text-muted" style="font-family:var(--font-mono); font-size:0.78rem; letter-spacing:0.05em;">SERIES · {{ total }}편</div>
-    <h1 class="section-title" style="margin:0.2rem 0 0;">{{ label }}</h1>
+<div class="page-content" style="max-width:760px; margin:0 auto;">
+  <header class="issue-cover{% if cover_image %} has-img{% endif %}">
+    {% if cover_image %}<img src="{{ cover_image }}" alt="" class="cover-img" onerror="this.style.display='none';"><div class="cover-shade"></div>{% else %}<div class="cover-shade" style="background:linear-gradient(180deg,transparent,rgba(0,0,0,0.25));"></div>{% endif %}
+    <div class="cover-body">
+      <div class="issue-eyebrow">MAGAZINE · {{ total }}편</div>
+      <h1 class="issue-title">{{ label }}</h1>
+      {% if author and author.handle %}
+      <div class="issue-meta">by @{{ author.handle }}</div>
+      {% endif %}
+    </div>
   </header>
 
   {% if posts %}
-  <ol class="page-card" style="list-style:none; padding:0.3rem 1.25rem; margin:0;">
+  <div class="page-card" style="padding:0.3rem 1.25rem;">
     {% for post in posts %}
-    <li style="border-top:1px solid var(--border);{% if loop.first %}border-top:none;{% endif %}">
-      <a href="/board/{{ post.id }}" style="display:flex; gap:1rem; align-items:baseline; padding:0.9rem 0; text-decoration:none;">
-        <span style="font-family:var(--font-display); font-weight:700; color:var(--primary); font-size:1.15rem; min-width:2ch; text-align:center;">{{ loop.index }}</span>
-        <span style="flex:1; min-width:0;">
-          <span style="display:block; font-weight:600; color:var(--text-primary); line-height:1.4;">{{ post.title or 'Untitled' }}</span>
-          <span style="font-family:var(--font-mono); font-size:0.74rem; color:var(--text-muted);">
-            {% if post.user and post.user.handle %}@{{ post.user.handle }} · {% endif %}{{ post.created_at.strftime('%Y-%m-%d') }} · <i class="bi bi-eye"></i> {{ post.view_count }}
-          </span>
+    <a href="/board/{{ post.id }}" class="toc-item">
+      <span class="toc-num">{{ loop.index }}</span>
+      {% if post.thumbnail %}
+      <img src="{{ post.thumbnail }}" alt="" class="toc-thumb" loading="lazy" onerror="this.style.display='none';">
+      {% else %}
+      <span class="toc-thumb toc-thumb-ph"><i class="bi bi-file-text"></i></span>
+      {% endif %}
+      <span class="toc-main">
+        <span class="toc-title">{{ post.title or 'Untitled' }}</span>
+        <span class="toc-sub">
+          {% if post.user and post.user.handle %}@{{ post.user.handle }} · {% endif %}{{ post.created_at.strftime('%Y-%m-%d') }} · <i class="bi bi-eye"></i> {{ post.view_count }}
         </span>
-        <i class="bi bi-chevron-right" style="color:var(--text-muted);"></i>
-      </a>
-    </li>
+      </span>
+      <i class="bi bi-chevron-right" style="color:var(--text-muted);"></i>
+    </a>
     {% endfor %}
-  </ol>
+  </div>
   {% else %}
-  <div class="page-card text-center text-muted">이 시리즈에 공개된 글이 없습니다.</div>
+  <div class="page-card text-center text-muted">이 매거진에 공개된 글이 없습니다.</div>
   {% endif %}
 </div>
 {% endblock %}
