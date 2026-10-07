@@ -42,7 +42,7 @@
               {% if post.show_title != False %}{{ post.title or 'Untitled' }}{% else %}Untitled{% endif %}
             </a>
           </h5>
-          <div class="card-preview mb-2">{{ post.preview }}</div>
+          <div class="card-preview mb-2">{% if post.preview_html %}{{ post.preview_html|safe }}{% else %}{{ post.preview }}{% endif %}</div>
           <div class="card-meta">
             <i class="bi bi-clock me-1"></i>{{ post.created_at.strftime("%Y-%m-%d") }}
             &nbsp;·&nbsp;<i class="bi bi-eye me-1"></i>{{ post.view_count }}

@@ -1425,12 +1425,20 @@ def search_page(
             .limit(size)
             .all()
         )
+        import html as _html
+        import re as _re
+        hl = None
+        if q:
+            hl = _re.compile(_re.escape(_html.escape(q)), _re.IGNORECASE)
         for post in posts:
             source = post.content_html or post.content or ""
             post.preview = markdown_to_plain(source)
             post.thumbnail = extract_first_image(source)
             post.reading_minutes = estimate_reading_minutes(source)
             post.view_count = post.stats.views if post.stats else 0
+            # 검색어 하이라이트: 이스케이프한 미리보기에 <mark> 래핑(XSS 안전)
+            esc = _html.escape(post.preview or "")
+            post.preview_html = hl.sub(lambda m: f"<mark>{m.group(0)}</mark>", esc) if hl else esc
 
     return templates.TemplateResponse(
         request,

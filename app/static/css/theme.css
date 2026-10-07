@@ -575,6 +575,9 @@
 }
 
 /* Buttons */
+/* 검색어 하이라이트 */
+mark { background: rgba(var(--primary-rgb), 0.22); color: inherit; padding: 0 2px; border-radius: 3px; }
+
 .btn { border-radius: var(--btn-radius); font-weight: 600; }
 .btn-primary {
   --bs-btn-bg: var(--primary);
