@@ -152,6 +152,26 @@
   .magazine-content .magazine-layout h3 { font-size: 1.2rem; font-weight: 600; margin: 0 0 0.5rem; }
   .magazine-content .magazine-layout img { display: block; }
 
+  /* ── 읽기 모드 (모바일 가독성) ───────────────────────── */
+  .mag-reader { display: none; }
+  #magazine-viewer-root.reader-on .page-viewer,
+  #magazine-viewer-root.reader-on .page-nav-bar,
+  #magazine-viewer-root.reader-on .page-dots { display: none !important; }
+  #magazine-viewer-root.reader-on .mag-reader { display: block; }
+  .mag-reader-inner { max-width: 720px; margin: 0 auto; padding: 0 1rem; }
+  .mag-reader .reader-block { margin: 0 0 1.1rem; line-height: 1.75; color: var(--text-main, #333); word-break: keep-all; }
+  .mag-reader .reader-block img { margin: 0.4rem 0; }
+  .mag-reader .reader-page-sep { height: 1px; background: var(--border, #e5e7eb); margin: 2.2rem 0; }
+  .mag-mode-toggle {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    margin: 0 auto 1rem; padding: 0.4rem 0.9rem;
+    border: 1px solid var(--border, #e5e7eb); border-radius: 999px;
+    background: var(--surface, #fff); color: var(--text-main, #444);
+    font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    position: relative; left: 50%; transform: translateX(-50%);
+  }
+  .mag-mode-toggle:hover { border-color: var(--primary); color: var(--primary); }
+
   /* 타이포그래피 */
   .magazine-content h1 {
     font-size: 2.5rem;
@@ -943,6 +963,28 @@
     return html;
   }
 
+  // 모바일 리더: 블록을 (위→아래, 좌→우) 순서로 전체폭 세로 스택 (축소로 글자가 작아지는 문제 해결)
+  function buildReaderHTML() {
+    let html = '';
+    pages.forEach((page, pi) => {
+      const cw = page.cw || 1200;
+      if (pi > 0) html += '<div class="reader-page-sep" aria-hidden="true"></div>';
+      const blocks = (page.blocks || []).slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
+      blocks.forEach(b => {
+        if (b.type === 'image' && b.src) {
+          html += `<figure class="reader-block"><img src="${b.src}" loading="lazy" style="width:100%;height:auto;display:block;border-radius:8px;"></figure>`;
+        } else if (b.type === 'spacer') {
+          html += '<div style="height:1rem;"></div>';
+        } else if (b.content) {
+          // 캔버스 폭 대비 블록 폭으로 상대 글자 크기 추정(가독성 범위로 clamp)
+          const rel = Math.max(0.85, Math.min(1.9, (b.w || cw) / cw * 2.2));
+          html += `<div class="reader-block" style="font-size:${rel.toFixed(2)}rem;">${b.content}</div>`;
+        }
+      });
+    });
+    return `<div class="mag-reader-inner">${html}</div>`;
+  }
+
   // ── Build DOM ──────────────────────────────────────────
   const viewer = document.createElement('div');
   viewer.className = 'page-viewer';
@@ -979,6 +1021,29 @@
     return d;
   });
   root.appendChild(dotsBar);
+
+  // ── 읽기 모드 (모바일 가독성) ───────────────────────────
+  const reader = document.createElement('div');
+  reader.className = 'mag-reader';
+  reader.innerHTML = buildReaderHTML();
+  root.appendChild(reader);
+
+  const modeToggle = document.createElement('button');
+  modeToggle.type = 'button';
+  modeToggle.className = 'mag-mode-toggle';
+  function syncToggleLabel() {
+    modeToggle.innerHTML = root.classList.contains('reader-on')
+      ? '<i class="bi bi-easel2"></i> 매거진 모드'
+      : '<i class="bi bi-text-paragraph"></i> 읽기 모드';
+  }
+  modeToggle.addEventListener('click', () => {
+    root.classList.toggle('reader-on');
+    syncToggleLabel();
+    if (!root.classList.contains('reader-on')) scaleSlides();
+  });
+  root.insertBefore(modeToggle, root.firstChild);
+  if (window.innerWidth < 640) root.classList.add('reader-on');  // 모바일 기본 읽기 모드
+  syncToggleLabel();
 
   // ── State & transition ────────────────────────────────
   let current = 0, animating = false;
