@@ -13,6 +13,22 @@
         </div>
         {% endif %}
         <div class="card-body">
+          {% if show_author and post.user and post.user.handle %}
+          {% set _an = post.user.display_name or post.user.blog_title %}
+          <a href="/@{{ post.user.handle }}" class="pc-author"
+             style="position:relative; z-index:2; display:inline-flex; align-items:center; gap:0.45rem; margin-bottom:0.6rem; text-decoration:none; max-width:100%;">
+            {% if post.user.avatar_url %}
+            <img src="{{ post.user.avatar_url }}" alt="" onerror="this.style.display='none';"
+                 style="width:30px; height:30px; border-radius:50%; object-fit:cover; border:2px solid {{ post.user.accent_color or 'var(--border)' }};">
+            {% else %}
+            <span style="width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:0.82rem; background:linear-gradient(135deg, {{ post.user.accent_color or 'var(--primary)' }}, rgba(0,0,0,0.22));">{{ (post.user.display_name or post.user.handle)[0]|upper }}</span>
+            {% endif %}
+            <span style="min-width:0; line-height:1.2;">
+              <span style="display:block; font-weight:600; font-size:0.84rem; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ _an or ('@' ~ post.user.handle) }}</span>
+              {% if _an %}<span style="font-family:var(--font-mono); font-size:0.68rem; color:var(--text-muted);">@{{ post.user.handle }}</span>{% endif %}
+            </span>
+          </a>
+          {% endif %}
           {% if post.category %}
           <span class="badge-cat mb-2 d-inline-flex align-items-center" style="align-self:flex-start;">
             <i class="bi bi-bookmark-fill me-1"></i>{{ post.category.name }}
@@ -28,10 +44,6 @@
           </h5>
           <div class="card-preview mb-2">{{ post.preview }}</div>
           <div class="card-meta">
-            {% if show_author and post.user and post.user.handle %}
-            <a href="/@{{ post.user.handle }}" style="position:relative; z-index:2;">{{ post.user.display_name or ('@' ~ post.user.handle) }}</a>
-            &nbsp;·&nbsp;
-            {% endif %}
             <i class="bi bi-clock me-1"></i>{{ post.created_at.strftime("%Y-%m-%d") }}
             &nbsp;·&nbsp;<i class="bi bi-eye me-1"></i>{{ post.view_count }}
             {% if post.reading_minutes %}&nbsp;·&nbsp;<i class="bi bi-clock-history me-1"></i>{{ post.reading_minutes }}분{% endif %}

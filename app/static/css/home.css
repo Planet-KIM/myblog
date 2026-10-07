@@ -512,6 +512,16 @@ body.home-page .site-nav .nav-link.active {
 .blogger-handle { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
 .blogger-count { font-size: 0.72rem; color: var(--text-muted); }
 
+/* 새 섹션 모바일 간격 */
+@media (max-width: 600px) {
+  .featured-section,
+  .bloggers-section { padding-left: 1rem; padding-right: 1rem; margin-top: 1.75rem; }
+  .featured-grid { gap: 0.9rem; }
+  .hero-cta-row { width: 100%; flex-direction: column; align-items: stretch; }
+  .hero-cta,
+  .hero-cta-ghost { width: 100%; text-align: center; }
+}
+
 /* ─── Scroll Indicator ────────────────────────────────────── */
 .hero-scroll-indicator {
   position: absolute;
