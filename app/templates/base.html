@@ -30,8 +30,10 @@
   {% set _canonical = canonical_url | default((request.base_url | string).rstrip('/') ~ request.url.path, true) %}
   <link rel="canonical" href="{{ _canonical }}">
   <meta property="og:url" content="{{ _canonical }}">
-  {% if og_image %}<meta property="og:image" content="{{ og_image }}">{% endif %}
-  <meta name="twitter:card" content="{% if og_image %}summary_large_image{% else %}summary{% endif %}">
+  {# 공유 썸네일: 글 이미지가 있으면 그것을, 없으면 브랜드 기본 OG 이미지 #}
+  {% set _og_image = og_image or url_for('static', path='og-default.png') %}
+  <meta property="og:image" content="{{ _og_image }}">
+  <meta name="twitter:card" content="summary_large_image">
   {% if og_type == 'article' %}
   {% if article_published %}<meta property="article:published_time" content="{{ article_published }}">{% endif %}
   {% if article_modified %}<meta property="article:modified_time" content="{{ article_modified }}">{% endif %}
@@ -44,6 +46,7 @@
   {% endfor %}{% endif %}{% endif %}
   <!-- Favicon & theme color -->
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='favicon.svg') }}">
+  <link rel="alternate" type="application/rss+xml" title="Planet KIM — 전체 글" href="/feed">
   <meta name="theme-color" content="#1a1511" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f8f4ee" media="(prefers-color-scheme: light)">
   <!-- Bootstrap -->

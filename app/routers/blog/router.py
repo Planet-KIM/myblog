@@ -1239,6 +1239,51 @@ def blog_rss(
 
 
 # ─────────────────────────────────────────────
+# 포털 전역 RSS 피드 (/feed) — 모든 공개 글
+# ─────────────────────────────────────────────
+@router.get("/feed")
+def portal_rss(request: Request, db: Session = Depends(get_db)):
+    from xml.sax.saxutils import escape
+
+    posts = (
+        db.query(models.BoardPost)
+        .options(joinedload(models.BoardPost.user))
+        .filter(models.BoardPost.is_private == False)  # noqa: E712
+        .order_by(models.BoardPost.created_at.desc())
+        .limit(40)
+        .all()
+    )
+    base = str(request.base_url).rstrip("/")
+    items = []
+    for p in posts:
+        link = f"{base}/board/{p.id}"
+        desc = markdown_to_plain(p.content_html or p.content or "", max_len=300)
+        pub = p.created_at.strftime("%a, %d %b %Y %H:%M:%S +0900") if p.created_at else ""
+        author = (p.user.display_name or ("@" + p.user.handle)) if (p.user and p.user.handle) else ""
+        items.append(
+            "<item>"
+            f"<title>{escape(p.title or 'Untitled')}</title>"
+            f"<link>{escape(link)}</link>"
+            f"<guid isPermaLink=\"true\">{escape(link)}</guid>"
+            f"<pubDate>{escape(pub)}</pubDate>"
+            + (f"<author>{escape(author)}</author>" if author else "")
+            + f"<description>{escape((author + ' · ' if author else '') + desc)}</description>"
+            "</item>"
+        )
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0"><channel>'
+        "<title>Planet KIM</title>"
+        f"<link>{escape(base + '/')}</link>"
+        "<description>모든 블로그의 공개 글</description>"
+        f"{''.join(items)}"
+        "</channel></rss>"
+    )
+    return Response(content=xml, media_type="application/rss+xml")
+
+
+# ─────────────────────────────────────────────
 # 블로그 디렉터리 (/explore) — 공개글이 있는 블로그 탐색
 # ─────────────────────────────────────────────
 @router.get("/explore", response_class=HTMLResponse)
