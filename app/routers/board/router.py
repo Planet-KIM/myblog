@@ -1164,7 +1164,12 @@ def board_comment_create(
 
     text = (body or "").strip()[:2000]
     if text:
-        db.add(models.Comment(post_id=post.id, user_id=current_user.id, body=text))
+        comment = models.Comment(post_id=post.id, user_id=current_user.id, body=text)
+        db.add(comment)
+        db.flush()
+        from app.services.notifications import notify
+        notify(db, recipient_id=post.user_id, actor_id=current_user.id,
+               type="comment", post_id=post.id, comment_id=comment.id)
         db.commit()
     return RedirectResponse(f"/board/{post_id}#comments", status_code=303)
 

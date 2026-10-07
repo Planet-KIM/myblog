@@ -405,3 +405,24 @@ class Report(Base):
 
     def __repr__(self) -> str:
         return f"<Report id={self.id} {self.target_type}:{self.target_id}>"
+
+
+# ─────────────────────────────
+# 알림 (팔로우 / 댓글)
+# ─────────────────────────────
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)   # 받는 사람
+    actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)          # 행동한 사람
+    type = Column(String(20), nullable=False)        # "follow" | "comment"
+    post_id = Column(Integer, ForeignKey("board_posts.id", ondelete="CASCADE"), nullable=True)
+    comment_id = Column(Integer, nullable=True)
+    is_read = Column(Boolean, default=False, nullable=False, index=True)
+    created_at = Column(DateTime, default=now_kst)
+
+    actor = relationship("User", foreign_keys=[actor_user_id])
+
+    def __repr__(self) -> str:
+        return f"<Notification id={self.id} to={self.user_id} {self.type}>"

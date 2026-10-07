@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}알림{% endblock %}
+{% block content %}
+<div class="page-content" style="max-width:720px; margin:0 auto;">
+  <h1 class="section-title" style="margin-bottom:1.25rem;">알림</h1>
+  {% if items %}
+  <div class="page-card" style="padding:0; overflow:hidden;">
+    {% for it in items %}
+    <a href="{{ it.link }}"
+       style="display:flex; gap:0.75rem; align-items:center; padding:0.9rem 1.1rem; border-top:1px solid var(--border); text-decoration:none;{% if not it.n.is_read %} background:rgba(var(--primary-rgb),0.06);{% endif %}">
+      {% if it.actor and it.actor.avatar_url %}
+      <img src="{{ it.actor.avatar_url }}" alt="" onerror="this.style.display='none';"
+           style="width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0;">
+      {% else %}
+      <span style="width:40px; height:40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; background:linear-gradient(135deg, var(--primary), rgba(0,0,0,.22));">{{ ((it.actor.display_name or it.actor.handle or '?')[0]|upper) if it.actor else '?' }}</span>
+      {% endif %}
+      <span style="min-width:0; flex:1;">
+        <span style="display:block; color:var(--text-main); font-size:0.92rem; line-height:1.5;">
+          <i class="bi {% if it.n.type == 'follow' %}bi-person-plus{% else %}bi-chat-dots{% endif %} me-1" style="color:var(--primary);"></i>{{ it.msg }}
+        </span>
+        <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted);">{{ it.n.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="page-card text-center text-muted" style="padding:3rem 1.5rem;">
+    <i class="bi bi-bell-slash" style="font-size:1.8rem; opacity:0.6;"></i>
+    <p style="margin:0.7rem 0 0;">아직 알림이 없어요.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

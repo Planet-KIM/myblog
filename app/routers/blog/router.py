@@ -1284,6 +1284,66 @@ def portal_rss(request: Request, db: Session = Depends(get_db)):
 
 
 # ─────────────────────────────────────────────
+# 알림 목록 (/notifications) — 보는 순간 읽음 처리
+# ─────────────────────────────────────────────
+@router.get("/notifications", response_class=HTMLResponse)
+def notifications_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    notes = (
+        db.query(models.Notification)
+        .options(joinedload(models.Notification.actor))
+        .filter(models.Notification.user_id == current_user.id)
+        .order_by(models.Notification.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    post_ids = {n.post_id for n in notes if n.post_id}
+    posts = {}
+    if post_ids:
+        rows = (
+            db.query(models.BoardPost)
+            .execution_options(include_hidden=True)
+            .filter(models.BoardPost.id.in_(post_ids))
+            .all()
+        )
+        posts = {p.id: p for p in rows}
+
+    items, unread_ids = [], []
+    for n in notes:
+        if not n.is_read:
+            unread_ids.append(n.id)
+        actor = n.actor
+        actor_name = (
+            (actor.display_name or ("@" + actor.handle)) if (actor and actor.handle)
+            else (actor.email.split("@")[0] if actor else "누군가")
+        )
+        if n.type == "follow":
+            msg = f"{actor_name}님이 회원님을 팔로우했어요"
+            link = f"/@{actor.handle}" if (actor and actor.handle) else "/"
+        else:
+            post = posts.get(n.post_id)
+            title = post.title if post else "글"
+            msg = f"{actor_name}님이 '{title}'에 댓글을 남겼어요"
+            link = f"/board/{n.post_id}#comments" if n.post_id else "/"
+        items.append({"n": n, "actor": actor, "msg": msg, "link": link})
+
+    if unread_ids:
+        db.query(models.Notification).filter(models.Notification.id.in_(unread_ids)).update(
+            {models.Notification.is_read: True}, synchronize_session=False
+        )
+        db.commit()
+
+    return templates.TemplateResponse(
+        request,
+        "notifications.html",
+        {"request": request, "current_user": current_user, "items": items},
+    )
+
+
+# ─────────────────────────────────────────────
 # 블로그 디렉터리 (/explore) — 공개글이 있는 블로그 탐색
 # ─────────────────────────────────────────────
 @router.get("/explore", response_class=HTMLResponse)

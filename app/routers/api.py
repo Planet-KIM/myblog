@@ -574,9 +574,26 @@ async def toggle_follow_author(
     else:
         db.add(models.AuthorFollow(user_id=current_user.id, author_user_id=author_user_id))
         active = True
+        from app.services.notifications import notify
+        notify(db, recipient_id=author.id, actor_id=current_user.id, type="follow")
     db.commit()
 
     return FollowToggleResponse(active=active, target_type="author", target_id=author_user_id)
+
+
+@router.get("/notifications/unread_count")
+async def notifications_unread_count(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_optional),
+):
+    if not current_user:
+        return {"count": 0}
+    count = (
+        db.query(models.Notification)
+        .filter(models.Notification.user_id == current_user.id, models.Notification.is_read == False)  # noqa: E712
+        .count()
+    )
+    return {"count": count}
 
 
 @router.post("/newsletter/subscribe", response_model=NewsletterSubscribeResponse)
