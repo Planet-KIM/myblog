@@ -132,6 +132,17 @@ async def forbidden_exception_handler(request: Request, exc):
     )
 
 
+@app.exception_handler(429)
+async def too_many_requests_handler(request: Request, exc):
+    """요청 과다(429): 페이지는 안내 화면, API는 JSON."""
+    detail = getattr(exc, "detail", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+    if _is_api_request(request):
+        return JSONResponse(status_code=429, content={"detail": detail})
+    return templates.TemplateResponse(
+        request, "429.html", {"request": request, "detail": detail}, status_code=429
+    )
+
+
 app.include_router(auth.router)
 app.include_router(blog.router)
 app.include_router(board.router)

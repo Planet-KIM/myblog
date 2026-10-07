@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}요청이 너무 많습니다{% endblock %}
+
+{% block content %}
+<div class="row min-vh-50 align-items-center justify-content-center text-center mt-5">
+    <div class="col-md-6 mt-5 pt-5">
+        <h1 class="display-1 text-danger fw-bold">429</h1>
+        <h2 class="mb-4">요청이 너무 많습니다</h2>
+        <p class="text-muted mb-4">{{ detail or "잠시 후 다시 시도해주세요." }}</p>
+        <a href="/" class="btn btn-dark px-4 py-2">홈으로</a>
+    </div>
+</div>
+{% endblock %}

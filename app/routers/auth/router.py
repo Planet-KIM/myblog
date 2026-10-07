@@ -16,6 +16,7 @@ from app.config import settings
 from app.database import get_db
 from app import models
 from app.services.profile import generate_unique_handle
+from app.services.ratelimit import enforce
 from app.auth_utils import (
     get_password_hash,
     verify_password,
@@ -88,6 +89,8 @@ def signup(
     next: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
+    enforce(request, "signup", settings.SIGNUP_RATE_LIMIT, settings.SIGNUP_RATE_WINDOW,
+            message="가입 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.")
     email = email.strip().lower()
 
     # 비밀번호 일치 확인
@@ -193,6 +196,8 @@ def login(
     next: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
+    enforce(request, "login", settings.LOGIN_RATE_LIMIT, settings.LOGIN_RATE_WINDOW,
+            message="로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.")
     email = email.strip().lower()
 
     user = db.query(models.User).filter(models.User.email == email).first()

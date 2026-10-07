@@ -19,6 +19,8 @@ from app import models
 from app.auth_utils import get_current_user, get_current_user_optional
 from app.routers.upload.router import relocate_draft_files, normalize_draft_id
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
+from app.services.ratelimit import enforce
+from app.config import settings
 from app.services.category_counts import (
     collect_descendant_category_ids,
     order_categories_parent_first,
@@ -1113,10 +1115,14 @@ def board_detail(
 @router.post("/{post_id}/comment")
 def board_comment_create(
     post_id: int,
+    request: Request,
     body: str = Form(...),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    enforce(request, "comment", settings.COMMENT_RATE_LIMIT, settings.COMMENT_RATE_WINDOW,
+            subject=str(current_user.id),
+            message="댓글을 너무 자주 작성하고 있습니다. 잠시 후 다시 시도해주세요.")
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
     if not post:
         raise HTTPException(404, "Post not found")

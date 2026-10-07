@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     # 예: ADMIN_EMAILS="me@example.com,admin@example.com"
     ADMIN_EMAILS: str = ""
 
+    # ── 남용 방지 레이트리밋 (IP/유저 기준 슬라이딩 윈도우) ──
+    SIGNUP_RATE_LIMIT: int = 5
+    SIGNUP_RATE_WINDOW: int = 3600
+    LOGIN_RATE_LIMIT: int = 10
+    LOGIN_RATE_WINDOW: int = 300
+    COMMENT_RATE_LIMIT: int = 10
+    COMMENT_RATE_WINDOW: int = 60
+
     # Redis / Celery
     # 로컬 개발: redis://localhost:6379/x
     # Docker:   redis://redis:6379/x
