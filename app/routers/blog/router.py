@@ -1222,12 +1222,22 @@ def explore(
     )
     blogs = [{"user": u, "post_count": n} for (u, n) in rows]
 
+    # 두 번째 탐색 축: 인기 태그
+    popular_tags = (
+        db.query(models.Tag)
+        .filter(models.Tag.count > 0)
+        .order_by(models.Tag.count.desc(), models.Tag.name.asc())
+        .limit(24)
+        .all()
+    )
+
     return templates.TemplateResponse(
         request,
         "explore.html",
         {
             "request": request,
             "blogs": blogs,
+            "popular_tags": popular_tags,
             "current_user": current_user,
             "current_page": page,
             "total_pages": total_pages,
