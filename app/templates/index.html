@@ -96,8 +96,9 @@
       {% else %}
       <span class="blogger-avatar is-fallback">{{ (b.user.display_name or b.user.handle or '?')[0]|upper }}</span>
       {% endif %}
-      <span class="blogger-name">{{ b.user.blog_title or b.user.display_name or ('@' ~ b.user.handle) }}</span>
-      <span class="blogger-handle">@{{ b.user.handle }}</span>
+      {% set bname = b.user.blog_title or b.user.display_name %}
+      <span class="blogger-name">{{ bname or ('@' ~ b.user.handle) }}</span>
+      {% if bname %}<span class="blogger-handle">@{{ b.user.handle }}</span>{% endif %}
       <span class="blogger-count">글 {{ b.post_count }}</span>
     </a>
     {% endfor %}
@@ -161,7 +162,6 @@
     {% for t in popular_tags %}
     <a href="/tags/{{ t.slug }}" class="topic-chip">#{{ t.name }} <span>{{ t.count }}</span></a>
     {% endfor %}
-    <a href="/explore" class="topic-chip topic-chip-more"><i class="bi bi-compass me-1"></i>블로그 둘러보기</a>
   </nav>
 </section>
 
@@ -222,8 +222,9 @@
                 <span class="card-avatar is-fallback">{{ (post.user.display_name or post.user.handle)[0]|upper }}</span>
                 {% endif %}
                 <span class="card-author-meta">
-                  <span class="card-author-name">{{ post.user.display_name or ('@' ~ post.user.handle) }}</span>
-                  <span class="card-author-handle">@{{ post.user.handle }}</span>
+                  {% set aname = post.user.display_name or post.user.blog_title %}
+                  <span class="card-author-name">{{ aname or ('@' ~ post.user.handle) }}</span>
+                  {% if aname %}<span class="card-author-handle">@{{ post.user.handle }}</span>{% endif %}
                 </span>
               </a>
               {% endif %}

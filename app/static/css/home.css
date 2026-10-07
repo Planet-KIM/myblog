@@ -1127,19 +1127,17 @@ body.home-page .site-nav .nav-link.active {
   top: 70px;
   z-index: 38;
   width: min(1320px, calc(100% - 2.4rem));
-  margin: -36px auto 0;
+  margin: 1.75rem auto 0;
   padding: 0.86rem 1.1rem 0.62rem;
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   border-radius: 18px;
   background:
     linear-gradient(
       160deg,
-      color-mix(in srgb, var(--surface) 92%, transparent) 0%,
-      color-mix(in srgb, var(--surface-dark) 86%, transparent) 100%
+      color-mix(in srgb, var(--surface) 94%, transparent) 0%,
+      color-mix(in srgb, var(--surface-light) 92%, transparent) 100%
     );
-  box-shadow:
-    0 12px 30px rgba(2, 6, 23, 0.3),
-    0 0 0 1px rgba(148, 163, 184, 0.08);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -1513,7 +1511,7 @@ body.home-page .site-nav .nav-link.active {
 
   .curation-bar {
     top: 58px;
-    margin-top: -22px;
+    margin-top: 1.25rem;
     width: calc(100% - 0.85rem);
     padding: 0.62rem 0.72rem 0.48rem;
     border-radius: 14px;
