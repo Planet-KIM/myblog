@@ -534,15 +534,20 @@
     (function () {
       var badge = document.getElementById('notif-badge');
       if (!badge) return;
-      fetch('/api/notifications/unread_count', { credentials: 'same-origin' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) {
-          if (d && d.count > 0) {
-            badge.textContent = d.count > 99 ? '99+' : d.count;
-            badge.hidden = false;
-          }
-        })
-        .catch(function () {});
+      function refresh() {
+        if (document.hidden) return;
+        fetch('/api/notifications/unread_count', { credentials: 'same-origin' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (!d) return;
+            if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.hidden = false; }
+            else { badge.hidden = true; }
+          })
+          .catch(function () {});
+      }
+      refresh();
+      setInterval(refresh, 45000);                               // 주기 폴링
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
     })();
   </script>
   {% endif %}
