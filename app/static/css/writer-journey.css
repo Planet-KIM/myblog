@@ -11,9 +11,10 @@
   --ink-black: #1a1a1a;
   --soft-gray: #6b7280;
   --light-gray: #f3f4f6;
-  --accent-blue: #3b82f6;
-  --accent-green: #10b981;
-  --accent-amber: #f59e0b;
+  /* 글 상세 액센트를 브랜드 톤(따뜻한)으로 통일 */
+  --accent-blue: #b4542f;   /* terracotta (brand primary) */
+  --accent-green: #1f7a68;  /* deep teal */
+  --accent-amber: #c4820e;
   --shadow-color: rgba(0, 0, 0, 0.05);
 
   /* Dark mode - Like writing at night */
