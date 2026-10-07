@@ -1259,10 +1259,26 @@ body.home-page .site-nav .nav-link.active {
   border-style: dashed;
 }
 
-.topic-chip.active {
+.topic-chip:hover {
   color: var(--text-primary);
-  border-color: rgba(56, 189, 248, 0.5);
-  background: rgba(56, 189, 248, 0.12);
+  border-color: var(--border-dark);
+}
+.topic-chip.active {
+  color: var(--primary);
+  border-color: rgba(var(--primary-rgb), 0.5);
+  background: rgba(var(--primary-rgb), 0.10);
+  font-weight: 600;
+}
+.topic-chip-more {
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  margin-left: auto;
+  font-weight: 600;
+}
+.topic-chip-more:hover {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 /* ─── Notices / Utility ─────────────────────────────────── */

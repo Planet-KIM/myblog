@@ -155,18 +155,14 @@
     </form>
   </div>
 
-  <div class="topic-chips" aria-label="토픽 필터">
-    <a href="/?feed={{ selected_feed }}&sort={{ selected_sort }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}"
-       class="topic-chip {% if not selected_category_id %}active{% endif %}">
-      전체
-    </a>
-    {% for topic in trending_topics if topic.count > 0 or selected_category_id == topic.id %}
-    <a href="/?feed={{ selected_feed }}&sort={{ selected_sort }}&category_id={{ topic.id }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}"
-       class="topic-chip {% if topic.depth > 0 %}is-child{% endif %} {% if selected_category_id == topic.id %}active{% endif %}">
-      {% if topic.depth > 0 %}<span class="topic-prefix">↳</span>{% endif %}{{ topic.name }} <span>{{ topic.count }}</span>
-    </a>
+  {# 전역 탐색축: 운영자 카테고리가 아니라 포털 전역 태그 + 블로그 둘러보기 #}
+  <nav class="topic-chips" aria-label="토픽">
+    <a href="/" class="topic-chip active">전체</a>
+    {% for t in popular_tags %}
+    <a href="/tags/{{ t.slug }}" class="topic-chip">#{{ t.name }} <span>{{ t.count }}</span></a>
     {% endfor %}
-  </div>
+    <a href="/explore" class="topic-chip topic-chip-more"><i class="bi bi-compass me-1"></i>블로그 둘러보기</a>
+  </nav>
 </section>
 
 {# ─── Main Content ────────────────────────────────────────── #}
@@ -392,19 +388,6 @@
         </p>
         {% endif %}
       </div>
-
-      {% if popular_tags %}
-      <div class="bento-widget" data-aos="fade-left" data-aos-delay="220">
-        <div class="bento-widget-title">
-          <i class="bi bi-hash"></i> 인기 태그
-        </div>
-        <div style="display:flex; flex-wrap:wrap; gap:0.4rem;">
-          {% for t in popular_tags %}
-          <a href="/tags/{{ t.slug }}" class="badge-tint badge-tint-violet" style="text-decoration:none;">#{{ t.name }} <span style="opacity:0.7;">{{ t.count }}</span></a>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
 
       <div class="bento-widget" data-aos="fade-left" data-aos-delay="240">
         <div class="bento-widget-title">
