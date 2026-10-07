@@ -7,22 +7,22 @@
    밝고 따뜻한 에디토리얼: 모래빛 종이 배경 + 테라코타/딥틸 브랜드 + 세리프 헤드라인.
    ───────────────────────────────────────────── */
 :root {
-  /* Brand — 소프트 스카이 블루 (흰 배경 대비 AA, 텍스트/버튼 겸용) */
-  --primary: #2a82c4;
-  --primary-light: #6cb2e6;
-  --primary-dark: #1d6098;
-  --primary-rgb: 42, 130, 196;
+  /* Brand — 테라코타 (적당히 밝은 따뜻함, 메인) */
+  --primary: #b4542f;
+  --primary-light: #d06a40;
+  --primary-dark: #8f3f20;
+  --primary-rgb: 180, 84, 47;
 
-  /* Accent — 소프트 세이지 그린 */
-  --accent: #3f8f5c;
-  --accent-light: #68b589;
-  --accent-dark: #2f7047;
-  --accent-rgb: 63, 143, 92;
+  /* Accent — 소프트 스카이 (시원한 포인트) */
+  --accent: #2a82c4;
+  --accent-light: #6cb2e6;
+  --accent-dark: #1d6098;
+  --accent-rgb: 42, 130, 196;
 
-  /* Secondary — 소프트 틸 */
-  --secondary: #4a9fb0;
-  --secondary-light: #76bccb;
-  --secondary-dark: #357a89;
+  /* Secondary — 세이지 그린 */
+  --secondary: #3f8f5c;
+  --secondary-light: #68b589;
+  --secondary-dark: #2f7047;
 
   /* Alert Colors */
   --success: #3f8f5c;
@@ -30,33 +30,33 @@
   --danger: #c0392b;
   --info: #2a82c4;
 
-  /* Surfaces — 맑고 시원한 종이 */
+  /* Surfaces — 따뜻하고 적당히 밝은 종이 */
   --surface: #ffffff;
-  --surface-light: #eef4f8;
-  --surface-dark: #e4edf3;
+  --surface-light: #f5efe7;
+  --surface-dark: #ece3d6;
 
   /* Background */
-  --bg-body: #f5f9fc;         /* soft cool paper */
-  --bg-overlay: rgba(245, 249, 252, 0.85);
+  --bg-body: #f8f4ee;         /* warm soft paper */
+  --bg-overlay: rgba(248, 244, 238, 0.85);
 
-  /* Text — 쿨 뉴트럴 near-black */
-  --text-primary: #1b2831;
-  --text-main: #44535e;
-  --text-muted: #7b8993;
-  --text-disabled: #aeb9c1;
+  /* Text — 따뜻한 뉴트럴 near-black */
+  --text-primary: #262019;
+  --text-main: #4c4239;
+  --text-muted: #8a7c6d;
+  --text-disabled: #b7a996;
 
-  /* Borders — 쿨 그레이 */
-  --border: #e2e9ef;
-  --border-light: #eef3f7;
-  --border-dark: #ccd8e0;
+  /* Borders — 따뜻한 샌드 */
+  --border: #e8dfd2;
+  --border-light: #f1ebe0;
+  --border-dark: #d8cbb9;
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, var(--primary), var(--accent));
-  --gradient-hero: linear-gradient(135deg, rgba(42, 130, 196, 0.10), rgba(63, 143, 92, 0.08));
-  --gradient-card: linear-gradient(180deg, transparent, rgba(27, 40, 49, 0.03));
+  --gradient-primary: linear-gradient(135deg, var(--primary), var(--primary-light));
+  --gradient-hero: linear-gradient(135deg, rgba(180, 84, 47, 0.08), rgba(42, 130, 196, 0.06));
+  --gradient-card: linear-gradient(180deg, transparent, rgba(60, 45, 30, 0.03));
   --gradient-text: linear-gradient(135deg, var(--primary), var(--accent));
 
-  /* Category Colors */
+  /* Category Colors (테라코타 + 쿨 포인트) */
   --cat-travel: #2a82c4;      /* Sky */
   --cat-food: #c4820e;        /* Amber */
   --cat-tech: #7a5bbf;        /* Violet */
@@ -84,12 +84,12 @@
   --font-display: var(--font-serif);
   --font-mono: 'Fira Code', 'JetBrains Mono', monospace;
 
-  /* Shadows — soft & cool-tinted */
-  --shadow-sm: 0 1px 2px rgba(30, 50, 70, 0.06);
-  --shadow-md: 0 4px 14px rgba(30, 50, 70, 0.08);
-  --shadow-lg: 0 14px 32px rgba(30, 50, 70, 0.10);
-  --shadow-xl: 0 26px 50px rgba(30, 50, 70, 0.12);
-  --shadow-glow: 0 0 0 3px rgba(42, 130, 196, 0.15);
+  /* Shadows — soft & warm-tinted */
+  --shadow-sm: 0 1px 2px rgba(60, 45, 30, 0.06);
+  --shadow-md: 0 4px 14px rgba(60, 45, 30, 0.08);
+  --shadow-lg: 0 14px 32px rgba(60, 45, 30, 0.10);
+  --shadow-xl: 0 26px 50px rgba(60, 45, 30, 0.12);
+  --shadow-glow: 0 0 0 3px rgba(180, 84, 47, 0.15);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -108,53 +108,54 @@
 }
 
 /* ─────────────────────────────────────────────
-   Cool Dark Theme (opt-in / OS dark)
+   Warm-blend Dark Theme (opt-in / OS dark)
+   테라코타 메인 + 쿨 포인트, 따뜻한 차콜
    ───────────────────────────────────────────── */
 [data-theme="dark"] {
-  --primary: #6cb2e6;
-  --primary-light: #93cbf2;
-  --primary-dark: #4a90c8;
-  --primary-rgb: 108, 178, 230;
+  --primary: #e07a52;
+  --primary-light: #ec9270;
+  --primary-dark: #c05e38;
+  --primary-rgb: 224, 122, 82;
 
-  --accent: #6fc091;
-  --accent-light: #93d4ac;
-  --accent-dark: #4f9e6f;
-  --accent-rgb: 111, 192, 145;
+  --accent: #6cb2e6;
+  --accent-light: #93cbf2;
+  --accent-dark: #4a90c8;
+  --accent-rgb: 108, 178, 230;
 
-  --secondary: #6bbccb;
-  --secondary-light: #8fd0dc;
-  --secondary-dark: #4a9fb0;
+  --secondary: #6fc091;
+  --secondary-light: #93d4ac;
+  --secondary-dark: #4f9e6f;
 
   --success: #6fc091;
   --warning: #e0a53a;
   --danger: #e06a5a;
   --info: #6cb2e6;
 
-  /* Surfaces — 쿨 차콜 */
-  --surface: #1a242d;
-  --surface-light: #243039;
-  --surface-dark: #0e151b;
+  /* Surfaces — 따뜻한 차콜 */
+  --surface: #231e1a;
+  --surface-light: #2f2823;
+  --surface-dark: #17130f;
 
-  --bg-body: #121a21;
-  --bg-overlay: rgba(18, 26, 33, 0.85);
+  --bg-body: #1a1511;
+  --bg-overlay: rgba(26, 21, 17, 0.85);
 
-  --text-primary: #eef4f8;
-  --text-main: #c2cdd6;
-  --text-muted: #8898a3;
-  --text-disabled: #65737d;
+  --text-primary: #f4ece1;
+  --text-main: #d6c9ba;
+  --text-muted: #a39586;
+  --text-disabled: #7a6e60;
 
-  --border: #2a3741;
-  --border-light: #3a4751;
-  --border-dark: #1a242d;
+  --border: #352d26;
+  --border-light: #473d34;
+  --border-dark: #241e19;
 
-  --gradient-hero: linear-gradient(135deg, rgba(108, 178, 230, 0.10), rgba(111, 192, 145, 0.08));
+  --gradient-hero: linear-gradient(135deg, rgba(224, 122, 82, 0.10), rgba(108, 178, 230, 0.08));
   --gradient-card: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.18));
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 14px 32px rgba(0, 0, 0, 0.5);
   --shadow-xl: 0 26px 50px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 0 3px rgba(108, 178, 230, 0.25);
+  --shadow-glow: 0 0 0 3px rgba(224, 122, 82, 0.25);
 }
 
 /* 기존 코드가 참조하는 [data-theme="light"] 는 기본(:root)과 동일하게 둔다. */

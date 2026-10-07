@@ -11,9 +11,9 @@
   --ink-black: #1a1a1a;
   --soft-gray: #6b7280;
   --light-gray: #f3f4f6;
-  /* 글 상세 액센트를 브랜드 톤(하늘/연두)으로 통일 */
-  --accent-blue: #2a82c4;   /* sky (brand primary) */
-  --accent-green: #3f8f5c;  /* sage green */
+  /* 글 상세 액센트를 브랜드 톤(테라코타 + 쿨 포인트)으로 통일 */
+  --accent-blue: #b4542f;   /* terracotta (brand primary) */
+  --accent-green: #2a82c4;  /* sky (cool point) */
   --accent-amber: #c4820e;
   --shadow-color: rgba(0, 0, 0, 0.05);
 
