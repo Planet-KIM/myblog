@@ -297,17 +297,36 @@
 
       <div class="bento-widget" data-aos="fade-left" data-aos-delay="200">
         <div class="bento-widget-title">
-          <i class="bi bi-megaphone-fill"></i> Recommended Blogs
+          <i class="bi bi-megaphone-fill"></i> 추천 블로그
         </div>
+        {% if recommended_blogs %}
         <ul class="recommendation-list">
-          {% for rec in curated_recommendations %}
+          {% for rec in recommended_blogs %}
           <li>
-            <a href="{{ rec.url }}" target="_blank" rel="noopener noreferrer">{{ rec.title }}</a>
-            <p>{{ rec.summary }}</p>
+            <a href="/@{{ rec.user.handle }}">{{ rec.user.blog_title or rec.user.display_name or ('@' ~ rec.user.handle) }}</a>
+            <p>@{{ rec.user.handle }} · 글 {{ rec.post_count }}개</p>
           </li>
           {% endfor %}
         </ul>
+        {% else %}
+        <p style="color:var(--text-muted); font-size:0.85rem; margin:0;">
+          아직 추천할 다른 블로그가 없어요. <a href="/explore" class="section-link">둘러보기 →</a>
+        </p>
+        {% endif %}
       </div>
+
+      {% if popular_tags %}
+      <div class="bento-widget" data-aos="fade-left" data-aos-delay="220">
+        <div class="bento-widget-title">
+          <i class="bi bi-hash"></i> 인기 태그
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:0.4rem;">
+          {% for t in popular_tags %}
+          <a href="/tags/{{ t.slug }}" class="badge-tint badge-tint-violet" style="text-decoration:none;">#{{ t.name }} <span style="opacity:0.7;">{{ t.count }}</span></a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
 
       <div class="bento-widget" data-aos="fade-left" data-aos-delay="240">
         <div class="bento-widget-title">

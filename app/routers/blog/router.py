@@ -27,7 +27,7 @@ from app.services.category_counts import (
     order_categories_parent_first,
     rollup_category_counts,
 )
-from app.services.recommendations import get_curated_home_recommendations
+from app.services.recommendations import get_recommended_blogs
 from app.cv_content import (
     cv_profile,
     education,
@@ -562,7 +562,15 @@ def read_index(
         }
         for cat in ordered_categories
     ]
-    curated_recommendations = get_curated_home_recommendations()
+    # 포털 내부 추천: 활발한 다른 블로그 + 전역 인기 태그
+    recommended_blogs = get_recommended_blogs(db, current_user, limit=5)
+    popular_tags = (
+        db.query(models.Tag)
+        .filter(models.Tag.count > 0)
+        .order_by(models.Tag.count.desc(), models.Tag.name.asc())
+        .limit(15)
+        .all()
+    )
 
     return templates.TemplateResponse(
         request,
@@ -588,7 +596,8 @@ def read_index(
             "following_empty": following_empty,
             "followed_category_ids": followed_category_ids,
             "followed_author_ids": followed_author_ids,
-            "curated_recommendations": curated_recommendations,
+            "recommended_blogs": recommended_blogs,
+            "popular_tags": popular_tags,
             "trending_topics": trending_topics,
         },
     )
