@@ -34,14 +34,15 @@
   {% if items %}
   <div class="row g-3">
     {% for it in items %}
-    <div class="col-12 col-md-6">
+    <div class="col-12 col-sm-6 col-lg-4">
       <div class="page-card" style="display:flex; flex-direction:column; gap:0.7rem; height:100%;">
-        <div style="display:flex; align-items:center; gap:0.6rem;">
-          <span style="width:40px; height:40px; border-radius:11px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(var(--primary-rgb),0.1); color:var(--primary); font-size:1.1rem;"><i class="bi bi-grid-1x2-fill"></i></span>
-          <span style="min-width:0;">
-            <span style="display:block; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.t.name }}</span>
-            <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted);">{{ it.pages }}페이지 · {{ it.t.created_at.strftime('%Y-%m-%d') }}</span>
-          </span>
+        <div style="aspect-ratio:3/4; max-height:300px; border-radius:10px; overflow:hidden; background:#f1ece4; border:1px solid var(--border);">
+          <img src="/me/templates/{{ it.t.id }}/thumb.png" alt="{{ it.t.name }} 레이아웃 미리보기" loading="lazy"
+               style="width:100%; height:100%; object-fit:cover; object-position:top center; display:block;">
+        </div>
+        <div style="min-width:0;">
+          <span style="display:block; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.t.name }}</span>
+          <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted);">{{ it.pages }}페이지 · {{ it.t.created_at.strftime('%Y-%m-%d') }}</span>
         </div>
         <div style="display:flex; gap:0.5rem; margin-top:auto;">
           <form method="post" action="/board/from-template/{{ it.t.id }}" style="flex:1; margin:0;">

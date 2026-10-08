@@ -1496,6 +1496,51 @@ def my_templates(
     )
 
 
+@router.get("/me/templates/{template_id}/thumb.png")
+def my_template_thumb(
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """저장된 레이아웃의 첫 페이지를 도식 썸네일(PNG)로 — 소유자만."""
+    tmpl = (
+        db.query(models.LayoutTemplate)
+        .filter_by(id=template_id, user_id=current_user.id)
+        .first()
+    )
+    if not tmpl:
+        raise HTTPException(404, "Not found")
+
+    import hashlib
+    from pathlib import Path
+
+    sig = hashlib.md5((tmpl.content_blocks or "").encode("utf-8")).hexdigest()[:10]
+    cache_dir = Path("app/static/og_cache")
+    cache = cache_dir / f"tmpl-{template_id}-{sig}.png"
+    headers = {"Cache-Control": "private, max-age=3600"}
+    try:
+        if cache.exists():
+            data = cache.read_bytes()
+        else:
+            from app.services.og_image import render_layout_thumbnail
+
+            data = render_layout_thumbnail(tmpl.content_blocks or "", width=600)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            for old in cache_dir.glob(f"tmpl-{template_id}-*.png"):
+                if old != cache:
+                    try:
+                        old.unlink()
+                    except OSError:
+                        pass
+            cache.write_bytes(data)
+    except Exception:  # noqa: BLE001 — 썸네일 실패가 사이트를 깨지 않도록
+        import logging
+
+        logging.getLogger(__name__).exception("레이아웃 썸네일 생성 실패 id=%s", template_id)
+        raise HTTPException(500, "thumb render failed")
+    return Response(content=data, media_type="image/png", headers=headers)
+
+
 @router.post("/me/templates/{template_id}/delete")
 def delete_my_template(
     template_id: int,

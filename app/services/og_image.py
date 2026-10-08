@@ -10,14 +10,19 @@ SNS 공유 시 밋밋한 기본 썸네일 대신 '매거진 표지' 같은 미�
 """
 from __future__ import annotations
 
+import html as _html
+import json as _json
 import logging
+import re as _re
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 logger = logging.getLogger(__name__)
+
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 # ── 캔버스 ────────────────────────────────────────────────
 W, H = 1200, 630
@@ -242,3 +247,169 @@ def render_post_og(
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
+
+
+# ============================================================
+# 레이아웃 썸네일 — content_blocks(v3) 첫 페이지를 도식 미리보기로 렌더
+#   브라우저 없이 Pillow로 블록 구조를 그린다:
+#   - 이미지(로컬): 실제 이미지를 넣음 / 원격·없음: 플레이스홀더
+#   - 제목(heading): 실제 텍스트를 Pretendard로 (썸네일에서 식별용)
+#   - 본문/코드: 글줄을 암시하는 가로선 / 구분선: 테라코타 줄
+# ============================================================
+_LINE = (214, 206, 197)      # 본문 글줄
+_IMG_BG = (234, 228, 221)    # 이미지 플레이스홀더 배경
+
+
+def _plain(s: str) -> str:
+    if not s:
+        return ""
+    s = _re.sub(r"<[^>]+>", " ", s)
+    s = _html.unescape(s)
+    return " ".join(s.split())
+
+
+def _hex_rgb(h: str, fallback=(0, 0, 0)):
+    try:
+        h = (h or "").lstrip("#")
+        if len(h) == 3:
+            h = "".join(c * 2 for c in h)
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    except Exception:  # noqa: BLE001
+        return fallback
+
+
+def _local_image_path(src: str) -> Optional[Path]:
+    """/static/... 로컬 경로만 허용(원격·경로탈출 차단)."""
+    if not src or not src.startswith("/static/"):
+        return None
+    rel = src[len("/static/"):].split("?", 1)[0].split("#", 1)[0]
+    try:
+        p = (_STATIC_DIR / rel).resolve()
+        if p.is_file() and str(p).startswith(str(_STATIC_DIR.resolve())):
+            return p
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+def _first_page(content_blocks) -> Optional[dict]:
+    try:
+        data = _json.loads(content_blocks) if isinstance(content_blocks, str) else content_blocks
+    except (ValueError, TypeError):
+        return None
+    if isinstance(data, dict) and data.get("v") == 3 and data.get("pages"):
+        return data["pages"][0]
+    if isinstance(data, dict) and isinstance(data.get("blocks"), list):
+        return {"blocks": data["blocks"], "cw": data.get("cw", 1200), "ch": data.get("ch", 800)}
+    if isinstance(data, list) and data:
+        return {"blocks": data, "cw": 1200, "ch": 800}
+    return None
+
+
+def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:
+    """매거진 레이아웃(content_blocks)의 첫 페이지를 도식 썸네일 PNG로."""
+    import io
+    page = _first_page(content_blocks)
+    cw = (page or {}).get("cw") or 1200
+    ch = (page or {}).get("ch") or 800
+    try:
+        cw = float(cw) or 1200
+        ch = float(ch) or 800
+    except (TypeError, ValueError):
+        cw, ch = 1200, 800
+    scale = width / cw
+    W = int(round(width))
+    H = max(1, int(round(ch * scale)))
+    img = Image.new("RGB", (W, H), PAPER)
+    draw = ImageDraw.Draw(img)
+
+    if not page or not page.get("blocks"):
+        # 빈 레이아웃 플레이스홀더
+        draw.text((W / 2 - 40, H / 2 - 12), "빈 페이지", font=_font(22), fill=MUTED)
+        buf = io.BytesIO(); img.save(buf, format="PNG", optimize=True); return buf.getvalue()
+
+    for b in page["blocks"]:
+        if not isinstance(b, dict):
+            continue
+        x = int(round((b.get("x") or 0) * scale)); y = int(round((b.get("y") or 0) * scale))
+        w = int(round((b.get("w") or 0) * scale)); h = int(round((b.get("h") or 0) * scale))
+        if w <= 1 or h <= 1:
+            continue
+        x2, y2 = x + w, y + h
+        t = b.get("type")
+        if t == "image" and b.get("src"):
+            lp = _local_image_path(b["src"])
+            if lp:
+                try:
+                    im = Image.open(lp).convert("RGB")
+                    im = ImageOps.fit(im, (max(1, w), max(1, h)), Image.LANCZOS)
+                    img.paste(im, (x, y))
+                except Exception:  # noqa: BLE001
+                    _draw_img_ph(draw, x, y, x2, y2)
+            else:
+                _draw_img_ph(draw, x, y, x2, y2)
+        elif t == "spacer":
+            pass
+        elif t == "heading":
+            _draw_heading(draw, x, y, w, h, _plain(b.get("content", "")))
+        else:
+            txt = _plain(b.get("content", ""))
+            if not txt and h <= max(10, int(round(28 * scale))):  # 구분선 추정
+                draw.rectangle([x, y + h // 2, x2, y + h // 2 + max(2, int(2 * scale))], fill=TERRA)
+            else:
+                _draw_text_lines(draw, x, y, w, h, dark=(t == "code"))
+
+        if b.get("showBorder"):
+            bw = max(1, int(round((b.get("borderWidth") or 1) * scale)))
+            draw.rectangle([x, y, x2 - 1, y2 - 1], outline=_hex_rgb(b.get("borderColor"), INK), width=bw)
+
+    buf = io.BytesIO(); img.save(buf, format="PNG", optimize=True); return buf.getvalue()
+
+
+def _draw_img_ph(draw, x, y, x2, y2):
+    draw.rectangle([x, y, x2 - 1, y2 - 1], fill=_IMG_BG)
+    # 간단한 '산+해' 아이콘으로 이미지임을 표시
+    w, h = x2 - x, y2 - y
+    if w < 24 or h < 24:
+        return
+    cx, base = x + w / 2, y2 - h * 0.28
+    draw.ellipse([x + w * 0.62, y + h * 0.22, x + w * 0.62 + h * 0.14, y + h * 0.22 + h * 0.14], fill=(205, 196, 186))
+    draw.polygon([(x + w * 0.2, base), (x + w * 0.42, base - h * 0.3), (x + w * 0.6, base)], fill=(205, 196, 186))
+    draw.polygon([(x + w * 0.45, base), (x + w * 0.63, base - h * 0.22), (x + w * 0.82, base)], fill=(196, 186, 175))
+
+
+def _draw_heading(draw, x, y, w, h, text):
+    size = max(11, min(int(h * 0.52), 40))
+    font = _font(size)
+    text = _clean(text) or ""
+    if not text:
+        draw.rectangle([x, y + h // 2 - size // 3, x + int(w * 0.7), y + h // 2 + size // 3], fill=(60, 52, 46))
+        return
+    lines = _wrap(draw, text, font, w, 2)
+    ly = y + max(0, (h - len(lines) * int(size * 1.2)) // 2)
+    for ln in lines:
+        draw.text((x, ly), ln, font=font, fill=INK)
+        ly += int(size * 1.2)
+
+
+def _draw_text_lines(draw, x, y, w, h, dark=False):
+    if dark:  # 코드 블록
+        draw.rectangle([x, y, x + w - 1, y + h - 1], fill=(44, 40, 38))
+        col, pad = (120, 150, 130), int(max(6, w * 0.04))
+        gap = 14
+        n = max(1, (h - pad * 2) // gap)
+        for i in range(int(min(n, 8))):
+            lw = w * (0.5 if i % 3 == 2 else 0.78) - pad * 2
+            yy = y + pad + i * gap
+            if lw > 4:
+                draw.rectangle([x + pad, yy, x + pad + int(lw), yy + 4], fill=col)
+        return
+    pad = int(max(4, w * 0.03))
+    gap = 15
+    n = max(1, (h - pad) // gap)
+    for i in range(int(min(n, 12))):
+        last = (i == int(min(n, 12)) - 1)
+        lw = w * (0.55 if last else 0.92) - pad * 2
+        yy = y + pad + i * gap
+        if lw > 4 and yy + 5 < y + h:
+            draw.rectangle([x + pad, yy, x + pad + int(lw), yy + 5], fill=_LINE)
