@@ -1248,6 +1248,8 @@ function buildToolbar() {
   const tb = document.getElementById('tiptap-toolbar');
   if (!tb) return;
   [
+    { id: 'fb-undo-btn', icon: '<i class="bi bi-arrow-counterclockwise"></i>', tip: '실행취소 (Ctrl+Z)', fn: () => undoAction() },
+    { id: 'fb-redo-btn', icon: '<i class="bi bi-arrow-clockwise"></i>', tip: '다시실행 (Ctrl+Shift+Z)', fn: () => redoAction() },
     { icon: '<i class="bi bi-fonts"></i>', tip: 'Text block', fn: () => addBlock('text') },
     { icon: '<i class="bi bi-type-h1"></i>', tip: 'Heading block', fn: () => addBlock('heading') },
     { icon: '<i class="bi bi-image"></i>', tip: 'Image block', fn: () => addBlock('image') },
@@ -1257,14 +1259,123 @@ function buildToolbar() {
     { icon: '<i class="bi bi-card-text"></i>', tip: '캡션 (Caption)', fn: () => addBlock('text', { content: '<p style="font-size:0.82em;color:#8a7c6d;">사진 캡션을 입력하세요</p>', h: 44 }) },
     { icon: '<i class="bi bi-arrows-expand"></i>', tip: 'Spacer', fn: () => addBlock('spacer', { h: 60 }) },
     { icon: '<span style="font-size:0.72rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>', tip: '맞춤법 검사 (Ctrl+Shift+S)', fn: () => triggerSpellCheck(), wide: true },
-  ].forEach(({ icon, tip, fn, wide }) => {
+  ].forEach(({ icon, tip, fn, wide, id }) => {
     const btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'tiptap-toolbar-btn';
+    if (id) btn.id = id;
     if (wide) btn.style.cssText = 'width:auto;padding:0 8px;';
     btn.innerHTML = icon; btn.title = tip;
     btn.addEventListener('click', fn);
     tb.appendChild(btn);
   });
+}
+
+// ── Undo / Redo (레이아웃 히스토리) + 자동저장 ───────────────
+const _history = { past: [], future: [], last: null, max: 60 };
+let _historyReady = false;
+let _commitTimer = null, _asTimer = null, _suppressUntil = 0;
+
+function snapshotState() {
+  syncCurrentPage();
+  return JSON.stringify({
+    v: 3, page: currentPageIdx,
+    pages: pages.map(p => ({
+      id: p.id, cw: p.cw, ch: p.ch,
+      blocks: p.blocks.map(b => ({
+        id: b.id, type: b.type,
+        x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h),
+        content: (b.editor ? b.editor.getHTML() : b.content) || '', src: b.src || '',
+        imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
+        showBorder: b.showBorder ?? false, borderColor: b.borderColor ?? '#000000',
+        borderWidth: b.borderWidth ?? 1, borderRadius: b.borderRadius ?? 0,
+      })),
+    })),
+  });
+}
+function _applySnapshot(json) {
+  let data; try { data = JSON.parse(json); } catch { return; }
+  clearCanvas();
+  pages.splice(0, pages.length);
+  (data.pages || []).forEach(sp => {
+    pages.push({ id: sp.id || uid(), cw: sp.cw, ch: sp.ch, blocks: (sp.blocks || []).map(b => ({ ...b, editor: null })) });
+  });
+  if (!pages.length) pages.push({ id: uid(), blocks: [], cw: null, ch: null });
+  currentPageIdx = Math.min(data.page || 0, pages.length - 1);
+  blocks = pages[currentPageIdx].blocks;
+  blocks.forEach(b => renderBlock(b));
+  updateCanvasHeight();
+  updatePageTabs();
+}
+function commitHistory() {
+  if (!_historyReady || Date.now() < _suppressUntil) return;
+  const snap = snapshotState();
+  if (snap === _history.last) return;
+  if (_history.last !== null) { _history.past.push(_history.last); if (_history.past.length > _history.max) _history.past.shift(); }
+  _history.last = snap;
+  _history.future = [];
+  scheduleAutosave();
+  updateUndoButtons();
+}
+function scheduleCommit() { if (!_historyReady) return; clearTimeout(_commitTimer); _commitTimer = setTimeout(commitHistory, 250); }
+function undoAction() {
+  if (!_history.past.length) return;
+  _suppressUntil = Date.now() + 500;
+  _history.future.push(_history.last);
+  _history.last = _history.past.pop();
+  _applySnapshot(_history.last);
+  scheduleAutosave();
+  updateUndoButtons();
+}
+function redoAction() {
+  if (!_history.future.length) return;
+  _suppressUntil = Date.now() + 500;
+  _history.past.push(_history.last);
+  _history.last = _history.future.pop();
+  _applySnapshot(_history.last);
+  scheduleAutosave();
+  updateUndoButtons();
+}
+function updateUndoButtons() {
+  const u = document.getElementById('fb-undo-btn'), r = document.getElementById('fb-redo-btn');
+  if (u) { u.disabled = !_history.past.length; u.style.opacity = _history.past.length ? '1' : '0.4'; }
+  if (r) { r.disabled = !_history.future.length; r.style.opacity = _history.future.length ? '1' : '0.4'; }
+}
+function _draftKey() {
+  const pid = document.getElementById('block-canvas')?.dataset?.postId;
+  const did = (typeof window !== 'undefined' && window.DRAFT_ID) ? window.DRAFT_ID : null;
+  return 'magazine:autosave:' + (pid ? ('post-' + pid) : (did ? ('draft-' + did) : 'new'));
+}
+function scheduleAutosave() {
+  clearTimeout(_asTimer);
+  _asTimer = setTimeout(() => { try { localStorage.setItem(_draftKey(), JSON.stringify({ t: Date.now(), s: _history.last })); } catch {} }, 1000);
+}
+function clearAutosave() { try { localStorage.removeItem(_draftKey()); } catch {} }
+function maybeOfferRestore(currentSnap) {
+  let saved; try { saved = JSON.parse(localStorage.getItem(_draftKey()) || 'null'); } catch { saved = null; }
+  if (!saved || !saved.s || saved.s === currentSnap) return;
+  const canvas = document.getElementById('block-canvas');
+  const bar = document.createElement('div');
+  bar.className = 'fb-restore-bar';
+  bar.style.cssText = 'display:flex;align-items:center;gap:12px;margin:0 0 12px;padding:10px 14px;background:#fff7ed;border:1px solid #f0c9a8;border-radius:10px;font-size:0.86rem;color:#7c4a2d;';
+  const ago = new Date(saved.t || Date.now()).toLocaleString();
+  bar.innerHTML = `<i class="bi bi-clock-history"></i><span style="flex:1">저장하지 않은 편집 내용이 있습니다 <span style="opacity:.7">(${ago})</span>. 이어서 편집할까요?</span>`;
+  const yes = document.createElement('button'); yes.type = 'button'; yes.textContent = '복원'; yes.style.cssText = 'border:none;background:#b4542f;color:#fff;padding:6px 14px;border-radius:7px;cursor:pointer;font-weight:600;';
+  const no = document.createElement('button'); no.type = 'button'; no.textContent = '버리기'; no.style.cssText = 'border:1px solid #d8c4b4;background:#fff;color:#7c4a2d;padding:6px 12px;border-radius:7px;cursor:pointer;';
+  yes.onclick = () => { _applySnapshot(saved.s); _history.last = saved.s; _history.past = []; _history.future = []; updateUndoButtons(); bar.remove(); };
+  no.onclick = () => { clearAutosave(); bar.remove(); };
+  bar.appendChild(yes); bar.appendChild(no);
+  canvas.parentElement.insertBefore(bar, canvas);
+}
+function initHistory() {
+  _history.past = []; _history.future = [];
+  _history.last = snapshotState();
+  _historyReady = true;
+  updateUndoButtons();
+  maybeOfferRestore(_history.last);
+}
+function _inTextEditor() {
+  const a = document.activeElement;
+  return !!(a && (a.classList?.contains('ProseMirror') || a.closest?.('.ProseMirror')));
 }
 
 // ── Main ──────────────────────────────────────────────────
@@ -1276,7 +1387,14 @@ function main() {
   addBlock('heading', { content: '<h1></h1>', h: 80 });
   addBlock('text', { h: 200 });
 
+  initHistory();
+  document.addEventListener('mouseup', scheduleCommit);
+
   document.addEventListener('keydown', e => {
+    const mod = e.ctrlKey || e.metaKey;
+    // 실행취소/다시실행 — 텍스트 편집 중엔 TipTap 자체 히스토리에 양보
+    if (mod && !e.shiftKey && e.key.toLowerCase() === 'z' && !_inTextEditor()) { e.preventDefault(); undoAction(); return; }
+    if (mod && ((e.shiftKey && e.key.toLowerCase() === 'z') || e.key.toLowerCase() === 'y') && !_inTextEditor()) { e.preventDefault(); redoAction(); return; }
     if (e.key === 'Delete' && selectedId) {
       const b = blocks.find(b => b.id === selectedId);
       if (b && !b.editor?.isFocused) removeBlock(selectedId);
@@ -1305,6 +1423,7 @@ function main() {
     document.getElementById('content').value = html;
     document.getElementById('content_html').value = html;
     document.getElementById('content_blocks').value = blocksJson;
+    clearAutosave();
     form.submit();
   });
 }
