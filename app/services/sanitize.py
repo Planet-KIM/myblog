@@ -51,6 +51,7 @@ ALLOWED_CSS_PROPERTIES = [
     "color", "background-color",
     "text-align", "text-decoration", "text-transform",
     "font-weight", "font-style", "font-size", "line-height", "letter-spacing",
+    "font-family",
     "width", "height", "max-width", "min-width", "max-height", "min-height",
     "position", "top", "left", "right", "bottom",
     "overflow", "box-sizing", "display", "vertical-align",

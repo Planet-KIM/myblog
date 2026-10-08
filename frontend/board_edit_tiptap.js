@@ -1,5 +1,5 @@
 // frontend/board_edit_tiptap.js — Multi-page free-position editor (edit mode)
-import { Editor } from '@tiptap/core';
+import { Editor, Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
@@ -33,6 +33,51 @@ const _scSplitActive = new Set(); // block ids with spell-preview panel open
 
 function uid() { return 'b' + (++idCounter); }
 
+// ── 매거진 타이포그래피: textStyle 마크에 크기/서체/자간/대소문자 속성 추가 ──
+// (TipTap 기본은 font-size 등을 버리므로, 저장·출력·에디터에서 모두 유지되도록 확장)
+const MagTypography = Extension.create({
+  name: 'magTypography',
+  addOptions() { return { types: ['textStyle'] }; },
+  addGlobalAttributes() {
+    const attr = (prop) => ({
+      default: null,
+      parseHTML: (el) => el.style && el.style[prop] ? el.style[prop] : null,
+      renderHTML: (a) => {
+        const v = a[prop];
+        if (!v) return {};
+        const css = prop.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
+        return { style: `${css}: ${v}` };
+      },
+    });
+    return [{
+      types: this.options.types,
+      attributes: {
+        fontSize: attr('fontSize'),
+        fontFamily: attr('fontFamily'),
+        letterSpacing: attr('letterSpacing'),
+        textTransform: attr('textTransform'),
+      },
+    }];
+  },
+  addCommands() {
+    return {
+      setFontSize: (size) => ({ chain }) => chain().setMark('textStyle', { fontSize: size }).run(),
+      setFontFamily: (f) => ({ chain }) => chain().setMark('textStyle', { fontFamily: f }).run(),
+    };
+  },
+});
+
+// 서체 스택(세리프/산세리프)
+const FONT_SERIF = "'Fraunces','Noto Serif KR',serif";
+const FONT_SANS = "'Pretendard','Inter',system-ui,sans-serif";
+
+function _defaultFs(type) { return type === 'heading' ? 34 : 18; }
+function bumpFont(block, delta) {
+  if (!block.editor) return;
+  block._fs = Math.max(10, Math.min(120, (block._fs || _defaultFs(block.type)) + delta));
+  block.editor.chain().focus().selectAll().setFontSize(block._fs + 'px').run();
+}
+
 function createEditor(el, content) {
   return new Editor({
     element: el,
@@ -41,6 +86,7 @@ function createEditor(el, content) {
       Placeholder.configure({ placeholder: 'Type here...' }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Underline, TextStyle, Color,
+      MagTypography,
       Highlight.configure({ multicolor: true }),
       Image.configure({ inline: false }),
     ],
@@ -264,6 +310,17 @@ function renderBlock(block) {
   hdr.appendChild(colorSwatch);
   hdr.appendChild(widthSel);
   hdr.appendChild(radiusSel);
+
+  if (block.type === 'text' || block.type === 'heading') {
+    const serifBtn = mkBtn('<span style="font-family:Georgia,serif;font-weight:700;">Aa</span>', '세리프 / 산세리프', () => {
+      block._serif = !block._serif;
+      serifBtn.classList.toggle('fb-btn-active', block._serif);
+      block.editor?.chain().focus().selectAll().setFontFamily(block._serif ? FONT_SERIF : FONT_SANS).run();
+    });
+    hdr.appendChild(serifBtn);
+    hdr.appendChild(mkBtn('<b style="font-size:0.72rem;">A−</b>', '글자 작게', () => bumpFont(block, -2)));
+    hdr.appendChild(mkBtn('<b style="font-size:0.95rem;">A+</b>', '글자 크게', () => bumpFont(block, 2)));
+  }
 
   if (block.type === 'text') {
     const scBtn = mkBtn(
@@ -1169,9 +1226,11 @@ function buildToolbar() {
     { icon: '<i class="bi bi-type-h1"></i>', tip: 'Heading block', fn: () => addBlock('heading') },
     { icon: '<i class="bi bi-image"></i>', tip: 'Image block', fn: () => addBlock('image') },
     { icon: '<i class="bi bi-code-slash"></i>', tip: 'Code block', fn: () => addBlock('code') },
-    { icon: '<i class="bi bi-quote"></i>', tip: '인용 (Pull quote)', fn: () => addBlock('text', { content: '<blockquote style="border-left:4px solid #b4542f;padding-left:0.8em;margin:0;font-size:1.4em;font-style:italic;color:#4c4239;">인용문을 입력하세요</blockquote>', h: 150 }) },
-    { icon: '<i class="bi bi-dash-lg"></i>', tip: '구분선 (Divider)', fn: () => addBlock('text', { content: '<div style="height:3px;background-color:#b4542f;width:100%;border-radius:2px;"></div>', h: 24 }) },
-    { icon: '<i class="bi bi-card-text"></i>', tip: '캡션 (Caption)', fn: () => addBlock('text', { content: '<p style="font-size:0.82em;color:#8a7c6d;">사진 캡션을 입력하세요</p>', h: 44 }) },
+    { icon: '<span style="font-size:0.66rem;font-weight:700;letter-spacing:1px;">Aa</span>', tip: '키커 (Kicker)', fn: () => addBlock('text', { content: '<p><span style="font-size:15px;letter-spacing:3px;text-transform:uppercase;color:#b4542f">FEATURE</span></p>', h: 40 }) },
+    { icon: '<i class="bi bi-type-h2"></i>', tip: '리드 (Lead)', fn: () => addBlock('text', { content: '<p><span style="font-size:24px;color:#4c4239">리드 문장 — 기사의 핵심을 한두 문장으로.</span></p>', h: 100 }) },
+    { icon: '<i class="bi bi-quote"></i>', tip: '인용구 (Pull quote)', fn: () => addBlock('text', { content: '<p><em><span style="font-size:30px;color:#b4542f">“인상적인 한 문장을 인용구로.”</span></em></p>', h: 130 }) },
+    { icon: '<i class="bi bi-dash-lg"></i>', tip: '구분선 (Divider)', fn: () => addBlock('text', { content: '<hr>', h: 30 }) },
+    { icon: '<i class="bi bi-card-text"></i>', tip: '캡션 (Caption)', fn: () => addBlock('text', { content: '<p><span style="font-size:14px;color:#8a7c6d">사진 캡션을 입력하세요</span></p>', h: 40 }) },
     { icon: '<i class="bi bi-arrows-expand"></i>', tip: 'Spacer', fn: () => addBlock('spacer', { h: 60 }) },
     { icon: '<span style="font-size:0.72rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>', tip: '맞춤법 검사 (Ctrl+Shift+S)', fn: () => triggerSpellCheck(), wide: true },
   ].forEach(({ icon, tip, fn, wide, id }) => {
