@@ -337,8 +337,8 @@ def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:
             continue
         x2, y2 = x + w, y + h
         t = b.get("type")
-        if t == "image" and b.get("src"):
-            lp = _local_image_path(b["src"])
+        if t == "image":
+            lp = _local_image_path(b["src"]) if b.get("src") else None
             if lp:
                 try:
                     im = Image.open(lp).convert("RGB")

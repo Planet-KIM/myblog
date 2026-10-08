@@ -1253,6 +1253,41 @@ def board_post_cover(post_id: int, db: Session = Depends(get_db)):
     return Response(content=data, media_type="image/png", headers=headers)
 
 
+@router.get("/starter/{key}/thumb.png")
+def board_starter_thumb(key: str):
+    """시작 템플릿(정적 프리셋) 레이아웃 미리보기 — 공개, 1주일 캐시."""
+    from app.services.starter_templates import get_starter_blocks
+
+    blocks = get_starter_blocks(key)
+    if not blocks:
+        raise HTTPException(404, "Not found")
+
+    import hashlib
+
+    sig = hashlib.md5(blocks.encode("utf-8")).hexdigest()[:10]
+    cache_path = _OG_CACHE_DIR / f"starter-{key}-{sig}.png"
+    headers = {"Cache-Control": "public, max-age=604800"}
+    try:
+        if cache_path.exists():
+            data = cache_path.read_bytes()
+        else:
+            from app.services.og_image import render_layout_thumbnail
+
+            data = render_layout_thumbnail(blocks, width=600)
+            _OG_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            for old in _OG_CACHE_DIR.glob(f"starter-{key}-*.png"):
+                if old != cache_path:
+                    try:
+                        old.unlink()
+                    except OSError:
+                        pass
+            cache_path.write_bytes(data)
+    except Exception:  # noqa: BLE001
+        logger.exception("스타터 썸네일 생성 실패 key=%s", key)
+        raise HTTPException(500, "thumb render failed")
+    return Response(content=data, media_type="image/png", headers=headers)
+
+
 # ============================================================
 # ★ 댓글 작성 / 삭제 (평문, 서버 렌더 폼)
 # ============================================================
