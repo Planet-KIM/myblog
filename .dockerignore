@@ -1,0 +1,21 @@
+# 빌드 컨텍스트 축소 — 런타임엔 .:/app 바인드마운트가 코드를 덮으므로
+# 이미지엔 파이썬 의존성 설치에 필요한 것만 있으면 된다.
+.git
+.gitignore
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+node_modules/
+frontend/node_modules/
+# 개발용 SQLite DB 는 이미지에 굽지 않는다(런타임 마운트/볼륨에서 옴)
+app.db
+app.db-*
+*.sqlite3
+# 에디터 번들은 호스트( .:/app )에서 서빙되므로 이미지에 넣지 않아도 됨
+.DS_Store
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

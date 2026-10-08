@@ -1,4 +1,28 @@
 services:
+  # 에디터(TipTap) 번들 빌드 — 한 번 실행되고 끝나는 서비스.
+  # 호스트에 Node 가 없어도 컨테이너 안에서 빌드해 .:/app 로 결과를 써 준다.
+  # 번들(app/static/editor/*.js)이 이미 있으면 건너뛴다.
+  # 강제 재빌드: FORCE_EDITOR_BUILD=1 docker compose up ...
+  editor-build:
+    image: node:20-slim
+    container_name: fastapi-blog-editor-build
+    working_dir: /app
+    environment:
+      FORCE_EDITOR_BUILD: "${FORCE_EDITOR_BUILD:-0}"
+    volumes:
+      - .:/app
+      - editor_node_modules:/app/frontend/node_modules
+    command:
+      - sh
+      - -lc
+      - |
+        if [ "$${FORCE_EDITOR_BUILD}" = "1" ] || [ ! -f app/static/editor/board_new_tiptap.js ]; then
+          echo "[editor] TipTap 번들 빌드 시작…";
+          cd frontend && npm ci && npm run build && echo "[editor] 빌드 완료";
+        else
+          echo "[editor] 번들이 이미 있어 건너뜀 (FORCE_EDITOR_BUILD=1 로 강제 재빌드)";
+        fi
+
   nginx:
     image: nginx:1.27-alpine
     container_name: fastapi-blog-nginx
@@ -23,11 +47,16 @@ services:
     env_file:
       - .env
     environment:
+      # 시작 시 alembic upgrade head 자동 실행 (이 서비스에서만)
+      RUN_MIGRATIONS: "1"
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       REDIS_URL: redis://redis:6379/2
     depends_on:
-      - redis
+      editor-build:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
 
   celery-worker:
     build:
@@ -51,3 +80,7 @@ services:
     container_name: fastapi-blog-redis
     ports:
       - "16379:6379"
+
+volumes:
+  # 컨테이너용 node_modules (호스트 mac 바이너리와 섞이지 않도록 분리)
+  editor_node_modules:
