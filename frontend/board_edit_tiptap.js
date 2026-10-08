@@ -455,10 +455,10 @@ function startDrag(e, block) {
 }
 // ── Snap & alignment guides (Alt 키로 일시 해제) ────────────
 const SNAP_PX = 7;
-function computeSnap(moving, others, cw, snap) {
+function computeSnap(moving, others, cw, snap, extraX = []) {
   const mX = [moving.x, moving.x + moving.w / 2, moving.x + moving.w];
   const mY = [moving.y, moving.y + moving.h / 2, moving.y + moving.h];
-  const tX = [0, cw / 2, cw];
+  const tX = [0, cw / 2, cw, ...extraX];
   const tY = [0];
   others.forEach(o => { tX.push(o.x, o.x + o.w / 2, o.x + o.w); tY.push(o.y, o.y + o.h / 2, o.y + o.h); });
   let bestDx = null, bestDy = null;
@@ -472,8 +472,8 @@ function computeSnap(moving, others, cw, snap) {
   const hLines = [...new Set(tY.filter(t => sY.some(e => Math.abs(e - t) < 0.5)))];
   return { x, y, vLines, hLines };
 }
-function computeResizeSnap(block, w, h, others, cw, snap) {
-  const tX = [cw / 2, cw], tY = [];
+function computeResizeSnap(block, w, h, others, cw, snap, extraX = []) {
+  const tX = [cw / 2, cw, ...extraX], tY = [];
   others.forEach(o => { tX.push(o.x, o.x + o.w / 2, o.x + o.w); tY.push(o.y, o.y + o.h / 2, o.y + o.h); });
   const right = block.x + w, bottom = block.y + h;
   let bestDw = null, bestDh = null;
@@ -506,6 +506,49 @@ function showSnapGuides(vLines, hLines) {
 }
 function clearSnapGuides() { document.getElementById('snap-guides')?.replaceChildren(); }
 
+// ── 칼럼 그리드 (12칼럼, 스냅 가이드 역할) ──────────────────
+let gridOn = false;
+const GRID_COLS = 12, GRID_MARGIN = 40, GRID_GUTTER = 16;
+let _gridXs = [];
+function columnLines(cw, margin, cols, gutter) {
+  const usable = cw - margin * 2;
+  if (usable <= 0 || cols < 1) return [];
+  const colW = (usable - (cols - 1) * gutter) / cols;
+  const xs = [];
+  for (let i = 0; i < cols; i++) {
+    const left = margin + i * (colW + gutter);
+    xs.push(Math.round(left), Math.round(left + colW));
+  }
+  return xs;
+}
+function renderGrid() {
+  const canvas = document.getElementById('block-canvas');
+  let layer = document.getElementById('col-grid');
+  if (!gridOn) { layer?.remove(); _gridXs = []; return; }
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.id = 'col-grid';
+    layer.style.cssText = 'position:absolute;top:0;left:0;width:100%;pointer-events:none;z-index:1;';
+    canvas.insertBefore(layer, canvas.firstChild);
+  }
+  const cw = canvasW();
+  const H = Math.max(canvas.scrollHeight, canvas.clientHeight);
+  _gridXs = columnLines(cw, GRID_MARGIN, GRID_COLS, GRID_GUTTER);
+  const colW = (cw - GRID_MARGIN * 2 - (GRID_COLS - 1) * GRID_GUTTER) / GRID_COLS;
+  layer.innerHTML = '';
+  for (let i = 0; i < GRID_COLS; i++) {
+    const left = GRID_MARGIN + i * (colW + GRID_GUTTER);
+    const band = document.createElement('div');
+    band.style.cssText = `position:absolute;top:0;left:${left}px;width:${colW}px;height:${H}px;background:rgba(42,130,196,0.05);border-left:1px solid rgba(42,130,196,0.14);border-right:1px solid rgba(42,130,196,0.14);`;
+    layer.appendChild(band);
+  }
+}
+function toggleGrid() {
+  gridOn = !gridOn;
+  renderGrid();
+  document.getElementById('fb-grid-btn')?.classList.toggle('fb-btn-active', gridOn);
+}
+
 function onDrag(e) {
   if (!dragInfo) return;
   const block = blocks.find(b => b.id === dragInfo.id); if (!block) return;
@@ -515,7 +558,7 @@ function onDrag(e) {
   let ny = Math.max(0, e.clientY - cRect.top - dragInfo.offsetY + canvas.scrollTop);
   if (!e.altKey) {
     const others = blocks.filter(b => b.id !== block.id);
-    const s = computeSnap({ x: nx, y: ny, w: block.w, h: block.h }, others, canvasW(), SNAP_PX);
+    const s = computeSnap({ x: nx, y: ny, w: block.w, h: block.h }, others, canvasW(), SNAP_PX, gridOn ? _gridXs : []);
     nx = s.x; ny = s.y;
     showSnapGuides(s.vLines, s.hLines);
   } else { clearSnapGuides(); }
@@ -548,7 +591,7 @@ function onResize(e) {
   if (resizeInfo.edge === 's' || resizeInfo.edge === 'se') h = Math.max(40, resizeInfo.startH + dy);
   if (!e.altKey) {
     const others = blocks.filter(b => b.id !== block.id);
-    const s = computeResizeSnap(block, w, h, others, canvasW(), SNAP_PX);
+    const s = computeResizeSnap(block, w, h, others, canvasW(), SNAP_PX, gridOn ? _gridXs : []);
     w = s.w; h = s.h;
     showSnapGuides(s.vLines, s.hLines);
   } else { clearSnapGuides(); }
@@ -1222,6 +1265,7 @@ function buildToolbar() {
   [
     { id: 'fb-undo-btn', icon: '<i class="bi bi-arrow-counterclockwise"></i>', tip: '실행취소 (Ctrl+Z)', fn: () => undoAction() },
     { id: 'fb-redo-btn', icon: '<i class="bi bi-arrow-clockwise"></i>', tip: '다시실행 (Ctrl+Shift+Z)', fn: () => redoAction() },
+    { id: 'fb-grid-btn', icon: '<i class="bi bi-layout-three-columns"></i>', tip: '칼럼 그리드 (12단 정렬 가이드)', fn: () => toggleGrid() },
     { icon: '<i class="bi bi-fonts"></i>', tip: 'Text block', fn: () => addBlock('text') },
     { icon: '<i class="bi bi-type-h1"></i>', tip: 'Heading block', fn: () => addBlock('heading') },
     { icon: '<i class="bi bi-image"></i>', tip: 'Image block', fn: () => addBlock('image') },
