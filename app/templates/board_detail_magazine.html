@@ -151,6 +151,9 @@
   .magazine-content .magazine-layout h2 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; }
   .magazine-content .magazine-layout h3 { font-size: 1.2rem; font-weight: 600; margin: 0 0 0.5rem; }
   .magazine-content .magazine-layout img { display: block; }
+  /* 사진 필터 (듀오톤/흑백) — 뷰어·리더·인쇄 공통 */
+  .mag-filter-bw { filter: grayscale(1) contrast(1.03); }
+  .mag-filter-duotone { filter: grayscale(1) brightness(1.04) sepia(0.55) saturate(1.7) hue-rotate(-18deg) contrast(1.02); }
 
   /* ── 읽기 모드 (모바일 가독성) ───────────────────────── */
   .mag-reader { display: none; }
@@ -970,7 +973,8 @@
       const s = `position:absolute;left:${L}%;top:${T}%;width:${W}%;height:${H}%;overflow:hidden;box-sizing:border-box;${border}`;
       if (b.type === 'image' && b.src) {
         const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
-        html += `<div style="${s}"><img src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
+        const fc = b.imgFilter && b.imgFilter !== 'none' ? ` class="mag-filter-${b.imgFilter}"` : '';
+        html += `<div style="${s}"><img${fc} src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
       } else if (b.type === 'spacer') {
         html += `<div style="${s}"></div>`;
       } else {
@@ -990,7 +994,8 @@
       const blocks = (page.blocks || []).slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
       blocks.forEach(b => {
         if (b.type === 'image' && b.src) {
-          html += `<figure class="reader-block"><img src="${b.src}" loading="lazy" style="width:100%;height:auto;display:block;border-radius:8px;"></figure>`;
+          const fc = b.imgFilter && b.imgFilter !== 'none' ? ` mag-filter-${b.imgFilter}` : '';
+          html += `<figure class="reader-block"><img class="reader-img${fc}" src="${b.src}" loading="lazy" style="width:100%;height:auto;display:block;border-radius:8px;"></figure>`;
         } else if (b.type === 'spacer') {
           html += '<div style="height:1rem;"></div>';
         } else if (b.content) {

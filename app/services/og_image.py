@@ -343,6 +343,11 @@ def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:
                 try:
                     im = Image.open(lp).convert("RGB")
                     im = ImageOps.fit(im, (max(1, w), max(1, h)), Image.LANCZOS)
+                    flt = b.get("imgFilter")
+                    if flt == "bw":
+                        im = ImageOps.grayscale(im).convert("RGB")
+                    elif flt == "duotone":
+                        im = ImageOps.colorize(ImageOps.grayscale(im), black=(74, 40, 27), white=(247, 236, 226))
                     img.paste(im, (x, y))
                 except Exception:  # noqa: BLE001
                     _draw_img_ph(draw, x, y, x2, y2)

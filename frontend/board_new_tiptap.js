@@ -199,6 +199,7 @@ function addBlock(type, opts = {}) {
     src: opts.src || '',
     imgOffsetX: opts.imgOffsetX ?? 50,
     imgOffsetY: opts.imgOffsetY ?? 50,
+    imgFilter: opts.imgFilter ?? 'none',
     showBorder: opts.showBorder ?? false,
     borderColor: opts.borderColor ?? '#000000',
     borderWidth: opts.borderWidth ?? 1,
@@ -339,6 +340,20 @@ function renderBlock(block) {
     hdr.appendChild(mkBtn('<b style="font-size:0.95rem;">A+</b>', '글자 크게', () => bumpFont(block, 2)));
   }
 
+  if (block.type === 'image') {
+    const FILTERS = ['none', 'duotone', 'bw'];
+    const FLABEL = { none: '원본', duotone: '듀오톤', bw: '흑백' };
+    const filterBtn = mkBtn('<i class="bi bi-circle-half"></i>', '사진 필터: ' + FLABEL[block.imgFilter || 'none'], () => {
+      const i = FILTERS.indexOf(block.imgFilter || 'none');
+      block.imgFilter = FILTERS[(i + 1) % FILTERS.length];
+      filterBtn.classList.toggle('fb-btn-active', block.imgFilter !== 'none');
+      filterBtn.title = '사진 필터: ' + FLABEL[block.imgFilter];
+      applyImgFilter(el, block);
+    });
+    if ((block.imgFilter || 'none') !== 'none') filterBtn.classList.add('fb-btn-active');
+    hdr.appendChild(filterBtn);
+  }
+
   if (block.type === 'text') {
     const scBtn = mkBtn(
       '<span style="font-size:0.7rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>',
@@ -390,8 +405,9 @@ function renderBlock(block) {
     canvas.appendChild(el);
   }
 
-  // body가 DOM에 붙은 이후 테두리 적용
+  // body가 DOM에 붙은 이후 테두리·필터 적용
   applyBorder(el, block);
+  applyImgFilter(el, block);
 
   ['se', 'e', 's'].forEach(edge => {
     const rh = document.createElement('div');
@@ -441,6 +457,14 @@ function applyBorder(el, block) {
     body.style.border = '';
     body.style.borderRadius = '';
   }
+}
+
+function applyImgFilter(el, block) {
+  const img = el.querySelector('.fb-img');
+  if (!img) return;
+  img.classList.remove('mag-filter-bw', 'mag-filter-duotone');
+  const f = block.imgFilter || 'none';
+  if (f !== 'none') img.classList.add('mag-filter-' + f);
 }
 
 function selectBlock(id) {
@@ -672,6 +696,7 @@ function collectData() {
         w: Math.round(b.w), h: Math.round(b.h),
         content: b.content || '', src: b.src || '',
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
+        imgFilter: b.imgFilter || 'none',
         showBorder: b.showBorder ?? false,
         borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1,
@@ -700,7 +725,8 @@ function collectData() {
       const s = `position:absolute;left:${L}%;top:${T}%;width:${W}%;height:${H}%;overflow:hidden;box-sizing:border-box;${border}`;
       if (b.type === 'image' && b.src) {
         const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
-        html += `<div style="${s}"><img src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
+        const fc = b.imgFilter && b.imgFilter !== 'none' ? ` class="mag-filter-${b.imgFilter}"` : '';
+        html += `<div style="${s}"><img${fc} src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
       } else if (b.type === 'spacer') {
         html += `<div style="${s}"></div>`;
       } else {
@@ -733,7 +759,8 @@ function buildPreviewSlide(page) {
     const s = `position:absolute;left:${L}%;top:${T}%;width:${W}%;height:${H}%;overflow:hidden;box-sizing:border-box;${border}`;
     if (b.type === 'image' && b.src) {
       const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
-      html += `<div style="${s}"><img src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
+      const fc = b.imgFilter && b.imgFilter !== 'none' ? ` class="mag-filter-${b.imgFilter}"` : '';
+      html += `<div style="${s}"><img${fc} src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
     } else if (b.type === 'spacer') {
       html += `<div style="${s}"></div>`;
     } else {
@@ -1389,6 +1416,7 @@ function snapshotState() {
         x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h),
         content: (b.editor ? b.editor.getHTML() : b.content) || '', src: b.src || '',
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
+        imgFilter: b.imgFilter || 'none',
         showBorder: b.showBorder ?? false, borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1, borderRadius: b.borderRadius ?? 0,
       })),

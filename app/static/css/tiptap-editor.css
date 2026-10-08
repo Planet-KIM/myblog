@@ -647,3 +647,7 @@
 
 [data-theme="dark"] .inline-preview { background: #0f172a; }
 [data-theme="dark"] .inline-preview-hint { background: #1e293b; border-color: rgba(255,255,255,0.1); }
+
+/* 사진 필터 (듀오톤/흑백) — 에디터·미리보기 공통 */
+.mag-filter-bw { filter: grayscale(1) contrast(1.03); }
+.mag-filter-duotone { filter: grayscale(1) brightness(1.04) sepia(0.55) saturate(1.7) hue-rotate(-18deg) contrast(1.02); }
