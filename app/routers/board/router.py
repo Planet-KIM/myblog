@@ -1218,6 +1218,41 @@ def board_post_og(post_id: int, db: Session = Depends(get_db)):
     return Response(content=data, media_type="image/png", headers=headers)
 
 
+@router.get("/{post_id}/cover.png")
+def board_post_cover(post_id: int, db: Session = Depends(get_db)):
+    """매거진(tiptap) 글의 레이아웃 첫 페이지를 커버 이미지로 — 공개 글만."""
+    post = db.query(models.BoardPost).filter_by(id=post_id).first()
+    if not post or post.is_private:
+        raise HTTPException(404, "Not found")
+    if post.editor_type != "tiptap" or not post.content_blocks:
+        raise HTTPException(404, "No layout")
+
+    import hashlib
+
+    sig = hashlib.md5(post.content_blocks.encode("utf-8")).hexdigest()[:10]
+    cache_path = _OG_CACHE_DIR / f"cover-{post_id}-{sig}.png"
+    headers = {"Cache-Control": "public, max-age=86400"}
+    try:
+        if cache_path.exists():
+            data = cache_path.read_bytes()
+        else:
+            from app.services.og_image import render_layout_thumbnail
+
+            data = render_layout_thumbnail(post.content_blocks, width=800)
+            _OG_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            for old in _OG_CACHE_DIR.glob(f"cover-{post_id}-*.png"):
+                if old != cache_path:
+                    try:
+                        old.unlink()
+                    except OSError:
+                        pass
+            cache_path.write_bytes(data)
+    except Exception:  # noqa: BLE001
+        logger.exception("커버 이미지 생성 실패 post_id=%s", post_id)
+        raise HTTPException(500, "cover render failed")
+    return Response(content=data, media_type="image/png", headers=headers)
+
+
 # ============================================================
 # ★ 댓글 작성 / 삭제 (평문, 서버 렌더 폼)
 # ============================================================

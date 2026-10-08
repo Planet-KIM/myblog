@@ -1591,6 +1591,9 @@ def series_page(
     for p in posts:
         p.view_count = p.stats.views if p.stats else 0
         p.thumbnail = extract_first_image(p.content_html or p.content or "")
+        # 매거진(tiptap) 레이아웃이면 대표 이미지가 없어도 커버를 자동 생성
+        if not p.thumbnail and p.editor_type == "tiptap" and p.content_blocks:
+            p.thumbnail = f"/board/{p.id}/cover.png"
         if cover_image is None and p.thumbnail:
             cover_image = p.thumbnail
         if author is None and p.user:
