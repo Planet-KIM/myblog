@@ -13,6 +13,7 @@ import json
 CW, CH = 1000, 1400
 M = 70                      # 바깥 여백
 CONT = CW - M * 2           # 본문 폭 860
+FRAME = "#c7b8a3"           # 사진 기본 테두리(웜 그레이지)
 
 
 def _h(x, y, w, h, html):
@@ -23,8 +24,13 @@ def _t(x, y, w, h, html):
     return {"type": "text", "x": x, "y": y, "w": w, "h": h, "content": html}
 
 
-def _img(x, y, w, h):
-    return {"type": "image", "x": x, "y": y, "w": w, "h": h, "src": ""}
+def _img(x, y, w, h, frame=True):
+    """이미지 자리. frame=True면 템플릿에 기본 테두리를 미리 넣어 둔다
+    (풀블리드 사진처럼 가장자리까지 꽉 채우는 경우만 frame=False)."""
+    b = {"type": "image", "x": x, "y": y, "w": w, "h": h, "src": ""}
+    if frame:
+        b.update({"showBorder": True, "borderColor": FRAME, "borderWidth": 1, "borderRadius": 0})
+    return b
 
 
 def _div(x, y, w):
@@ -48,7 +54,7 @@ def _blank():
 
 def _cover():
     return _page([
-        _img(0, 0, CW, 840),
+        _img(0, 0, CW, 840, frame=False),
         _h(M, 60, CONT, 60, "<h1 style='text-align:center;letter-spacing:10px;font-size:30px;color:#fff'>MAGAZINE</h1>"),
         _h(M, 900, CONT, 240, "<h1 style='font-size:84px;font-weight:800;line-height:1.05'>표지 제목을<br>입력하세요</h1>"),
         _t(M, 1165, CONT, 50, "<p style='font-size:24px;color:#4c4239'>부제 또는 한 줄 소개</p>"),
@@ -119,7 +125,7 @@ def _photo():
 
 def _full_bleed():
     return _page([
-        _img(0, 0, CW, CH),
+        _img(0, 0, CW, CH, frame=False),
         _h(70, 1040, 760, 200, "<h1 style='font-size:76px;font-weight:800;line-height:1.08;color:#fff'>사진 위에<br>제목</h1>"),
         _t(70, 1285, CONT, 40, "<p style='font-size:16px;color:#fff'>캡션 또는 사진 크레딧</p>"),
     ])
