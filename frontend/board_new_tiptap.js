@@ -423,18 +423,79 @@ function startDrag(e, block) {
   document.addEventListener('mousemove', onDrag);
   document.addEventListener('mouseup', endDrag);
 }
+// ── Snap & alignment guides (Alt 키로 일시 해제) ────────────
+const SNAP_PX = 7;
+function computeSnap(moving, others, cw, snap) {
+  const mX = [moving.x, moving.x + moving.w / 2, moving.x + moving.w];
+  const mY = [moving.y, moving.y + moving.h / 2, moving.y + moving.h];
+  const tX = [0, cw / 2, cw];
+  const tY = [0];
+  others.forEach(o => { tX.push(o.x, o.x + o.w / 2, o.x + o.w); tY.push(o.y, o.y + o.h / 2, o.y + o.h); });
+  let bestDx = null, bestDy = null;
+  mX.forEach(me => tX.forEach(t => { const d = t - me; if (Math.abs(d) <= snap && (bestDx === null || Math.abs(d) < Math.abs(bestDx))) bestDx = d; }));
+  mY.forEach(me => tY.forEach(t => { const d = t - me; if (Math.abs(d) <= snap && (bestDy === null || Math.abs(d) < Math.abs(bestDy))) bestDy = d; }));
+  const x = moving.x + (bestDx || 0);
+  const y = moving.y + (bestDy || 0);
+  const sX = [x, x + moving.w / 2, x + moving.w];
+  const sY = [y, y + moving.h / 2, y + moving.h];
+  const vLines = [...new Set(tX.filter(t => sX.some(e => Math.abs(e - t) < 0.5)))];
+  const hLines = [...new Set(tY.filter(t => sY.some(e => Math.abs(e - t) < 0.5)))];
+  return { x, y, vLines, hLines };
+}
+function computeResizeSnap(block, w, h, others, cw, snap) {
+  const tX = [cw / 2, cw], tY = [];
+  others.forEach(o => { tX.push(o.x, o.x + o.w / 2, o.x + o.w); tY.push(o.y, o.y + o.h / 2, o.y + o.h); });
+  const right = block.x + w, bottom = block.y + h;
+  let bestDw = null, bestDh = null;
+  tX.forEach(t => { const d = t - right; if (Math.abs(d) <= snap && (bestDw === null || Math.abs(d) < Math.abs(bestDw))) bestDw = d; });
+  tY.forEach(t => { const d = t - bottom; if (Math.abs(d) <= snap && (bestDh === null || Math.abs(d) < Math.abs(bestDh))) bestDh = d; });
+  const nw = Math.max(80, w + (bestDw || 0));
+  const nh = Math.max(40, h + (bestDh || 0));
+  const vLines = [...new Set(tX.filter(t => Math.abs((block.x + nw) - t) < 0.5))];
+  const hLines = [...new Set(tY.filter(t => Math.abs((block.y + nh) - t) < 0.5))];
+  return { w: nw, h: nh, vLines, hLines };
+}
+function _guideLayer() {
+  const canvas = document.getElementById('block-canvas');
+  let layer = document.getElementById('snap-guides');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.id = 'snap-guides';
+    layer.style.cssText = 'position:absolute;top:0;left:0;width:100%;pointer-events:none;z-index:9998;';
+    canvas.appendChild(layer);
+  }
+  return layer;
+}
+function showSnapGuides(vLines, hLines) {
+  const canvas = document.getElementById('block-canvas');
+  const layer = _guideLayer();
+  const H = Math.max(canvas.scrollHeight, canvas.clientHeight);
+  layer.innerHTML = '';
+  vLines.forEach(x => { const l = document.createElement('div'); l.style.cssText = `position:absolute;top:0;left:${x}px;width:1px;height:${H}px;background:#2a82c4;`; layer.appendChild(l); });
+  hLines.forEach(y => { const l = document.createElement('div'); l.style.cssText = `position:absolute;left:0;top:${y}px;height:1px;width:100%;background:#2a82c4;`; layer.appendChild(l); });
+}
+function clearSnapGuides() { document.getElementById('snap-guides')?.replaceChildren(); }
+
 function onDrag(e) {
   if (!dragInfo) return;
   const block = blocks.find(b => b.id === dragInfo.id); if (!block) return;
   const canvas = document.getElementById('block-canvas');
   const cRect = canvas.getBoundingClientRect();
-  block.x = Math.max(0, e.clientX - cRect.left - dragInfo.offsetX);
-  block.y = Math.max(0, e.clientY - cRect.top - dragInfo.offsetY + canvas.scrollTop);
+  let nx = Math.max(0, e.clientX - cRect.left - dragInfo.offsetX);
+  let ny = Math.max(0, e.clientY - cRect.top - dragInfo.offsetY + canvas.scrollTop);
+  if (!e.altKey) {
+    const others = blocks.filter(b => b.id !== block.id);
+    const s = computeSnap({ x: nx, y: ny, w: block.w, h: block.h }, others, canvasW(), SNAP_PX);
+    nx = s.x; ny = s.y;
+    showSnapGuides(s.vLines, s.hLines);
+  } else { clearSnapGuides(); }
+  block.x = nx; block.y = ny;
   const el = document.querySelector(`[data-bid="${block.id}"]`);
   if (el) { el.style.left = block.x + 'px'; el.style.top = block.y + 'px'; }
   updateCanvasHeight();
 }
 function endDrag() {
+  clearSnapGuides();
   document.querySelector(`[data-bid="${dragInfo?.id}"]`)?.classList.remove('dragging');
   dragInfo = null;
   document.removeEventListener('mousemove', onDrag);
@@ -452,13 +513,22 @@ function onResize(e) {
   if (!resizeInfo) return;
   const block = blocks.find(b => b.id === resizeInfo.id); if (!block) return;
   const dx = e.clientX - resizeInfo.startX, dy = e.clientY - resizeInfo.startY;
-  if (resizeInfo.edge === 'e' || resizeInfo.edge === 'se') block.w = Math.max(80, resizeInfo.startW + dx);
-  if (resizeInfo.edge === 's' || resizeInfo.edge === 'se') block.h = Math.max(40, resizeInfo.startH + dy);
+  let w = block.w, h = block.h;
+  if (resizeInfo.edge === 'e' || resizeInfo.edge === 'se') w = Math.max(80, resizeInfo.startW + dx);
+  if (resizeInfo.edge === 's' || resizeInfo.edge === 'se') h = Math.max(40, resizeInfo.startH + dy);
+  if (!e.altKey) {
+    const others = blocks.filter(b => b.id !== block.id);
+    const s = computeResizeSnap(block, w, h, others, canvasW(), SNAP_PX);
+    w = s.w; h = s.h;
+    showSnapGuides(s.vLines, s.hLines);
+  } else { clearSnapGuides(); }
+  block.w = w; block.h = h;
   const el = document.querySelector(`[data-bid="${block.id}"]`);
   if (el) { el.style.width = block.w + 'px'; el.style.height = block.h + 'px'; }
   updateCanvasHeight();
 }
 function endResize() {
+  clearSnapGuides();
   resizeInfo = null;
   document.removeEventListener('mousemove', onResize);
   document.removeEventListener('mouseup', endResize);
