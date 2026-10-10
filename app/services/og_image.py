@@ -250,6 +250,69 @@ def render_post_og(
 
 
 # ============================================================
+# 여행 타임라인 이미지 — 'DAY n + 라벨:시간' 텍스트를 세로 타임라인으로
+# ============================================================
+def render_timeline_image(text: str, width: int = 620) -> bytes:
+    """일정 텍스트를 세로 타임라인 PNG(자동 높이)로 그린다."""
+    import io
+    from app.services.timeline import parse_timeline
+
+    days = parse_timeline(text)
+    PAD = 34
+    time_w = 78
+    line_x = PAD + time_w + 24
+    label_x = line_x + 30
+    row_h = 48
+    title_h = 60
+    day_gap = 20
+    top = 28
+
+    # 전체 높이 계산
+    H = top
+    for d in days:
+        H += title_h + len(d["events"]) * row_h + day_gap
+    H = max(H + 20, 160)
+    W = int(width)
+
+    img = _vgradient(PAPER_HI, PAPER).resize((W, H))
+    draw = ImageDraw.Draw(img)
+    f_day = _font(30)
+    f_time = _font(21)
+    f_label = _font(23)
+
+    y = top
+    for d in days:
+        title = _clean(d.get("title") or "")
+        if title:
+            draw.text((PAD, y + 6), title, font=f_day, fill=TERRA)
+            draw.line([(PAD, y + title_h - 14), (W - PAD, y + title_h - 14)], fill=(226, 216, 205), width=2)
+        y += title_h
+
+        evs = d["events"]
+        if evs:
+            first_cy = y + row_h // 2
+            last_cy = y + (len(evs) - 1) * row_h + row_h // 2
+            draw.line([(line_x, first_cy), (line_x, last_cy)], fill=(226, 200, 186), width=3)
+        for ev in evs:
+            cy = y + row_h // 2
+            tm = _clean(ev.get("time") or "")
+            if tm:
+                tb = draw.textbbox((0, 0), tm, font=f_time)
+                draw.text((line_x - 24 - (tb[2] - tb[0]), cy - (tb[3] - tb[1]) / 2 - tb[1]), tm, font=f_time, fill=MUTED)
+            draw.ellipse([line_x - 8, cy - 8, line_x + 8, cy + 8], fill=TERRA)
+            draw.ellipse([line_x - 3, cy - 3, line_x + 3, cy + 3], fill=CREAM)
+            label = _clean(ev.get("label") or "")
+            lb = draw.textbbox((0, 0), label, font=f_label)
+            draw.text((label_x, cy - (lb[3] - lb[1]) / 2 - lb[1]), label, font=f_label, fill=INK)
+            y += row_h
+        y += day_gap
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
+# ============================================================
 # 레이아웃 썸네일 — content_blocks(v3) 첫 페이지를 도식 미리보기로 렌더
 #   브라우저 없이 Pillow로 블록 구조를 그린다:
 #   - 이미지(로컬): 실제 이미지를 넣음 / 원격·없음: 플레이스홀더
@@ -357,6 +420,14 @@ def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:
             pass
         elif t == "heading":
             _draw_heading(draw, x, y, w, h, _plain(b.get("content", "")))
+        elif t == "timeline":
+            try:
+                src = b.get("tlText") or _plain(b.get("content", ""))
+                tl = Image.open(io.BytesIO(render_timeline_image(src, width=max(80, w)))).convert("RGB")
+                tl = tl.crop((0, 0, min(tl.width, w), min(tl.height, h)))
+                img.paste(tl, (x, y))
+            except Exception:  # noqa: BLE001
+                _draw_text_lines(draw, x, y, w, h)
         else:
             txt = _plain(b.get("content", ""))
             if not txt and h <= max(10, int(round(28 * scale))):  # 구분선 추정
