@@ -78,6 +78,36 @@ function bumpFont(block, delta) {
   block.editor.chain().focus().selectAll().setFontSize(block._fs + 'px').run();
 }
 
+// ── 여행 타임라인: 'DAY n / 라벨:시간' 텍스트 → HTML ──────────
+function tlEscape(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function parseTimeline(text) {
+  const days = []; let cur = null;
+  const ensure = () => { if (!cur) { cur = { title: '', events: [] }; days.push(cur); } };
+  (text || '').split(/\r?\n/).forEach(raw => {
+    const line = raw.trim(); if (!line) return;
+    const m = line.match(/^(.*?)[:：]\s*(\d{1,2}:\d{2})\s*$/);
+    if (m) { ensure(); cur.events.push({ label: m[1].trim(), time: m[2].trim() }); }
+    else if (/^day\b/i.test(line) || /^\d+\s*일\s*차/.test(line) || /^\d+\s*일째/.test(line)) { cur = { title: line, events: [] }; days.push(cur); }
+    else { ensure(); cur.events.push({ label: line, time: '' }); }
+  });
+  return days.filter(d => d.events.length || d.title.trim());
+}
+function renderTimelineHTML(text) {
+  const days = parseTimeline(text);
+  if (!days.length) return '<div class="mag-timeline"><p class="mtl-empty">일정을 입력하세요 (예: 왕궁:09:00)</p></div>';
+  let h = '<div class="mag-timeline">';
+  for (const d of days) {
+    h += '<div class="mtl-day">';
+    if ((d.title || '').trim()) h += `<div class="mtl-day-title">${tlEscape(d.title)}</div>`;
+    h += '<div class="mtl-events">';
+    for (const e of d.events) {
+      h += `<div class="mtl-item"><span class="mtl-time">${tlEscape(e.time)}</span><span class="mtl-mark"><span class="mtl-dot"></span></span><span class="mtl-label">${tlEscape(e.label)}</span></div>`;
+    }
+    h += '</div></div>';
+  }
+  return h + '</div>';
+}
+
 function createEditor(el, content) {
   return new Editor({
     element: el,
@@ -192,6 +222,7 @@ function addBlock(type, opts = {}) {
     imgOffsetX: opts.imgOffsetX ?? 50,
     imgOffsetY: opts.imgOffsetY ?? 50,
     imgFilter: opts.imgFilter ?? 'none',
+    tlText: opts.tlText ?? '',
     showBorder: opts.showBorder ?? false,
     borderColor: opts.borderColor ?? '#000000',
     borderWidth: opts.borderWidth ?? 1,
@@ -337,6 +368,19 @@ function renderBlock(block) {
     hdr.appendChild(filterBtn);
   }
 
+  if (block.type === 'timeline') {
+    const editBtn = mkBtn('<i class="bi bi-pencil"></i>', '일정 텍스트 편집', () => {
+      const ta = el.querySelector('.fb-tl-src'), rd = el.querySelector('.fb-tl-render');
+      if (!ta || !rd) return;
+      const editing = ta.style.display === 'none';
+      ta.style.display = editing ? 'block' : 'none';
+      rd.style.display = editing ? 'none' : 'block';
+      editBtn.classList.toggle('fb-btn-active', editing);
+      if (editing) ta.focus();
+    });
+    hdr.appendChild(editBtn);
+  }
+
   if (block.type === 'text') {
     const scBtn = mkBtn(
       '<span style="font-size:0.7rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>',
@@ -377,6 +421,27 @@ function renderBlock(block) {
   } else if (block.type === 'spacer') {
     body.className = 'fb-body fb-spacer-body';
     body.innerHTML = '<span>— spacer —</span>';
+    el.appendChild(body); canvas.appendChild(el);
+  } else if (block.type === 'timeline') {
+    body.classList.add('fb-body-timeline');
+    const render = document.createElement('div');
+    render.className = 'fb-tl-render';
+    if (!block.content) block.content = renderTimelineHTML(block.tlText || '');
+    render.innerHTML = block.content;
+    const ta = document.createElement('textarea');
+    ta.className = 'fb-tl-src';
+    ta.value = block.tlText || '';
+    ta.spellcheck = false;
+    ta.placeholder = 'DAY 1\n왕궁:09:00\n점심:12:30';
+    ta.style.display = 'none';
+    ta.addEventListener('mousedown', e => e.stopPropagation());
+    ta.addEventListener('input', () => {
+      block.tlText = ta.value;
+      block.content = renderTimelineHTML(block.tlText);
+      render.innerHTML = block.content;
+    });
+    body.appendChild(render);
+    body.appendChild(ta);
     el.appendChild(body); canvas.appendChild(el);
   }
 
@@ -758,6 +823,7 @@ function collectData() {
         content: b.content || '', src: b.src || '',
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
         imgFilter: b.imgFilter || 'none',
+        tlText: b.tlText || '',
         showBorder: b.showBorder ?? false,
         borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1,
@@ -1302,6 +1368,7 @@ function buildToolbar() {
     { icon: '<i class="bi bi-quote"></i>', tip: '인용구 (Pull quote)', fn: () => addBlock('text', { content: '<p><em><span style="font-size:30px;color:#b4542f">“인상적인 한 문장을 인용구로.”</span></em></p>', h: 130 }) },
     { icon: '<i class="bi bi-dash-lg"></i>', tip: '구분선 (Divider)', fn: () => addBlock('text', { content: '<hr>', h: 30 }) },
     { icon: '<i class="bi bi-card-text"></i>', tip: '캡션 (Caption)', fn: () => addBlock('text', { content: '<p><span style="font-size:14px;color:#8a7c6d">사진 캡션을 입력하세요</span></p>', h: 40 }) },
+    { icon: '<i class="bi bi-signpost-2"></i>', tip: '타임라인 (여행 일정)', fn: () => { const s = 'DAY 1\n왕궁:09:00\n점심:12:30\n카페:15:00\n호텔 복귀:22:00'; addBlock('timeline', { tlText: s, content: renderTimelineHTML(s), w: 460, h: 340 }); } },
     { icon: '<i class="bi bi-arrows-expand"></i>', tip: 'Spacer', fn: () => addBlock('spacer', { h: 60 }) },
     { icon: '<span style="font-size:0.72rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>', tip: '맞춤법 검사 (Ctrl+Shift+S)', fn: () => triggerSpellCheck(), wide: true },
   ].forEach(({ icon, tip, fn, wide, id }) => {
@@ -1335,7 +1402,7 @@ function loadSavedData(raw) {
           w: Math.round((b.w || 200) * scale), h: b.h || 160,
           content: b.content || '', src: b.src || '',
           imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
-          imgFilter: b.imgFilter || 'none',
+          imgFilter: b.imgFilter || 'none', tlText: b.tlText || '',
           showBorder: b.showBorder ?? false,
           borderColor: b.borderColor ?? '#000000',
           borderWidth: b.borderWidth ?? 1,
@@ -1401,6 +1468,7 @@ function snapshotState() {
         content: (b.editor ? b.editor.getHTML() : b.content) || '', src: b.src || '',
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
         imgFilter: b.imgFilter || 'none',
+        tlText: b.tlText || '',
         showBorder: b.showBorder ?? false, borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1, borderRadius: b.borderRadius ?? 0,
       })),

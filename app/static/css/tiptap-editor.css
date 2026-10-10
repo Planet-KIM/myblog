@@ -651,3 +651,19 @@
 /* 사진 필터 (듀오톤/흑백) — 에디터·미리보기 공통 */
 .mag-filter-bw { filter: grayscale(1) contrast(1.03); }
 .mag-filter-duotone { filter: grayscale(1) brightness(1.04) sepia(0.55) saturate(1.7) hue-rotate(-18deg) contrast(1.02); }
+
+/* 여행 타임라인 블록 */
+.fb-body-timeline { overflow: auto; padding: 12px 14px; background: #fff; }
+.fb-tl-src { width: 100%; height: 100%; min-height: 140px; border: none; outline: none; resize: none; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; color: #2a2320; background: #fff; box-sizing: border-box; }
+.mag-timeline { font-size: 15px; line-height: 1.4; color: #2a2320; }
+.mag-timeline .mtl-day + .mtl-day { margin-top: 1.1em; }
+.mag-timeline .mtl-day-title { color: #b4542f; font-weight: 800; font-size: 1.25em; margin: 0 0 .5em; padding-bottom: .2em; border-bottom: 1px solid #e6dccf; letter-spacing: .02em; }
+.mag-timeline .mtl-item { display: grid; grid-template-columns: 3.4em 1.4em 1fr; align-items: center; column-gap: .6em; min-height: 2.3em; }
+.mag-timeline .mtl-time { color: #8a7c6d; font-size: .82em; text-align: right; white-space: nowrap; }
+.mag-timeline .mtl-mark { position: relative; align-self: stretch; }
+.mag-timeline .mtl-mark::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ead0c2; transform: translateX(-50%); }
+.mag-timeline .mtl-item:first-child .mtl-mark::before { top: 50%; }
+.mag-timeline .mtl-item:last-child .mtl-mark::before { bottom: 50%; }
+.mag-timeline .mtl-dot { position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; border-radius: 50%; background: #b4542f; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #b4542f; transform: translate(-50%,-50%); z-index: 1; }
+.mag-timeline .mtl-label { color: #2a2320; font-weight: 500; }
+.mag-timeline .mtl-empty { color: #8a7c6d; font-size: .9em; }
