@@ -20,7 +20,8 @@ from pathlib import Path
 from typing import Optional, Tuple
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from starlette import status
 
@@ -279,6 +280,32 @@ async def upload_file(
 # ★ 이미지 전용 엔드포인트 (하위 호환 유지)
 #   기존 빌드된 board_new.js / board_edit.js 가 이 경로를 사용
 # ============================================================
+@router.get("/mapimg")
+def map_image(request: Request):
+    """여행 지도 렌더 — ?m=<장소 목록(URL 인코딩)> → OSM 정적 지도 PNG. 캐시."""
+    m = request.query_params.get("m", "")
+    if not m.strip():
+        raise HTTPException(status_code=400, detail="장소가 없습니다.")
+
+    import hashlib
+
+    sig = hashlib.md5(m.encode("utf-8")).hexdigest()[:12]
+    cache = STATIC_DIR / "og_cache" / f"map-{sig}.png"
+    headers = {"Cache-Control": "public, max-age=604800"}
+    try:
+        if cache.exists():
+            data = cache.read_bytes()
+        else:
+            from app.services.staticmap import render_map_png
+
+            data = render_map_png(m, 640, 440)
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(data)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail="지도 렌더 실패")
+    return Response(content=data, media_type="image/png", headers=headers)
+
+
 @router.post("/images")
 async def upload_image_compat(
     file: UploadFile = File(...),

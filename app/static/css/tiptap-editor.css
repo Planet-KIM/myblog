@@ -674,3 +674,9 @@
 .mag-timeline .mtl-dot { position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; border-radius: 50%; background: #b4542f; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #b4542f; transform: translate(-50%,-50%); z-index: 1; }
 .mag-timeline .mtl-label { color: #2a2320; font-weight: 500; }
 .mag-timeline .mtl-empty { color: #8a7c6d; font-size: .9em; }
+
+/* 여행 지도 블록 */
+.fb-body-map { overflow: hidden; padding: 0; background: #e9e6df; }
+.fb-map-render { width: 100%; height: 100%; }
+.mag-map { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mag-map-empty { padding: 18px; color: #8a7c6d; font-size: 0.9em; line-height: 1.5; }

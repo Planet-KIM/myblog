@@ -110,6 +110,12 @@ function renderTimelineHTML(text, dir) {
   return h + '</div>';
 }
 
+// ── 여행 지도: 장소 텍스트 → 서버 렌더 지도 이미지 ──────────
+function renderMapHTML(text) {
+  if (!(text || '').trim()) return '<div class="mag-map-empty">지도: 장소를 입력하세요 (예: 왕궁@13.75,100.49 또는 장소명)</div>';
+  return `<img class="mag-map" src="/api/mapimg?m=${encodeURIComponent(text)}" alt="여행 지도" loading="lazy">`;
+}
+
 function createEditor(el, content) {
   return new Editor({
     element: el,
@@ -226,6 +232,7 @@ function addBlock(type, opts = {}) {
     imgFilter: opts.imgFilter ?? 'none',
     tlText: opts.tlText ?? '',
     tlDir: opts.tlDir ?? 'v',
+    mapText: opts.mapText ?? '',
     showBorder: opts.showBorder ?? false,
     borderColor: opts.borderColor ?? '#000000',
     borderWidth: opts.borderWidth ?? 1,
@@ -371,8 +378,8 @@ function renderBlock(block) {
     hdr.appendChild(filterBtn);
   }
 
-  if (block.type === 'timeline') {
-    const editBtn = mkBtn('<i class="bi bi-pencil"></i>', '일정 텍스트 편집', () => {
+  if (block.type === 'timeline' || block.type === 'map') {
+    const editBtn = mkBtn('<i class="bi bi-pencil"></i>', block.type === 'map' ? '장소 편집' : '일정 텍스트 편집', () => {
       const ta = el.querySelector('.fb-tl-src'), rd = el.querySelector('.fb-tl-render');
       if (!ta || !rd) return;
       const editing = ta.style.display === 'none';
@@ -382,6 +389,9 @@ function renderBlock(block) {
       if (editing) ta.focus();
     });
     hdr.appendChild(editBtn);
+  }
+
+  if (block.type === 'timeline') {
     const dirBtn = mkBtn('<i class="bi bi-distribute-horizontal"></i>', '세로 / 가로 전환', () => {
       block.tlDir = block.tlDir === 'h' ? 'v' : 'h';
       block.content = renderTimelineHTML(block.tlText || '', block.tlDir);
@@ -449,6 +459,27 @@ function renderBlock(block) {
     ta.addEventListener('input', () => {
       block.tlText = ta.value;
       block.content = renderTimelineHTML(block.tlText, block.tlDir || 'v');
+      render.innerHTML = block.content;
+    });
+    body.appendChild(render);
+    body.appendChild(ta);
+    el.appendChild(body); canvas.appendChild(el);
+  } else if (block.type === 'map') {
+    body.classList.add('fb-body-map');
+    const render = document.createElement('div');
+    render.className = 'fb-tl-render fb-map-render';
+    if (!block.content) block.content = renderMapHTML(block.mapText || '');
+    render.innerHTML = block.content;
+    const ta = document.createElement('textarea');
+    ta.className = 'fb-tl-src';
+    ta.value = block.mapText || '';
+    ta.spellcheck = false;
+    ta.placeholder = '왕궁@13.75,100.49\n왓 포@13.746,100.493\n(장소명만 적으면 자동 검색)';
+    ta.style.display = 'none';
+    ta.addEventListener('mousedown', e => e.stopPropagation());
+    ta.addEventListener('change', () => {
+      block.mapText = ta.value;
+      block.content = renderMapHTML(block.mapText);
       render.innerHTML = block.content;
     });
     body.appendChild(render);
@@ -836,6 +867,7 @@ function collectData() {
         imgFilter: b.imgFilter || 'none',
         tlText: b.tlText || '',
         tlDir: b.tlDir || 'v',
+        mapText: b.mapText || '',
         showBorder: b.showBorder ?? false,
         borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1,
@@ -1381,6 +1413,7 @@ function buildToolbar() {
     { icon: '<i class="bi bi-dash-lg"></i>', tip: '구분선 (Divider)', fn: () => addBlock('text', { content: '<hr>', h: 30 }) },
     { icon: '<i class="bi bi-card-text"></i>', tip: '캡션 (Caption)', fn: () => addBlock('text', { content: '<p><span style="font-size:14px;color:#8a7c6d">사진 캡션을 입력하세요</span></p>', h: 40 }) },
     { icon: '<i class="bi bi-signpost-2"></i>', tip: '타임라인 (여행 일정)', fn: () => { const s = '# 첫째 날\n왕궁:09:00\n점심:12:30\n카페:15:00\n호텔 복귀:22:00'; addBlock('timeline', { tlText: s, content: renderTimelineHTML(s), w: 460, h: 340 }); } },
+    { icon: '<i class="bi bi-geo-alt"></i>', tip: '지도 (여행 장소)', fn: () => { const s = '왕궁@13.7500,100.4914\n왓 포@13.7465,100.4927\n왓 아룬@13.7437,100.4889'; addBlock('map', { mapText: s, content: renderMapHTML(s), w: 520, h: 380 }); } },
     { icon: '<i class="bi bi-arrows-expand"></i>', tip: 'Spacer', fn: () => addBlock('spacer', { h: 60 }) },
     { icon: '<span style="font-size:0.72rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>', tip: '맞춤법 검사 (Ctrl+Shift+S)', fn: () => triggerSpellCheck(), wide: true },
   ].forEach(({ icon, tip, fn, wide, id }) => {
@@ -1414,7 +1447,7 @@ function loadSavedData(raw) {
           w: Math.round((b.w || 200) * scale), h: b.h || 160,
           content: b.content || '', src: b.src || '',
           imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
-          imgFilter: b.imgFilter || 'none', tlText: b.tlText || '', tlDir: b.tlDir || 'v',
+          imgFilter: b.imgFilter || 'none', tlText: b.tlText || '', tlDir: b.tlDir || 'v', mapText: b.mapText || '',
           showBorder: b.showBorder ?? false,
           borderColor: b.borderColor ?? '#000000',
           borderWidth: b.borderWidth ?? 1,
@@ -1482,6 +1515,7 @@ function snapshotState() {
         imgFilter: b.imgFilter || 'none',
         tlText: b.tlText || '',
         tlDir: b.tlDir || 'v',
+        mapText: b.mapText || '',
         showBorder: b.showBorder ?? false, borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1, borderRadius: b.borderRadius ?? 0,
       })),
