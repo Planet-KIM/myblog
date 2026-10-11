@@ -241,6 +241,7 @@ function addBlock(type, opts = {}) {
     tlText: opts.tlText ?? '',
     tlDir: opts.tlDir ?? 'v',
     mapText: opts.mapText ?? '',
+    dropCap: opts.dropCap ?? false,
     showBorder: opts.showBorder ?? false,
     borderColor: opts.borderColor ?? '#000000',
     borderWidth: opts.borderWidth ?? 1,
@@ -379,6 +380,26 @@ function renderBlock(block) {
     hdr.appendChild(serifBtn);
     hdr.appendChild(mkBtn('<b style="font-size:0.72rem;">A−</b>', '글자 작게', () => bumpFont(block, -2)));
     hdr.appendChild(mkBtn('<b style="font-size:0.95rem;">A+</b>', '글자 크게', () => bumpFont(block, 2)));
+    const tcLabel = document.createElement('label');
+    tcLabel.className = 'fb-btn'; tcLabel.title = '글자 색';
+    tcLabel.style.cssText = 'position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;';
+    tcLabel.innerHTML = '<i class="bi bi-palette-fill"></i>';
+    const tcIn = document.createElement('input');
+    tcIn.type = 'color'; tcIn.value = '#b4542f';
+    tcIn.style.cssText = 'position:absolute;inset:0;opacity:0;cursor:pointer;';
+    tcIn.addEventListener('mousedown', e => e.stopPropagation());
+    tcIn.addEventListener('input', () => block.editor && block.editor.chain().focus().selectAll().setColor(tcIn.value).run());
+    tcLabel.appendChild(tcIn);
+    hdr.appendChild(tcLabel);
+    if (block.type === 'text') {
+      const dcBtn = mkBtn('<b style="font-family:Georgia,serif;">D</b>', '드롭캡 (첫 글자 장식)', () => {
+        block.dropCap = !block.dropCap;
+        dcBtn.classList.toggle('fb-btn-active', block.dropCap);
+        const ed = el.querySelector('.fb-editor'); if (ed) ed.classList.toggle('mag-dropcap', block.dropCap);
+      });
+      if (block.dropCap) dcBtn.classList.add('fb-btn-active');
+      hdr.appendChild(dcBtn);
+    }
   }
 
   if (block.type === 'image') {
@@ -442,6 +463,7 @@ function renderBlock(block) {
   if (block.type === 'text' || block.type === 'heading' || block.type === 'code') {
     const edEl = document.createElement('div');
     edEl.className = 'fb-editor';
+    if (block.dropCap) edEl.classList.add('mag-dropcap');
     body.appendChild(edEl);
     el.appendChild(body);
     canvas.appendChild(el);
@@ -809,6 +831,7 @@ function collectData() {
         tlText: b.tlText || '',
         tlDir: b.tlDir || 'v',
         mapText: b.mapText || '',
+        dropCap: b.dropCap || false,
         showBorder: b.showBorder ?? false,
         borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1,
@@ -842,7 +865,7 @@ function collectData() {
       } else if (b.type === 'spacer') {
         html += `<div style="${s}"></div>`;
       } else {
-        html += `<div style="${s}">${b.content}</div>`;
+        html += `<div${b.dropCap ? ' class="mag-dropcap"' : ''} style="${s}">${b.content}</div>`;
       }
     });
     html += '</div></div></div>';
@@ -876,7 +899,7 @@ function buildPreviewSlide(page) {
     } else if (b.type === 'spacer') {
       html += `<div style="${s}"></div>`;
     } else {
-      html += `<div style="${s}">${b.content || ''}</div>`;
+      html += `<div${b.dropCap ? ' class="mag-dropcap"' : ''} style="${s}">${b.content || ''}</div>`;
     }
   });
   html += '</div></div>';
@@ -1534,6 +1557,7 @@ function snapshotState() {
         tlText: b.tlText || '',
         tlDir: b.tlDir || 'v',
         mapText: b.mapText || '',
+        dropCap: b.dropCap || false,
         showBorder: b.showBorder ?? false, borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1, borderRadius: b.borderRadius ?? 0,
       })),

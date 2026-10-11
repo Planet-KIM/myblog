@@ -180,6 +180,13 @@
   /* 여행 지도 */
   .mag-map { width: 100%; height: 100%; object-fit: cover; display: block; }
   .mag-map-empty { padding: 18px; color: #8a7c6d; font-size: 0.9em; }
+  /* 드롭캡 (첫 글자 장식) */
+  .mag-dropcap > p:first-of-type::first-letter {
+    float: left; font-family: 'Fraunces','Noto Serif KR',Georgia,serif;
+    font-size: 3.1em; line-height: 0.76; font-weight: 700; color: #b4542f; padding: 0.02em 0.12em 0 0;
+  }
+  .reader-block.mag-dropcap > p:first-of-type::first-letter { font-size: 2.6em; }
+  [data-theme="dark"] .mag-dropcap > p:first-of-type::first-letter { color: #e08a5c; }
 
   /* ── 읽기 모드 (모바일 가독성) ───────────────────────── */
   .mag-reader { display: none; }
@@ -1004,7 +1011,7 @@
       } else if (b.type === 'spacer') {
         html += `<div style="${s}"></div>`;
       } else {
-        html += `<div style="${s}">${b.content || ''}</div>`;
+        html += `<div${b.dropCap ? ' class="mag-dropcap"' : ''} style="${s}">${b.content || ''}</div>`;
       }
     });
     html += '</div></div>';
@@ -1027,7 +1034,7 @@
         } else if (b.content) {
           // 캔버스 폭 대비 블록 폭으로 상대 글자 크기 추정(가독성 범위로 clamp)
           const rel = Math.max(0.85, Math.min(1.9, (b.w || cw) / cw * 2.2));
-          html += `<div class="reader-block" style="font-size:${rel.toFixed(2)}rem;">${b.content}</div>`;
+          html += `<div class="reader-block${b.dropCap ? ' mag-dropcap' : ''}" style="font-size:${rel.toFixed(2)}rem;">${b.content}</div>`;
         }
       });
     });
