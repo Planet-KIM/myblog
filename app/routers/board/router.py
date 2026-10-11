@@ -37,6 +37,18 @@ templates = Jinja2Templates(directory="app/templates")
 logger = logging.getLogger(__name__)
 
 
+def _asset_ver(path: str) -> int:
+    """정적 파일의 수정시각(epoch)을 캐시버스터로 반환.
+    에디터 번들을 재빌드하면 값이 바뀌어 브라우저가 새 파일을 받는다."""
+    try:
+        return int((Path("app/static") / path).stat().st_mtime)
+    except OSError:
+        return 0
+
+
+templates.env.globals["asset_ver"] = _asset_ver
+
+
 # ------------------------------------------------------------
 # Markdown 첫 줄 제목 추출
 # ------------------------------------------------------------
