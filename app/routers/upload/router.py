@@ -150,6 +150,36 @@ def _get_upload_dir(
 # ============================================================
 # ★ 통합 파일 업로드
 # ============================================================
+def _optimize_image(content: bytes, suffix: str) -> Tuple[bytes, str, Optional[str]]:
+    """이미지를 최대폭 리사이즈 + WebP 변환해 용량을 줄인다.
+    반환: (바이트, 확장자, mime) — 부적합/실패/더 커지면 원본 그대로(mime=None).
+    - GIF/AVIF(움직이는 이미지 가능)는 변환하지 않음
+    - EXIF 회전 보정, 알파 보존
+    """
+    if suffix.lower() in (".gif", ".avif"):
+        return content, suffix, None
+    try:
+        import io
+        from PIL import Image, ImageOps
+
+        im = Image.open(io.BytesIO(content))
+        if getattr(im, "is_animated", False):
+            return content, suffix, None
+        im = ImageOps.exif_transpose(im)
+        im = im.convert("RGBA") if im.mode in ("RGBA", "LA", "P") else im.convert("RGB")
+        MAX_W = 1600
+        if im.width > MAX_W:
+            im = im.resize((MAX_W, round(im.height * MAX_W / im.width)), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, format="WEBP", quality=82, method=6)
+        out = buf.getvalue()
+        if len(out) >= len(content):   # 변환이 이득 없으면 원본 유지(작은 PNG 등)
+            return content, suffix, None
+        return out, ".webp", "image/webp"
+    except Exception:  # noqa: BLE001 — 최적화 실패해도 업로드는 계속
+        return content, suffix, None
+
+
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
@@ -203,6 +233,14 @@ async def upload_file(
             detail="빈 파일은 업로드할 수 없습니다.",
         )
 
+    # 이미지 최적화: 최대폭 리사이즈 + WebP 변환 (원본이 더 작으면 그대로)
+    mime_type = file.content_type or "application/octet-stream"
+    if file_type == "image":
+        content, suffix, webp_mime = _optimize_image(content, suffix)
+        size_bytes = len(content)
+        if webp_mime:
+            mime_type = webp_mime
+
     # 저장 디렉토리 결정
     save_dir, url_prefix = _get_upload_dir(
         current_user.id, type_config["folder"], post_id, draft_id
@@ -228,7 +266,7 @@ async def upload_file(
         file_path=str(save_path),
         url=url,
         size_bytes=size_bytes,
-        mime_type=file.content_type or "application/octet-stream",
+        mime_type=mime_type,
     )
     db.add(record)
     db.commit()
