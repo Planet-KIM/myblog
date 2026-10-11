@@ -9,11 +9,12 @@
     ...
 
 규칙:
-  - 'DAY n' 또는 'n일차' 로 시작하는 줄 → 날짜 헤더(새 날 시작)
+  - '# 제목' (맨 앞 #) → 날짜/구간 헤더. 언어·표현 자유 (예: '# 첫째 날', '# Jour 1')
+  - 'DAY n' / 'n일차' / 'n일째' → 헤더 (하위호환 자동 인식)
   - '라벨:HH:MM' (전각 콜론 ：도 허용) → 시간 있는 일정
   - 그 외 줄 → 시간 없는 일정(라벨만)
   - 빈 줄 무시
-반환: [{"title": "DAY 1", "events": [{"label": ..., "time": "09:00"}, ...]}, ...]
+반환: [{"title": "첫째 날", "events": [{"label": ..., "time": "09:00"}, ...]}, ...]
 """
 from __future__ import annotations
 
@@ -33,6 +34,11 @@ def parse_timeline(text: str) -> list[dict]:
             cur = {"title": "", "events": []}
             days.append(cur)
 
+    def new_day(title):
+        nonlocal cur
+        cur = {"title": title, "events": []}
+        days.append(cur)
+
     for raw in (text or "").splitlines():
         line = raw.strip()
         if not line:
@@ -41,9 +47,10 @@ def parse_timeline(text: str) -> list[dict]:
         if m:
             ensure_day()
             cur["events"].append({"label": m.group(1).strip(), "time": m.group(2).strip()})
-        elif _DAY.match(line):
-            cur = {"title": line, "events": []}
-            days.append(cur)
+        elif line.startswith("#"):              # 언어 무관 헤더 표시
+            new_day(line.lstrip("#").strip())
+        elif _DAY.match(line):                  # DAY n / n일차 (하위호환)
+            new_day(line)
         else:
             ensure_day()
             cur["events"].append({"label": line, "time": ""})

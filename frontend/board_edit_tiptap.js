@@ -87,6 +87,7 @@ function parseTimeline(text) {
     const line = raw.trim(); if (!line) return;
     const m = line.match(/^(.*?)[:：]\s*(\d{1,2}:\d{2})\s*$/);
     if (m) { ensure(); cur.events.push({ label: m[1].trim(), time: m[2].trim() }); }
+    else if (line.startsWith('#')) { cur = { title: line.replace(/^#+/, '').trim(), events: [] }; days.push(cur); }
     else if (/^day\b/i.test(line) || /^\d+\s*일\s*차/.test(line) || /^\d+\s*일째/.test(line)) { cur = { title: line, events: [] }; days.push(cur); }
     else { ensure(); cur.events.push({ label: line, time: '' }); }
   });
@@ -95,7 +96,7 @@ function parseTimeline(text) {
 function renderTimelineHTML(text, dir) {
   const days = parseTimeline(text);
   const cls = 'mag-timeline' + (dir === 'h' ? ' mtl-h' : '');
-  if (!days.length) return `<div class="${cls}"><p class="mtl-empty">일정을 입력하세요 (예: 왕궁:09:00)</p></div>`;
+  if (!days.length) return `<div class="${cls}"><p class="mtl-empty">일정 입력 (예: # 첫째 날 / 왕궁:09:00)</p></div>`;
   let h = `<div class="${cls}">`;
   for (const d of days) {
     h += '<div class="mtl-day">';
@@ -442,7 +443,7 @@ function renderBlock(block) {
     ta.className = 'fb-tl-src';
     ta.value = block.tlText || '';
     ta.spellcheck = false;
-    ta.placeholder = 'DAY 1\n왕궁:09:00\n점심:12:30';
+    ta.placeholder = '# 첫째 날\n왕궁:09:00\n점심:12:30';
     ta.style.display = 'none';
     ta.addEventListener('mousedown', e => e.stopPropagation());
     ta.addEventListener('input', () => {
@@ -1379,7 +1380,7 @@ function buildToolbar() {
     { icon: '<i class="bi bi-quote"></i>', tip: '인용구 (Pull quote)', fn: () => addBlock('text', { content: '<p><em><span style="font-size:30px;color:#b4542f">“인상적인 한 문장을 인용구로.”</span></em></p>', h: 130 }) },
     { icon: '<i class="bi bi-dash-lg"></i>', tip: '구분선 (Divider)', fn: () => addBlock('text', { content: '<hr>', h: 30 }) },
     { icon: '<i class="bi bi-card-text"></i>', tip: '캡션 (Caption)', fn: () => addBlock('text', { content: '<p><span style="font-size:14px;color:#8a7c6d">사진 캡션을 입력하세요</span></p>', h: 40 }) },
-    { icon: '<i class="bi bi-signpost-2"></i>', tip: '타임라인 (여행 일정)', fn: () => { const s = 'DAY 1\n왕궁:09:00\n점심:12:30\n카페:15:00\n호텔 복귀:22:00'; addBlock('timeline', { tlText: s, content: renderTimelineHTML(s), w: 460, h: 340 }); } },
+    { icon: '<i class="bi bi-signpost-2"></i>', tip: '타임라인 (여행 일정)', fn: () => { const s = '# 첫째 날\n왕궁:09:00\n점심:12:30\n카페:15:00\n호텔 복귀:22:00'; addBlock('timeline', { tlText: s, content: renderTimelineHTML(s), w: 460, h: 340 }); } },
     { icon: '<i class="bi bi-arrows-expand"></i>', tip: 'Spacer', fn: () => addBlock('spacer', { h: 60 }) },
     { icon: '<span style="font-size:0.72rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>', tip: '맞춤법 검사 (Ctrl+Shift+S)', fn: () => triggerSpellCheck(), wide: true },
   ].forEach(({ icon, tip, fn, wide, id }) => {
