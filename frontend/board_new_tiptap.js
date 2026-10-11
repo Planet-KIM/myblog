@@ -92,10 +92,11 @@ function parseTimeline(text) {
   });
   return days.filter(d => d.events.length || d.title.trim());
 }
-function renderTimelineHTML(text) {
+function renderTimelineHTML(text, dir) {
   const days = parseTimeline(text);
-  if (!days.length) return '<div class="mag-timeline"><p class="mtl-empty">일정을 입력하세요 (예: 왕궁:09:00)</p></div>';
-  let h = '<div class="mag-timeline">';
+  const cls = 'mag-timeline' + (dir === 'h' ? ' mtl-h' : '');
+  if (!days.length) return `<div class="${cls}"><p class="mtl-empty">일정을 입력하세요 (예: 왕궁:09:00)</p></div>`;
+  let h = `<div class="${cls}">`;
   for (const d of days) {
     h += '<div class="mtl-day">';
     if ((d.title || '').trim()) h += `<div class="mtl-day-title">${tlEscape(d.title)}</div>`;
@@ -231,6 +232,7 @@ function addBlock(type, opts = {}) {
     imgOffsetY: opts.imgOffsetY ?? 50,
     imgFilter: opts.imgFilter ?? 'none',
     tlText: opts.tlText ?? '',
+    tlDir: opts.tlDir ?? 'v',
     showBorder: opts.showBorder ?? false,
     borderColor: opts.borderColor ?? '#000000',
     borderWidth: opts.borderWidth ?? 1,
@@ -396,6 +398,14 @@ function renderBlock(block) {
       if (editing) ta.focus();
     });
     hdr.appendChild(editBtn);
+    const dirBtn = mkBtn('<i class="bi bi-distribute-horizontal"></i>', '세로 / 가로 전환', () => {
+      block.tlDir = block.tlDir === 'h' ? 'v' : 'h';
+      block.content = renderTimelineHTML(block.tlText || '', block.tlDir);
+      const rd = el.querySelector('.fb-tl-render'); if (rd) rd.innerHTML = block.content;
+      dirBtn.classList.toggle('fb-btn-active', block.tlDir === 'h');
+    });
+    if (block.tlDir === 'h') dirBtn.classList.add('fb-btn-active');
+    hdr.appendChild(dirBtn);
   }
 
   if (block.type === 'text') {
@@ -451,7 +461,7 @@ function renderBlock(block) {
     body.classList.add('fb-body-timeline');
     const render = document.createElement('div');
     render.className = 'fb-tl-render';
-    if (!block.content) block.content = renderTimelineHTML(block.tlText || '');
+    if (!block.content) block.content = renderTimelineHTML(block.tlText || '', block.tlDir || 'v');
     render.innerHTML = block.content;
     const ta = document.createElement('textarea');
     ta.className = 'fb-tl-src';
@@ -462,7 +472,7 @@ function renderBlock(block) {
     ta.addEventListener('mousedown', e => e.stopPropagation());
     ta.addEventListener('input', () => {
       block.tlText = ta.value;
-      block.content = renderTimelineHTML(block.tlText);
+      block.content = renderTimelineHTML(block.tlText, block.tlDir || 'v');
       render.innerHTML = block.content;
     });
     body.appendChild(render);
@@ -764,6 +774,7 @@ function collectData() {
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
         imgFilter: b.imgFilter || 'none',
         tlText: b.tlText || '',
+        tlDir: b.tlDir || 'v',
         showBorder: b.showBorder ?? false,
         borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1,
@@ -1486,6 +1497,7 @@ function snapshotState() {
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
         imgFilter: b.imgFilter || 'none',
         tlText: b.tlText || '',
+        tlDir: b.tlDir || 'v',
         showBorder: b.showBorder ?? false, borderColor: b.borderColor ?? '#000000',
         borderWidth: b.borderWidth ?? 1, borderRadius: b.borderRadius ?? 0,
       })),

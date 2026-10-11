@@ -162,8 +162,15 @@
   .mag-timeline .mtl-time { color: #8a7c6d; font-size: .82em; text-align: right; white-space: nowrap; }
   .mag-timeline .mtl-mark { position: relative; align-self: stretch; }
   .mag-timeline .mtl-mark::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ead0c2; transform: translateX(-50%); }
-  .mag-timeline .mtl-item:first-child .mtl-mark::before { top: 50%; }
-  .mag-timeline .mtl-item:last-child .mtl-mark::before { bottom: 50%; }
+  .mag-timeline:not(.mtl-h) .mtl-item:first-child .mtl-mark::before { top: 50%; }
+  .mag-timeline:not(.mtl-h) .mtl-item:last-child .mtl-mark::before { bottom: 50%; }
+  /* 가로 타임라인 + 자동 줄바꿈(모바일 넘침 보정) */
+  .mag-timeline.mtl-h .mtl-events { display: flex; flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
+  .mag-timeline.mtl-h .mtl-item { display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1 1 86px; min-width: 72px; max-width: 220px; min-height: 0; }
+  .mag-timeline.mtl-h .mtl-time { text-align: center; }
+  .mag-timeline.mtl-h .mtl-mark { width: 100%; height: 16px; align-self: stretch; }
+  .mag-timeline.mtl-h .mtl-mark::before { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 2px; transform: translateY(-50%); }
+  .mag-timeline.mtl-h .mtl-label { margin-top: 3px; padding: 0 4px; word-break: keep-all; }
   .mag-timeline .mtl-dot { position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; border-radius: 50%; background: #b4542f; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #b4542f; transform: translate(-50%,-50%); z-index: 1; }
   .mag-timeline .mtl-label { color: #2a2320; font-weight: 500; }
   .mag-timeline .mtl-empty { color: #8a7c6d; font-size: .9em; }

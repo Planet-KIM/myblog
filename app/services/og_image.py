@@ -249,15 +249,87 @@ def render_post_og(
     return buf.getvalue()
 
 
+def _timeline_h_png(days: list, width: int) -> bytes:
+    """가로 타임라인 — 폭을 넘으면 다음 줄로 자동 줄바꿈."""
+    import io
+
+    PAD = 24
+    item_w = 116
+    time_h = 26
+    mark_h = 20
+    label_lh = 22
+    row_gap = 14
+    title_h = 56
+    top = 24
+    W = int(width)
+    usable = max(item_w, W - PAD * 2)
+    per_row = max(1, usable // item_w)
+    f_day, f_time, f_label = _font(28), _font(19), _font(20)
+
+    tmp = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+    plan = []
+    H = top
+    for d in days:
+        evs = d["events"]
+        rows = [evs[i:i + per_row] for i in range(0, len(evs), per_row)] or [[]]
+        wrapped = {i: _wrap(tmp, _clean(ev.get("label") or ""), f_label, item_w - 12, 2) for i, ev in enumerate(evs)}
+        max_lines = max((len(v) for v in wrapped.values()), default=1)
+        row_h = time_h + mark_h + max_lines * label_lh + row_gap
+        plan.append((d, rows, evs, wrapped, row_h))
+        H += (title_h if _clean(d.get("title") or "") else 10) + len(rows) * row_h
+    H = max(H + 16, 140)
+
+    img = _vgradient(PAPER_HI, PAPER).resize((W, H))
+    draw = ImageDraw.Draw(img)
+    y = top
+    for d, rows, evs, wrapped, row_h in plan:
+        title = _clean(d.get("title") or "")
+        if title:
+            draw.text((PAD, y + 6), title, font=f_day, fill=TERRA)
+            draw.line([(PAD, y + title_h - 14), (W - PAD, y + title_h - 14)], fill=(226, 216, 205), width=2)
+            y += title_h
+        else:
+            y += 10
+        idx = 0
+        for row in rows:
+            n = len(row)
+            x0 = PAD + max(0, (usable - n * item_w) // 2)
+            mark_cy = y + time_h + mark_h // 2
+            if n:
+                draw.line([(x0 + item_w // 2, mark_cy), (x0 + (n - 1) * item_w + item_w // 2, mark_cy)], fill=(226, 200, 186), width=3)
+            for i in range(n):
+                ev = row[i]
+                cx = x0 + i * item_w + item_w // 2
+                tm = _clean(ev.get("time") or "")
+                if tm:
+                    tb = draw.textbbox((0, 0), tm, font=f_time)
+                    draw.text((cx - (tb[2] - tb[0]) / 2, y + 2), tm, font=f_time, fill=MUTED)
+                draw.ellipse([cx - 8, mark_cy - 8, cx + 8, mark_cy + 8], fill=TERRA)
+                draw.ellipse([cx - 3, mark_cy - 3, cx + 3, mark_cy + 3], fill=CREAM)
+                ly = y + time_h + mark_h + 2
+                for ln in wrapped[idx + i]:
+                    lb = draw.textbbox((0, 0), ln, font=f_label)
+                    draw.text((cx - (lb[2] - lb[0]) / 2, ly), ln, font=f_label, fill=INK)
+                    ly += label_lh
+            idx += n
+            y += row_h
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
 # ============================================================
 # 여행 타임라인 이미지 — 'DAY n + 라벨:시간' 텍스트를 세로 타임라인으로
 # ============================================================
-def render_timeline_image(text: str, width: int = 620) -> bytes:
-    """일정 텍스트를 세로 타임라인 PNG(자동 높이)로 그린다."""
+def render_timeline_image(text: str, width: int = 620, direction: str = "v") -> bytes:
+    """일정 텍스트를 타임라인 PNG(자동 높이)로 그린다. direction='h'면 가로+줄바꿈."""
     import io
     from app.services.timeline import parse_timeline
 
     days = parse_timeline(text)
+    if direction == "h":
+        return _timeline_h_png(days, width)
     PAD = 34
     time_w = 78
     line_x = PAD + time_w + 24
@@ -423,7 +495,7 @@ def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:
         elif t == "timeline":
             try:
                 src = b.get("tlText") or _plain(b.get("content", ""))
-                tl = Image.open(io.BytesIO(render_timeline_image(src, width=max(80, w)))).convert("RGB")
+                tl = Image.open(io.BytesIO(render_timeline_image(src, width=max(80, w), direction=b.get("tlDir", "v")))).convert("RGB")
                 tl = tl.crop((0, 0, min(tl.width, w), min(tl.height, h)))
                 img.paste(tl, (x, y))
             except Exception:  # noqa: BLE001
