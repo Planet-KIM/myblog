@@ -1,55 +1,10 @@
 /**
  * home.js — Main page (index) interaction layer
- *
- * Dependencies (loaded via CDN before this file):
- *   - AOS v2.3.4  (MIT License)  https://michalsnik.github.io/aos/
- *   - Typed.js v2.1.0 (MIT License)  https://mattboldt.com/demos/typed-js/
+ * (검색 단축키, 좋아요/북마크/팔로우, 뉴스레터, 이어 읽기)
  */
 
 document.addEventListener('DOMContentLoaded', function () {
-  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const searchInput = document.getElementById('home-search-input');
-  const nav = document.querySelector('.site-nav');
-
-  function syncHomeNavState() {
-    if (!nav) return;
-    nav.classList.toggle('is-scrolled', window.scrollY > 60);
-  }
-
-  syncHomeNavState();
-  window.addEventListener('scroll', syncHomeNavState, { passive: true });
-
-  /* ── AOS: Animate On Scroll (MIT License) ────────────────── */
-  if (!prefersReducedMotion && typeof AOS !== 'undefined') {
-    AOS.init({
-      duration: 650,
-      easing: 'ease-out-cubic',
-      once: true,
-      offset: 60
-    });
-  }
-
-  /* ── Typed.js: Hero subtitle cycling (MIT License) ───────── */
-  const typedEl = document.getElementById('typed-text');
-  if (typedEl) {
-    if (prefersReducedMotion) {
-      typedEl.textContent = '모든 이야기를 기록합니다';
-    } else if (typeof Typed !== 'undefined') {
-      new Typed('#typed-text', {
-        strings: [
-          '코드를 기록합니다',
-          '배움을 기록합니다',
-          '일상을 기록합니다',
-          '모든 이야기를 기록합니다'
-        ],
-        typeSpeed: 60,
-        backSpeed: 35,
-        backDelay: 2200,
-        loop: true,
-        cursorChar: '|'
-      });
-    }
-  }
 
   /* ── Global search shortcut (Ctrl/Cmd + K, /) ───────────── */
   document.addEventListener('keydown', (event) => {

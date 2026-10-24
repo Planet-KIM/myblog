@@ -3,51 +3,35 @@
 {% block body_class %}home-page{% endblock %}
 
 {% block extra_head %}
-{# AOS — Animate On Scroll (MIT License) #}
-<link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
-{# Main page styles #}
 <link rel="stylesheet" href="{{ url_for('static', path='css/home.css') }}">
 {% endblock %}
 
 {% block content %}
 
 {# ─── Hero ───────────────────────────────────────────────── #}
-<section class="hero">
-  <div class="hero-body">
-    <div class="hero-eyebrow">블로그 포털</div>
-    <h1 class="hero-title">모든 이야기가<br>여기 모입니다</h1>
-    <p class="hero-summary">코드·강의·일상까지, 다양한 블로그의 글을 한 화면에서 둘러보세요.</p>
-    <div class="hero-stats">
-      <div class="hero-stat-item">
-        <div class="hero-stat-num">{{ blogger_count }}</div>
-        <div class="hero-stat-label">블로거</div>
-      </div>
-      <div class="hero-stat-item">
-        <div class="hero-stat-num">{{ visible_post_total }}</div>
-        <div class="hero-stat-label">글</div>
-      </div>
-      <div class="hero-stat-item">
-        <div class="hero-stat-num">{{ tag_total }}</div>
-        <div class="hero-stat-label">태그</div>
-      </div>
-    </div>
-    <div class="hero-cta-row">
-      <a href="/explore" class="hero-cta">
-        <i class="bi bi-compass me-2"></i>블로그 둘러보기
-      </a>
-      <a href="{% if current_user %}/board/new{% else %}/auth/signup{% endif %}" class="hero-cta hero-cta-ghost">
-        <i class="bi bi-pencil me-2"></i>{% if current_user %}글 쓰기{% else %}내 블로그 시작{% endif %}
-      </a>
-    </div>
+<section class="home-hero">
+  <span class="eyebrow">Blog portal</span>
+  <h1 class="home-hero-title">모든 이야기가<br>여기 모입니다</h1>
+  <p class="lead-text">코드·강의·일상까지, 다양한 블로그의 글을 한 화면에서 둘러보세요.</p>
+  <div class="meta-row home-hero-stats">
+    <span>블로거 {{ blogger_count }}</span>
+    <span>글 {{ visible_post_total }}</span>
+    <span>태그 {{ tag_total }}</span>
+  </div>
+  <div class="home-hero-cta">
+    <a href="/explore" class="btn-travel">블로그 둘러보기</a>
+    <a href="{% if current_user %}/board/new{% else %}/auth/signup{% endif %}" class="btn-ghost">
+      {% if current_user %}글 쓰기{% else %}내 블로그 시작{% endif %}
+    </a>
   </div>
 </section>
 
 {# ─── Featured (지금 인기 있는 글) ───────────────────────────── #}
 {% if featured_posts and not search_query and not selected_category_id %}
-<section class="featured-section">
-  <div class="featured-head">
-    <span class="featured-eyebrow"><i class="bi bi-fire"></i> 지금 인기 있는 글</span>
-    <a href="/board/?sort=popular" class="featured-more">더 보기 <i class="bi bi-arrow-right"></i></a>
+<section class="home-section">
+  <div class="home-section-head">
+    <h2>지금 인기 있는 글</h2>
+    <a href="/board/?sort=popular" class="section-link">더 보기 <i class="bi bi-arrow-right"></i></a>
   </div>
   <div class="featured-grid">
     {% for post in featured_posts %}
@@ -56,15 +40,15 @@
         {% if post.thumbnail %}
         <img src="{{ post.thumbnail }}" alt="" loading="lazy" onerror="this.closest('.featured-thumb').classList.add('no-img');">
         {% endif %}
-        {% if post.category %}<span class="featured-cat">{{ post.category.name }}</span>{% endif %}
       </span>
       <span class="featured-body">
+        {% if post.category %}<span class="eyebrow">{{ post.category.name }}</span>{% endif %}
         <span class="featured-title">{% if post.show_title != False %}{{ post.title or 'Untitled' }}{% else %}Untitled{% endif %}</span>
         <span class="featured-preview">{{ post.preview }}</span>
-        <span class="featured-meta">
-          {% if post.user and post.user.handle %}@{{ post.user.handle }} · {% endif %}
-          <i class="bi bi-eye"></i> {{ post.view_count }}
-          {% if post.reading_minutes %} · {{ post.reading_minutes }}분{% endif %}
+        <span class="meta-row">
+          {% if post.user and post.user.handle %}<span>@{{ post.user.handle }}</span>{% endif %}
+          <span>조회 {{ post.view_count }}</span>
+          {% if post.reading_minutes %}<span>{{ post.reading_minutes }}분</span>{% endif %}
         </span>
       </span>
     </a>
@@ -75,19 +59,19 @@
 
 {# ─── 주목받는 블로거 ───────────────────────────────────────── #}
 {% if featured_bloggers and not search_query and not selected_category_id %}
-<section class="bloggers-section">
-  <div class="featured-head">
-    <span class="featured-eyebrow"><i class="bi bi-people-fill"></i> 주목받는 블로거</span>
-    <a href="/explore" class="featured-more">전체 보기 <i class="bi bi-arrow-right"></i></a>
+<section class="home-section">
+  <div class="home-section-head">
+    <h2>주목받는 블로거</h2>
+    <a href="/explore" class="section-link">전체 보기 <i class="bi bi-arrow-right"></i></a>
   </div>
   <div class="bloggers-row">
     {% for b in featured_bloggers %}
     <a href="/@{{ b.user.handle }}" class="blogger-card"
        {% if b.user.accent_color %}style="--blog-accent: {{ b.user.accent_color }};"{% endif %}>
       {% if b.user.avatar_url %}
-      <img src="{{ b.user.avatar_url }}" alt="" class="blogger-avatar" onerror="this.style.display='none';">
+      <img src="{{ b.user.avatar_url }}" alt="" class="avatar avatar-lg blogger-avatar" onerror="this.style.display='none';">
       {% else %}
-      <span class="blogger-avatar is-fallback">{{ (b.user.display_name or b.user.handle or '?')[0]|upper }}</span>
+      <span class="avatar avatar-lg blogger-avatar">{{ (b.user.display_name or b.user.handle or '?')[0]|upper }}</span>
       {% endif %}
       {% set bname = b.user.blog_title or b.user.display_name %}
       <span class="blogger-name">{{ bname or ('@' ~ b.user.handle) }}</span>
@@ -97,13 +81,13 @@
     {% endfor %}
     {% if current_user %}
     <a href="/me/profile" class="blogger-card blogger-card-cta">
-      <span class="blogger-cta-icon"><i class="bi bi-person-gear"></i></span>
+      <span class="avatar avatar-lg blogger-avatar"><i class="bi bi-person-gear"></i></span>
       <span class="blogger-name">내 블로그 꾸미기</span>
       <span class="blogger-handle">프로필 편집</span>
     </a>
     {% else %}
     <a href="/auth/signup" class="blogger-card blogger-card-cta">
-      <span class="blogger-cta-icon"><i class="bi bi-plus-lg"></i></span>
+      <span class="avatar avatar-lg blogger-avatar"><i class="bi bi-plus-lg"></i></span>
       <span class="blogger-name">블로거 되기</span>
       <span class="blogger-handle">무료로 시작</span>
     </a>
@@ -117,6 +101,7 @@
   <div class="curation-inner">
     <form method="get" action="/search" class="curation-search-wrap" id="home-search-form">
       <label for="home-search-input" class="visually-hidden">검색</label>
+      <i class="bi bi-search curation-search-icon" aria-hidden="true"></i>
       <input
         id="home-search-input"
         name="q"
@@ -126,18 +111,16 @@
         placeholder="모든 블로그 검색 (⌘/Ctrl + K)"
         autocomplete="off"
       />
-      <button type="submit" class="curation-search-btn">
-        <i class="bi bi-search"></i>
-      </button>
+      <button type="submit" class="visually-hidden">검색</button>
     </form>
 
     <div class="feed-tabs" role="tablist" aria-label="피드">
       <a href="/?feed=latest{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort }}"
-         class="feed-tab {% if selected_feed == 'latest' %}active{% endif %}" role="tab">Latest</a>
+         class="feed-tab {% if selected_feed == 'latest' %}active{% endif %}" role="tab">최신</a>
       <a href="/?feed=following{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort }}"
-         class="feed-tab {% if selected_feed == 'following' %}active{% endif %}" role="tab">Following</a>
+         class="feed-tab {% if selected_feed == 'following' %}active{% endif %}" role="tab">팔로잉</a>
       <a href="/?feed=recommended{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}&sort={{ selected_sort }}"
-         class="feed-tab {% if selected_feed == 'recommended' %}active{% endif %}" role="tab">Recommended</a>
+         class="feed-tab {% if selected_feed == 'recommended' %}active{% endif %}" role="tab">추천</a>
     </div>
 
     <form method="get" action="/" class="curation-sort-wrap">
@@ -149,7 +132,7 @@
       <input type="hidden" name="q" value="{{ search_query }}">
       {% endif %}
       <label for="home-sort" class="visually-hidden">정렬</label>
-      <select name="sort" id="home-sort" class="curation-sort" onchange="this.form.submit()">
+      <select name="sort" id="home-sort" class="form-select form-select-sm curation-sort" onchange="this.form.submit()">
         <option value="recent" {% if selected_sort == 'recent' %}selected{% endif %}>최신순</option>
         <option value="popular" {% if selected_sort == 'popular' %}selected{% endif %}>인기순</option>
         <option value="discussed" {% if selected_sort == 'discussed' %}selected{% endif %}>토론순</option>
@@ -159,43 +142,40 @@
 
   {# 전역 탐색축: 운영자 카테고리가 아니라 포털 전역 태그 + 블로그 둘러보기 #}
   <nav class="topic-chips" aria-label="토픽">
-    <a href="/" class="topic-chip active">전체</a>
+    <a href="/" class="chip active" aria-current="page">전체</a>
     {% for t in popular_tags %}
-    <a href="/tags/{{ t.slug }}" class="topic-chip">#{{ t.name }} <span>{{ t.count }}</span></a>
+    <a href="/tags/{{ t.slug }}" class="chip">#{{ t.name }} <span class="count">{{ t.count }}</span></a>
     {% endfor %}
   </nav>
 </section>
 
 {# ─── Main Content ────────────────────────────────────────── #}
 <div class="main-wrap">
-  <div id="latest-posts" class="section-header" data-aos="fade-up">
-    <div>
-      <span class="section-title">Latest Posts</span>
-      <p class="section-subtitle mb-0">최근 게시글을 먼저 확인하고, 필요할 때 아카이브로 확장하세요.</p>
-    </div>
+  <div id="latest-posts" class="home-section-head">
+    <h2>최신 글</h2>
     <a href="/board/?q={{ search_query|urlencode }}{% if selected_category_id %}&category_id={{ selected_category_id }}{% endif %}&sort={{ selected_sort }}"
        class="section-link">
-      Archive <i class="bi bi-arrow-right ms-1"></i>
+      아카이브 <i class="bi bi-arrow-right"></i>
     </a>
   </div>
 
   {% if selected_feed == "following" and following_requires_login %}
-  <div class="home-notice" data-aos="fade-up">
-    <i class="bi bi-lock-fill me-1"></i> Following 피드는 로그인 후 사용할 수 있습니다.
+  <div class="home-notice">
+    <i class="bi bi-lock me-1"></i> 팔로잉 피드는 로그인 후 사용할 수 있습니다.
     <a href="/auth/login" class="notice-link">로그인하기</a>
   </div>
   {% elif selected_feed == "following" and following_empty %}
-  <div class="home-notice" data-aos="fade-up">
-    <i class="bi bi-stars me-1"></i> 아직 팔로우한 작성자/카테고리가 없습니다. 카드의 Follow 버튼으로 시작해보세요.
+  <div class="home-notice">
+    아직 팔로우한 작성자/카테고리가 없습니다. 카드의 팔로우 버튼으로 시작해보세요.
   </div>
   {% endif %}
 
-  {# ── Home Layout: bento grid + sidebar ──────────────────── #}
+  {# ── Home Layout: grid + sidebar ──────────────────── #}
   <div class="home-layout">
     <div class="bento-grid">
       {% if posts %}
         {% for post in posts %}
-        <div class="{{ card_sizes[loop.index0] if card_sizes else 'bento-1' }}" data-aos="fade-up" data-aos-delay="{{ loop.index * 40 }}">
+        <div class="{{ card_sizes[loop.index0] if card_sizes else 'bento-1' }}">
           <article class="travel-card {{ post.card_variant }}">
             <a href="/board/{{ post.id }}" class="card-link-overlay" aria-label="{{ post.title }}"></a>
 
@@ -204,7 +184,7 @@
               <img
                 src="{{ post.thumbnail }}"
                 class="card-img"
-                alt="thumbnail"
+                alt=""
                 loading="{% if loop.first %}eager{% else %}lazy{% endif %}"
                 fetchpriority="{% if loop.first %}high{% else %}auto{% endif %}"
                 decoding="async"
@@ -218,54 +198,39 @@
               <a class="card-author" href="/@{{ post.user.handle }}"
                  {% if post.user.accent_color %}style="--blog-accent: {{ post.user.accent_color }};"{% endif %}>
                 {% if post.user.avatar_url %}
-                <img src="{{ post.user.avatar_url }}" alt="" class="card-avatar" onerror="this.style.display='none';">
+                <img src="{{ post.user.avatar_url }}" alt="" class="avatar avatar-sm card-avatar" onerror="this.style.display='none';">
                 {% else %}
-                <span class="card-avatar is-fallback">{{ (post.user.display_name or post.user.handle)[0]|upper }}</span>
+                <span class="avatar avatar-sm card-avatar">{{ (post.user.display_name or post.user.handle)[0]|upper }}</span>
                 {% endif %}
-                <span class="card-author-meta">
-                  {% set aname = post.user.display_name or post.user.blog_title %}
-                  <span class="card-author-name">{{ aname or ('@' ~ post.user.handle) }}</span>
-                  {% if aname %}<span class="card-author-handle">@{{ post.user.handle }}</span>{% endif %}
-                </span>
+                {% set aname = post.user.display_name or post.user.blog_title %}
+                <span class="card-author-name">{{ aname or ('@' ~ post.user.handle) }}</span>
+                {% if aname %}<span class="card-author-handle">@{{ post.user.handle }}</span>{% endif %}
               </a>
               {% endif %}
+
               <div class="card-top-meta">
                 {% if post.category %}
-                <span class="badge-cat badge-tone-{{ category_tones.get(post.category.id, 'sea') }} mb-2 d-inline-flex align-items-center">
-                  <i class="bi bi-bookmark-fill me-1"></i>{{ post.category.name }}
-                </span>
+                <span class="badge-tint badge-tint-{{ category_tones.get(post.category.id, 'sea') }}">{{ post.category.name }}</span>
                 {% endif %}
                 <span class="post-type-badge type-{{ post.post_type }}">{{ post.type_label }}</span>
               </div>
 
               {% if post.show_title != False %}
-              <h5 class="card-title mb-1">
+              <h3 class="card-title">
                 <a href="/board/{{ post.id }}">{{ post.title }}</a>
-              </h5>
+              </h3>
               {% endif %}
 
-              <div class="card-preview mb-2">{{ post.preview }}</div>
+              <div class="card-preview">{{ post.preview }}</div>
 
-              <div class="card-insight">
-                {% if post.series_label %}
-                <span><i class="bi bi-collection me-1"></i>{{ post.series_label }}</span>
-                {% endif %}
-                <span><i class="bi bi-clock-history me-1"></i>{{ post.reading_minutes }}분</span>
-                {% if post.toc_count > 0 %}
-                <span><i class="bi bi-list-ul me-1"></i>TOC {{ post.toc_count }}</span>
-                {% endif %}
-              </div>
-
-              <div class="card-meta">
-                {% if not (post.user and post.user.handle) %}<i class="bi bi-person-fill me-1"></i>{{ post.author.split('@')[0] }}&nbsp;·&nbsp;{% endif %}
-                <i class="bi bi-clock me-1"></i>{{ post.created_at.strftime("%Y-%m-%d") }}
-                &nbsp;·&nbsp;
-                <i class="bi bi-chat-dots me-1"></i>{{ post.comment_count }}
-                &nbsp;·&nbsp;
-                <i class="bi bi-activity me-1"></i>{{ post.discussion_score }}
-              </div>
-
-              <div class="card-action-row mt-auto">
+              <div class="card-footer-row">
+                <div class="meta-row">
+                  {% if not (post.user and post.user.handle) %}<span>{{ post.author.split('@')[0] }}</span>{% endif %}
+                  <span>{{ post.created_at.strftime("%Y.%m.%d") }}</span>
+                  <span>{{ post.reading_minutes }}분</span>
+                  {% if post.comment_count %}<span>댓글 {{ post.comment_count }}</span>{% endif %}
+                  {% if post.series_label %}<span>{{ post.series_label }}</span>{% endif %}
+                </div>
                 <div class="card-action-left">
                   <button class="card-icon-action js-like-btn" data-post-id="{{ post.id }}" aria-label="좋아요">
                     <i class="bi bi-hand-thumbs-up"></i>
@@ -275,47 +240,31 @@
                     <i class="bi bi-bookmark"></i>
                   </button>
                 </div>
-                <a href="/board/{{ post.id }}" class="card-read-link">자세히 보기 <i class="bi bi-arrow-right-short"></i></a>
               </div>
 
+              {% if current_user %}
               <div class="card-follow-cta">
-                {% if current_user %}
-                  {% if post.category %}
-                  <button class="inline-follow-btn js-follow-category-btn {% if post.is_followed_category %}active{% endif %}"
-                          data-category-id="{{ post.category.id }}">
-                    <i class="bi bi-plus-circle me-1"></i>{{ post.category.name }} Follow
-                  </button>
-                  {% endif %}
-                  {% if post.user_id != current_user.id %}
-                  <button class="inline-follow-btn js-follow-author-btn {% if post.is_followed_author %}active{% endif %}"
-                          data-author-id="{{ post.user_id }}">
-                    <i class="bi bi-person-plus me-1"></i>작성자 Follow
-                  </button>
-                  {% endif %}
-                {% else %}
-                  <a href="/auth/login" class="inline-follow-link"><i class="bi bi-box-arrow-in-right me-1"></i>로그인 후 Follow</a>
+                {% if post.category %}
+                <button class="inline-follow-btn js-follow-category-btn {% if post.is_followed_category %}active{% endif %}"
+                        data-category-id="{{ post.category.id }}">
+                  <i class="bi bi-plus"></i>{{ post.category.name }} 팔로우
+                </button>
+                {% endif %}
+                {% if post.user_id != current_user.id %}
+                <button class="inline-follow-btn js-follow-author-btn {% if post.is_followed_author %}active{% endif %}"
+                        data-author-id="{{ post.user_id }}">
+                  <i class="bi bi-plus"></i>작성자 팔로우
+                </button>
                 {% endif %}
               </div>
+              {% endif %}
             </div>
           </article>
         </div>
         {% endfor %}
       {% else %}
-        <div class="empty-state" data-aos="fade-up" style="grid-column: span 3;">
-          <div class="empty-state-visual">
-            <svg class="empty-state-svg" viewBox="0 0 120 120" width="120" height="120" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="60" cy="60" r="50" class="svg-compass-dial" />
-              <circle cx="60" cy="60" r="42" class="svg-compass-inner" />
-              <g class="svg-compass-needle">
-                <polygon points="60,25 65,60 60,65" class="needle-north" />
-                <polygon points="60,95 65,60 60,65" class="needle-south" />
-                <circle cx="60" cy="60" r="3.5" class="needle-center" />
-              </g>
-              <circle cx="28" cy="40" r="2" class="svg-shimmer-dot" style="animation-delay: 0.3s;" />
-              <circle cx="92" cy="80" r="2.5" class="svg-shimmer-dot" style="animation-delay: 0.8s;" />
-              <circle cx="85" cy="35" r="1.5" class="svg-shimmer-dot" style="animation-delay: 1.2s;" />
-            </svg>
-          </div>
+        <div class="empty-state bento-empty">
+          <i class="bi bi-journal-text empty-state-icon" aria-hidden="true"></i>
           {% if search_query %}
           <p class="empty-state-title">검색 결과가 없어요</p>
           <p class="empty-state-body">'{{ search_query }}'와 일치하는 글을 찾지 못했어요. 다른 키워드로 찾아보세요.</p>
@@ -334,57 +283,29 @@
     </div>
 
     <aside class="home-sidebar">
-      {% if current_user %}
-      <div class="bento-widget text-center">
-        <a href="/board/new" class="btn-travel d-block py-2" style="font-size:0.82rem;">
-          <i class="bi bi-pencil-fill me-1"></i> 새 글 쓰기
-        </a>
-      </div>
-      {% endif %}
-
       {% if ordered_categories %}
-      <div class="bento-widget" data-aos="fade-left" data-aos-delay="80">
-        <div class="bento-widget-title">
-          <i class="bi bi-tags-fill"></i> Categories
-        </div>
-        <p class="sidebar-caption mb-2">카테고리별로 바로 아카이브를 필터링할 수 있습니다.</p>
+      <div class="bento-widget">
+        <h2 class="bento-widget-title">카테고리</h2>
         <a href="/board/" class="cat-badge is-active">
-          <span>All</span>
+          <span>전체</span>
           <span class="cat-count">{{ visible_post_total }}</span>
         </a>
         {% for cat in ordered_categories %}
-        <a href="/board/?category_id={{ cat.id }}" class="cat-badge cat-tone-{{ category_tones.get(cat.id, 'sea') }} {% if category_depths.get(cat.id, 0) > 0 %}cat-child{% endif %}">
-          <span>{% if category_depths.get(cat.id, 0) > 0 %}↳ {% endif %}{{ cat.name }}</span>
+        <a href="/board/?category_id={{ cat.id }}" class="cat-badge {% if category_depths.get(cat.id, 0) > 0 %}cat-child{% endif %}">
+          <span>{{ cat.name }}</span>
           <span class="cat-count">{{ category_counts.get(cat.id, 0) }}</span>
         </a>
         {% endfor %}
       </div>
       {% endif %}
 
-      <div class="bento-widget" data-aos="fade-left" data-aos-delay="120">
-        <div class="bento-widget-title">
-          <i class="bi bi-arrow-repeat"></i> Continue Reading
-        </div>
-        <p class="sidebar-caption mb-2">최근 읽은 글을 이어서 확인하세요.</p>
+      <div class="bento-widget">
+        <h2 class="bento-widget-title">이어 읽기</h2>
         <div id="continue-reading-list" class="continue-reading-list"></div>
       </div>
 
-      <div class="bento-widget" data-aos="fade-left" data-aos-delay="160">
-        <div class="bento-widget-title">
-          <i class="bi bi-envelope-paper-fill"></i> Newsletter
-        </div>
-        <p class="sidebar-caption mb-2">새 글 소식을 이메일로 받아보세요 (double opt-in).</p>
-        <form id="newsletter-form" class="newsletter-form">
-          <input type="email" id="newsletter-email" class="newsletter-input" placeholder="you@example.com" required>
-          <button type="submit" class="newsletter-btn">구독하기</button>
-        </form>
-        <p id="newsletter-feedback" class="newsletter-feedback" aria-live="polite"></p>
-      </div>
-
-      <div class="bento-widget" data-aos="fade-left" data-aos-delay="200">
-        <div class="bento-widget-title">
-          <i class="bi bi-megaphone-fill"></i> 추천 블로그
-        </div>
+      <div class="bento-widget">
+        <h2 class="bento-widget-title">추천 블로그</h2>
         {% if recommended_blogs %}
         <ul class="recommendation-list">
           {% for rec in recommended_blogs %}
@@ -395,29 +316,33 @@
           {% endfor %}
         </ul>
         {% else %}
-        <p style="color:var(--text-muted); font-size:0.85rem; margin:0;">
-          아직 추천할 다른 블로그가 없어요. <a href="/explore" class="section-link">둘러보기 →</a>
+        <p class="sidebar-caption">
+          아직 추천할 다른 블로그가 없어요. <a href="/explore" class="section-link">둘러보기</a>
         </p>
         {% endif %}
       </div>
 
-      <div class="bento-widget" data-aos="fade-left" data-aos-delay="240">
-        <div class="bento-widget-title">
-          <i class="bi bi-clock-history"></i> Recent Posts
-        </div>
+      <div class="bento-widget">
+        <h2 class="bento-widget-title">최근 글</h2>
         {% for b in board_posts %}
         <a href="/board/{{ b.id }}" class="recent-post-item">
           <span class="rp-title">{{ b.title }}</span>
-          <span class="rp-date">{{ b.created_at.strftime("%m/%d") }}</span>
+          <span class="rp-date">{{ b.created_at.strftime("%m.%d") }}</span>
         </a>
         {% else %}
-        <p style="color:var(--text-muted); font-size:0.85rem; margin:0;">
-          게시글이 없습니다.
-        </p>
+        <p class="sidebar-caption">게시글이 없습니다.</p>
         {% endfor %}
-        <a href="/board/" class="section-link mt-3 d-inline-flex align-items-center">
-          Archive <i class="bi bi-arrow-right ms-1"></i>
-        </a>
+      </div>
+
+      <div class="bento-widget">
+        <h2 class="bento-widget-title">뉴스레터</h2>
+        <p class="sidebar-caption">새 글 소식을 이메일로 받아보세요.</p>
+        <form id="newsletter-form" class="newsletter-form">
+          <label for="newsletter-email" class="visually-hidden">이메일</label>
+          <input type="email" id="newsletter-email" class="form-control form-control-sm newsletter-input" placeholder="you@example.com" required>
+          <button type="submit" class="btn-travel newsletter-btn">구독하기</button>
+        </form>
+        <p id="newsletter-feedback" class="newsletter-feedback" aria-live="polite"></p>
       </div>
     </aside>
   </div>
@@ -426,10 +351,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-{# AOS — Animate On Scroll (MIT License) #}
-<script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
-{# Typed.js (MIT License) #}
-<script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
-{# Main page initialization #}
 <script src="{{ url_for('static', path='js/home.js') }}"></script>
 {% endblock %}

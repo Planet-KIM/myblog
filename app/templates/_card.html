@@ -1,52 +1,49 @@
-{# 포털 리스트(블로그 홈·태그 피드) 공용 포스트 카드.
-   홈(bento)·아카이브(story-card)는 전용 디자인이라 여기서 다루지 않는다. #}
+{# 포털 리스트(블로그 홈·태그 피드·검색) 공용 포스트 카드.
+   여러 페이지에서 루프로 호출되므로 <style> 없이 공용 클래스(components.css)와
+   Bootstrap 유틸리티만 쓴다. 홈(bento)·아카이브(story-card)는 전용 디자인. #}
 {% macro post_card(post, show_author=true) %}
     <div class="col-12 col-md-6">
       <article class="travel-card h-100">
-        <a href="/board/{{ post.id }}" class="card-link-overlay" aria-label="{{ post.title }}"
-           style="position:absolute; inset:0; z-index:1;"></a>
+        {# 카드 전체 클릭: 오버레이(z-2)가 본문 위, 작성자 링크(z-3)만 그 위 #}
+        <a href="/board/{{ post.id }}" class="card-link-overlay z-2" aria-label="{{ post.title }}"></a>
         {% if post.thumbnail %}
-        <div class="card-img-wrap" style="height:160px; overflow:hidden;">
-          <img src="{{ post.thumbnail }}" class="card-img" alt="thumbnail" loading="lazy"
-               style="width:100%; height:100%; object-fit:cover;"
+        <div class="card-img-wrap ratio ratio-21x9 border-bottom">
+          <img src="{{ post.thumbnail }}" class="card-img object-fit-cover rounded-0" alt="" loading="lazy"
                onerror="this.parentElement.style.display='none';">
         </div>
         {% endif %}
         <div class="card-body">
           {% if show_author and post.user and post.user.handle %}
           {% set _an = post.user.display_name or post.user.blog_title %}
-          <a href="/@{{ post.user.handle }}" class="pc-author"
-             style="position:relative; z-index:2; display:inline-flex; align-items:center; gap:0.45rem; margin-bottom:0.6rem; text-decoration:none; max-width:100%;">
+          <a href="/@{{ post.user.handle }}" class="pc-author d-inline-flex align-items-center gap-2 mb-3 text-decoration-none mw-100 z-3">
             {% if post.user.avatar_url %}
-            <img src="{{ post.user.avatar_url }}" alt="" onerror="this.style.display='none';"
-                 style="width:30px; height:30px; border-radius:50%; object-fit:cover; border:2px solid {{ post.user.accent_color or 'var(--border)' }};">
+            <img src="{{ post.user.avatar_url }}" alt="" class="avatar avatar-sm" onerror="this.style.display='none';"
+                 {% if post.user.accent_color %}style="border-color: {{ post.user.accent_color }};"{% endif %}>
             {% else %}
-            <span style="width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:0.82rem; background:linear-gradient(135deg, {{ post.user.accent_color or 'var(--primary)' }}, rgba(0,0,0,0.22));">{{ (post.user.display_name or post.user.handle)[0]|upper }}</span>
+            <span class="avatar avatar-sm"
+                  {% if post.user.accent_color %}style="border-color: {{ post.user.accent_color }};"{% endif %}>{{ (post.user.display_name or post.user.handle)[0]|upper }}</span>
             {% endif %}
-            <span style="min-width:0; line-height:1.2;">
-              <span style="display:block; font-weight:600; font-size:0.84rem; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ _an or ('@' ~ post.user.handle) }}</span>
-              {% if _an %}<span style="font-family:var(--font-mono); font-size:0.68rem; color:var(--text-muted);">@{{ post.user.handle }}</span>{% endif %}
-            </span>
+            <span class="fw-semibold small text-body-emphasis text-truncate">{{ _an or ('@' ~ post.user.handle) }}</span>
+            {% if _an %}<span class="small text-muted text-nowrap">@{{ post.user.handle }}</span>{% endif %}
           </a>
           {% endif %}
-          {% if post.category %}
-          <span class="badge-cat mb-2 d-inline-flex align-items-center" style="align-self:flex-start;">
-            <i class="bi bi-bookmark-fill me-1"></i>{{ post.category.name }}
-          </span>
+          {% if post.category or post.is_private %}
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            {% if post.category %}<span class="eyebrow">{{ post.category.name }}</span>{% endif %}
+            {% if post.is_private %}<span class="badge-tint badge-tint-rose"><i class="bi bi-lock"></i>비공개</span>{% endif %}
+          </div>
           {% endif %}
-          {% if post.is_private %}
-          <span class="badge-tint badge-tint-rose mb-2" style="font-size:0.65rem;"><i class="bi bi-lock-fill me-1"></i>Private</span>
-          {% endif %}
-          <h5 class="card-title mb-1">
+          <h3 class="card-title">
             <a href="/board/{{ post.id }}">
               {% if post.show_title != False %}{{ post.title or 'Untitled' }}{% else %}Untitled{% endif %}
             </a>
-          </h5>
-          <div class="card-preview mb-2">{% if post.preview_html %}{{ post.preview_html|safe }}{% else %}{{ post.preview }}{% endif %}</div>
-          <div class="card-meta">
-            <i class="bi bi-clock me-1"></i>{{ post.created_at.strftime("%Y-%m-%d") }}
-            &nbsp;·&nbsp;<i class="bi bi-eye me-1"></i>{{ post.view_count }}
-            {% if post.reading_minutes %}&nbsp;·&nbsp;<i class="bi bi-clock-history me-1"></i>{{ post.reading_minutes }}분{% endif %}
+          </h3>
+          {# 미리보기는 서버에서 180자로 잘림 → 페이드 마스크(.card-preview::after) 없이 그대로 표시 #}
+          <p class="pc-preview small text-body flex-grow-1 mb-3">{% if post.preview_html %}{{ post.preview_html|safe }}{% else %}{{ post.preview }}{% endif %}</p>
+          <div class="meta-row small">
+            <span>{{ post.created_at.strftime("%Y.%m.%d") }}</span>
+            <span>조회 {{ post.view_count }}</span>
+            {% if post.reading_minutes %}<span>{{ post.reading_minutes }}분</span>{% endif %}
           </div>
         </div>
       </article>
