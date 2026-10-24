@@ -64,381 +64,16 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <!-- Pretendard Font for Korean -->
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/variable/pretendardvariable-dynamic-subset.css" />
-  <!-- Google Fonts: Developer Dark Theme + Noto Serif KR (Apache 2.0) -->
+  <!-- Google Fonts: 제목 세리프(Fraunces + Noto Serif KR), 코드 전용 모노(Fira Code) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600&family=Noto+Serif+KR:wght@400;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Noto+Serif+KR:wght@500;600;700&display=swap"
     rel="stylesheet">
-  <!-- Enhanced Theme System -->
+  <!-- Design tokens → shared components → responsive -->
   <link rel="stylesheet" href="{{ url_for('static', path='css/theme.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='css/components.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='css/mobile.css') }}">
-  <style>
-    /* Override Bootstrap with our custom theme */
-    body {
-      font-family: var(--font-sans);
-      background-color: var(--bg-body);
-      color: var(--text-main);
-      line-height: 1.6;
-      font-size: 15px;
-      transition: background-color var(--transition-base), color var(--transition-base);
-      /* 또렷하고 가벼운 글자 렌더링 (프리미엄 느낌) */
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      text-rendering: optimizeLegibility;
-    }
-
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    .display-font {
-      /* 에디토리얼 세리프 헤드라인: 라틴 Fraunces + 한글 Noto Serif KR 글리프 폴백 */
-      font-family: var(--font-display);
-      color: var(--text-primary);
-      letter-spacing: -0.01em;
-      font-weight: 600;
-      line-height: 1.25;
-    }
-
-    /* ─── Navbar ─────────────────────────────────── */
-    .site-nav {
-      background: var(--bg-overlay);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(var(--primary-rgb, 56, 189, 248), 0.08);
-      position: sticky;
-      top: 0;
-      z-index: var(--z-sticky);
-      transition: background var(--transition-base), border-color var(--transition-base);
-    }
-
-    .site-nav .navbar-brand {
-      font-family: var(--font-display);
-      font-size: 1.35rem;
-      font-weight: 700;
-      color: var(--text-primary) !important;
-      letter-spacing: -0.01em;
-      transition: opacity var(--transition-fast);
-    }
-
-    .site-nav .navbar-brand:hover {
-      opacity: 0.85;
-    }
-
-    .site-nav .navbar-brand .accent {
-      background: var(--gradient-text);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .site-nav .nav-link {
-      color: var(--text-main) !important;
-      font-size: 0.88rem;
-      font-weight: 500;
-      letter-spacing: 0.3px;
-      padding: 0.42rem 0.9rem !important;
-      margin: 0 0.1rem;
-      border-radius: 20px;
-      transition: color var(--transition-fast), background-color var(--transition-fast);
-      position: relative;
-    }
-
-    .site-nav .nav-link::after {
-      display: none;
-    }
-
-    .site-nav .nav-link:hover {
-      color: var(--primary) !important;
-      background-color: rgba(var(--primary-rgb, 56, 189, 248), 0.06);
-    }
-
-    .site-nav .nav-link.active {
-      color: var(--primary) !important;
-      background-color: rgba(var(--primary-rgb, 56, 189, 248), 0.12);
-      font-weight: 600;
-    }
-
-    [data-theme="light"] .site-nav .nav-link:hover {
-      background-color: rgba(var(--primary-rgb, 14, 165, 233), 0.06);
-    }
-
-    [data-theme="light"] .site-nav .nav-link.active {
-      background-color: rgba(var(--primary-rgb, 14, 165, 233), 0.12);
-    }
-
-    .site-nav .btn-nav-write {
-      background: var(--gradient-primary);
-      color: white !important;
-      border-radius: var(--btn-radius);
-      padding: 0.38rem 1.1rem !important;
-      font-weight: 700;
-      font-size: 0.82rem;
-      letter-spacing: 0.2px;
-      transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-    }
-
-    .site-nav .btn-nav-write:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-glow);
-    }
-
-    /* ─── 알림 벨 ─────────────────────────────────── */
-    .site-nav .nav-bell { position: relative; }
-    .notif-badge {
-      position: absolute;
-      top: 2px;
-      right: 2px;
-      min-width: 16px;
-      height: 16px;
-      padding: 0 4px;
-      border-radius: 999px;
-      background: var(--danger);
-      color: #fff;
-      font-size: 0.62rem;
-      font-weight: 700;
-      line-height: 16px;
-      text-align: center;
-    }
-
-    /* ─── Footer ─────────────────────────────────── */
-    .site-footer {
-      background: var(--surface-dark);
-      color: var(--text-muted);
-      font-size: 0.82rem;
-      padding: 2rem 0;
-      margin-top: 5rem;
-      text-align: center;
-      border-top: 1px solid var(--border);
-    }
-
-    .site-footer a {
-      color: var(--primary);
-      text-decoration: none;
-      transition: color var(--transition-fast);
-    }
-
-    .site-footer a:hover {
-      color: var(--accent-light);
-      text-decoration: underline;
-    }
-
-    /* ─── Cards ──────────────────────────────────── */
-    .travel-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--card-radius);
-      overflow: hidden;
-      box-shadow: var(--shadow-md);
-      transition: transform var(--transition-base),
-                  border-color var(--transition-base),
-                  box-shadow var(--transition-base);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-
-    .travel-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: var(--gradient-primary);
-      opacity: 0;
-      transition: opacity var(--transition-base);
-    }
-
-    .travel-card:hover {
-      transform: translateY(-4px);
-      border-color: var(--primary);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .travel-card:hover::before {
-      opacity: 1;
-    }
-
-    .travel-card .card-body {
-      padding: 1.25rem;
-      display: flex;
-      flex-direction: column;
-      flex-grow: 1;
-    }
-
-    .travel-card .card-title {
-      margin-bottom: 0.5rem;
-    }
-
-    .travel-card .card-title a {
-      color: var(--text-primary);
-      text-decoration: none;
-      font-family: var(--font-mono);
-      font-size: 1.05rem;
-      font-weight: 500;
-      line-height: 1.4;
-      transition: color var(--transition-fast);
-    }
-
-    .travel-card .card-title a:hover {
-      color: var(--primary);
-    }
-
-    .travel-card .card-meta {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-bottom: 1rem;
-      font-family: var(--font-mono);
-    }
-
-    .travel-card .card-preview {
-      font-size: 0.85rem;
-      color: var(--text-main);
-      line-height: 1.6;
-      max-height: 140px;
-      overflow: hidden;
-      position: relative;
-      margin-bottom: 1.5rem;
-      flex-grow: 1;
-    }
-
-    /* 마크다운 요소(pre, code 등) 미리보기 스타일링 */
-    .travel-card .card-preview pre {
-      background: var(--surface-dark);
-      padding: 0.75rem;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      font-size: 0.8rem;
-      overflow-x: hidden;
-      margin-bottom: 0;
-    }
-
-    .travel-card .card-preview code {
-      color: var(--primary);
-      font-family: var(--font-mono);
-    }
-
-    .travel-card .card-preview::after {
-      content: "";
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      background: linear-gradient(to bottom, transparent, var(--surface));
-      pointer-events: none;
-    }
-
-    .travel-card .badge-cat {
-      background: var(--gradient-primary);
-      color: white;
-      font-size: 0.7rem;
-      border-radius: 20px;
-      padding: 0.2em 0.7em;
-      font-weight: 500;
-      align-self: flex-start;
-    }
-
-    /* ─── Section titles ────────────────────────────── */
-    .section-title {
-      font-family: var(--font-mono);
-      font-weight: 600;
-      font-size: 1.4rem;
-      color: var(--text-primary);
-      padding-bottom: 0.4rem;
-      border-bottom: 2px solid;
-      border-image: var(--gradient-primary) 1;
-      display: inline-block;
-      margin-bottom: 1.5rem;
-    }
-
-    /* ─── Page content wrapper ──────────────────── */
-    .page-content {
-      max-width: 1140px;
-      margin: 0 auto;
-      padding: 2.5rem 1.5rem 4rem;
-    }
-
-    /* shared card style for non-home pages */
-    .page-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--card-radius);
-      box-shadow: var(--shadow-md);
-      padding: 2rem 2.5rem;
-      color: var(--text-main);
-    }
-
-    @media (max-width: 768px) {
-      .page-content {
-        padding: 1.5rem 1rem 3rem;
-      }
-
-      .page-card {
-        padding: 1.2rem 1rem;
-      }
-    }
-
-    /* ─── Buttons ────────────────────────────────── */
-    .btn-travel {
-      background: var(--gradient-primary);
-      color: white;
-      border: none;
-      border-radius: var(--btn-radius);
-      font-size: 0.86rem;
-      padding: 0.5rem 1.15rem;
-      font-weight: 600;
-      transition: transform var(--transition-fast),
-                  box-shadow var(--transition-fast),
-                  filter var(--transition-fast);
-      display: inline-block;
-      text-decoration: none;
-      font-family: var(--font-sans);
-      letter-spacing: -0.01em;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .btn-travel::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.2);
-      transition: left var(--transition-base);
-    }
-
-    .btn-travel:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-glow);
-      color: white;
-    }
-
-    .btn-travel:hover::before {
-      left: 100%;
-    }
-
-    /* ─── 접근성: 본문 바로가기(키보드 Tab 시 첫 포커스) ─── */
-    .skip-link {
-      position: absolute;
-      left: 8px;
-      top: -48px;
-      z-index: var(--z-toast, 1080);
-      padding: 0.5rem 0.9rem;
-      background: var(--primary);
-      color: #fff;
-      border-radius: var(--btn-radius, 8px);
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-decoration: none;
-      transition: top var(--transition-fast, 150ms);
-    }
-    .skip-link:focus { top: 8px; }
-  </style>
   {% block extra_head %}{% endblock %}
 </head>
 
@@ -458,60 +93,62 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
-            <a class="nav-link{% if _path == '/' %} active{% endif %}" href="/"{% if _path == '/' %} aria-current="page"{% endif %}><i class="bi bi-house me-1"></i>Home</a>
+            <a class="nav-link{% if _path == '/' %} active{% endif %}" href="/"{% if _path == '/' %} aria-current="page"{% endif %}>Home</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link{% if _path.startswith('/board') %} active{% endif %}" href="/board/"{% if _path.startswith('/board') %} aria-current="page"{% endif %}><i class="bi bi-journal-text me-1"></i>Archive</a>
+            <a class="nav-link{% if _path.startswith('/board') and _path != '/board/categories' %} active{% endif %}" href="/board/"{% if _path.startswith('/board') %} aria-current="page"{% endif %}>Archive</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link{% if _path.startswith('/explore') %} active{% endif %}" href="/explore"{% if _path.startswith('/explore') %} aria-current="page"{% endif %}><i class="bi bi-compass me-1"></i>Explore</a>
-          </li>
-          {% if current_user %}
-          <li class="nav-item">
-            <a class="nav-link" href="/board/categories"><i class="bi bi-folder2 me-1"></i>Categories</a>
+            <a class="nav-link{% if _path.startswith('/explore') %} active{% endif %}" href="/explore"{% if _path.startswith('/explore') %} aria-current="page"{% endif %}>Explore</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/me"><i class="bi bi-person-circle me-1"></i>My</a>
+            <a class="nav-link{% if _path == '/main' %} active{% endif %}" href="/main"{% if _path == '/main' %} aria-current="page"{% endif %}>About</a>
           </li>
-          {% if current_user.handle %}
-          <li class="nav-item">
-            <a class="nav-link" href="/@{{ current_user.handle }}"><i class="bi bi-journal-bookmark me-1"></i>My Blog</a>
-          </li>
-          {% endif %}
-          {% endif %}
-          <li class="nav-item">
-            <a class="nav-link{% if _path == '/main' %} active{% endif %}" href="/main"{% if _path == '/main' %} aria-current="page"{% endif %}><i class="bi bi-person me-1"></i>About</a>
-          </li>
-          {% if current_user and current_user.is_admin %}
-          <li class="nav-item">
-            <a class="nav-link{% if _path.startswith('/admin') %} active{% endif %}" href="/admin/"{% if _path.startswith('/admin') %} aria-current="page"{% endif %}><i class="bi bi-gear me-1"></i>Admin</a>
-          </li>
-          {% endif %}
         </ul>
-        <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center gap-2">
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-lg-center gap-1">
           {% if current_user %}
           <li class="nav-item">
-            <a class="nav-link nav-bell" href="/notifications" aria-label="알림" title="알림">
+            <a class="nav-link nav-icon nav-bell" href="/notifications" aria-label="알림" title="알림">
               <i class="bi bi-bell"></i>
               <span id="notif-badge" class="notif-badge" hidden></span>
             </a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link btn-nav-write" href="/board/new">
-              <i class="bi bi-pencil-fill me-1"></i>Write
+          <li class="nav-item dropdown">
+            {% set _who = current_user.handle or current_user.email %}
+            <a class="nav-link nav-icon dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="내 메뉴">
+              {% if current_user.avatar_url %}
+              <img class="nav-avatar" src="{{ current_user.avatar_url }}" alt="">
+              {% else %}
+              <span class="nav-avatar">{{ (_who or '?')[0] | upper }}</span>
+              {% endif %}
+              <span class="d-lg-none ms-2">내 메뉴</span>
             </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><h6 class="dropdown-header">{% if current_user.handle %}@{{ current_user.handle }}{% else %}{{ current_user.email }}{% endif %}</h6></li>
+              {% if current_user.handle %}
+              <li><a class="dropdown-item" href="/@{{ current_user.handle }}"><i class="bi bi-journal-bookmark"></i>내 블로그</a></li>
+              {% endif %}
+              <li><a class="dropdown-item" href="/me"><i class="bi bi-person"></i>대시보드</a></li>
+              <li><a class="dropdown-item" href="/me/templates"><i class="bi bi-layout-text-window"></i>내 레이아웃</a></li>
+              <li><a class="dropdown-item" href="/board/categories"><i class="bi bi-folder2"></i>카테고리 관리</a></li>
+              {% if current_user.is_admin %}
+              <li><a class="dropdown-item" href="/admin/"><i class="bi bi-gear"></i>관리자</a></li>
+              {% endif %}
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="/auth/logout"><i class="bi bi-box-arrow-right"></i>로그아웃</a></li>
+            </ul>
           </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/auth/logout" title="{{ current_user.username }}">
-              <i class="bi bi-box-arrow-right"></i>
+          <li class="nav-item ms-lg-1">
+            <a class="nav-link btn-nav-write" href="/board/new">
+              <i class="bi bi-pencil me-1"></i>글쓰기
             </a>
           </li>
           {% else %}
           <li class="nav-item">
-            <a class="nav-link" href="/auth/login">Login</a>
+            <a class="nav-link" href="/auth/login">로그인</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link btn-nav-write" href="/auth/signup">Sign up</a>
+            <a class="nav-link btn-nav-write" href="/auth/signup">시작하기</a>
           </li>
           {% endif %}
         </ul>
@@ -520,19 +157,20 @@
   </nav>
 
   <!-- ─── Main Content ───────────────────────────── -->
-  <main id="main" class="container" style="max-width:1400px;">
+  <main id="main" class="container">
     {% block content %}{% endblock %}
   </main>
 
   <!-- ─── Footer ────────────────────────────────── -->
   <footer class="site-footer">
-    <div class="container">
-      <p class="mb-1">
-        <strong class="display-font" style="color:var(--text-primary);">Planet KIM</strong>
-      </p>
-      <p class="mb-0">
-        &copy; 2025 <a href="https://github.com/Planet-KIM" target="_blank">Planet-KIM</a> · 모두의 블로그가 모이는 공간
-      </p>
+    <div class="container d-flex flex-column flex-md-row justify-content-between gap-2">
+      <div>
+        <span class="footer-brand">Planet KIM</span>
+        <span class="ms-2">모두의 블로그가 모이는 공간</span>
+      </div>
+      <div>
+        <a href="/explore">Explore</a> · <a href="/feed">RSS</a> · &copy; 2025 <a href="https://github.com/Planet-KIM" target="_blank" rel="noopener">Planet-KIM</a>
+      </div>
     </div>
   </footer>
 

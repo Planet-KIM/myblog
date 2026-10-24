@@ -1,3 +1,5 @@
+> **⚠️ 폐기된 문서 (2026-10).** 여기 적힌 그라데이션·글로우·호버 리프트 같은 효과는 모두 제거했어요. 현재 디자인 규칙은 [DESIGN.md](DESIGN.md)를 보세요.
+
 # Planet KIM's Travel - Design Improvements Summary
 
 ## 🎨 디자인 개선 사항

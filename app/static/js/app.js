@@ -111,10 +111,10 @@ class ThemeManager {
     toggleLi.className = 'nav-item';
 
     const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'nav-link theme-toggle';
+    toggleBtn.className = 'nav-link nav-icon theme-toggle';
     toggleBtn.innerHTML = this.theme === 'dark'
-      ? '<i class="bi bi-sun-fill"></i>'
-      : '<i class="bi bi-moon-fill"></i>';
+      ? '<i class="bi bi-sun"></i>'
+      : '<i class="bi bi-moon"></i>';
     toggleBtn.title = 'Toggle theme';
     toggleBtn.style.background = 'none';
     toggleBtn.style.border = 'none';
@@ -138,7 +138,7 @@ class ThemeManager {
       metaTheme.name = 'theme-color';
       document.head.appendChild(metaTheme);
     }
-    metaTheme.content = theme === 'dark' ? '#0f172a' : '#f8fafc';
+    metaTheme.content = theme === 'dark' ? '#1a1511' : '#f8f4ee';
   }
 
   toggle() {
@@ -150,12 +150,9 @@ class ThemeManager {
     const toggleBtn = document.querySelector('.theme-toggle');
     if (toggleBtn) {
       toggleBtn.innerHTML = this.theme === 'dark'
-        ? '<i class="bi bi-sun-fill"></i>'
-        : '<i class="bi bi-moon-fill"></i>';
+        ? '<i class="bi bi-sun"></i>'
+        : '<i class="bi bi-moon"></i>';
     }
-
-    // Show toast notification
-    window.toast.info(`Theme switched to ${this.theme} mode`);
   }
 }
 
