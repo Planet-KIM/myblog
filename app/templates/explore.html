@@ -4,80 +4,89 @@
 
 {% block extra_head %}
 <style>
-  .explore-subtitle {
-    font-family: var(--font-display);
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.01em;
-    margin: 0 0 0.9rem;
+  .hub-section { margin-bottom: var(--space-2xl); }
+
+  .blog-card {
     display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-  }
-  .explore-subtitle .count { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
-  .explore-tags { display: flex; flex-wrap: wrap; gap: 0.45rem; }
-  .explore-blog-card {
-    display: flex;
-    gap: 0.9rem;
+    gap: var(--space-md);
     align-items: center;
     height: 100%;
+    padding: var(--space-lg);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
     text-decoration: none;
-    border-left: 3px solid var(--blog-accent, var(--border-light));
+    transition: border-color var(--transition-fast);
   }
-  .explore-blog-card:hover { border-left-color: var(--blog-accent, var(--primary)); }
-  .explore-blog-avatar {
-    width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+  .blog-card:hover { border-color: var(--border-dark); }
+  .blog-card-body { min-width: 0; }
+  .blog-card-name {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color var(--transition-fast);
   }
-  .explore-blog-avatar.fallback {
-    background: linear-gradient(135deg, var(--blog-accent, var(--primary)), rgba(0,0,0,0.25));
-    color: #fff; display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 1.3rem;
+  .blog-card:hover .blog-card-name { color: var(--primary); }
+  .blog-card .meta-row { font-size: var(--fs-xs); }
+  .blog-card-bio {
+    display: block;
+    font-size: var(--fs-sm);
+    color: var(--text-main);
+    margin-top: var(--space-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+  /* 사용자 강조색은 아바타 테두리에만 */
+  .blog-card .avatar { border-color: var(--blog-accent, var(--border)); }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-content">
-  <header class="mb-4">
-    <h1 class="section-title">둘러보기</h1>
-    <p class="text-muted mb-0">관심 주제와 블로그를 찾아보세요</p>
+  <header class="page-header">
+    <span class="eyebrow">Explore</span>
+    <h1>둘러보기</h1>
+    <p class="lead-text">관심 주제와 블로그를 찾아보세요.</p>
   </header>
 
   {% if popular_tags %}
-  <section class="mb-4">
-    <h2 class="explore-subtitle">인기 태그</h2>
-    <div class="explore-tags">
+  <section class="hub-section">
+    <h2 class="hub-subtitle">인기 태그</h2>
+    <div class="chip-row">
       {% for t in popular_tags %}
-      <a href="/tags/{{ t.slug }}" class="badge-tint badge-tint-violet" style="text-decoration:none;">#{{ t.name }} <span style="opacity:0.7;">{{ t.count }}</span></a>
+      <a href="/tags/{{ t.slug }}" class="chip">#{{ t.name }}<span class="count">{{ t.count }}</span></a>
       {% endfor %}
     </div>
   </section>
   {% endif %}
 
-  <section>
-    <h2 class="explore-subtitle">블로그 <span class="count">{{ total_blogs }}개</span></h2>
+  <section class="hub-section">
+    <h2 class="hub-subtitle">블로그 <span class="count">{{ total_blogs }}개</span></h2>
     {% if blogs %}
     <div class="row g-3">
       {% for b in blogs %}
       <div class="col-12 col-sm-6 col-lg-4">
-        <a href="/@{{ b.user.handle }}" class="page-card explore-blog-card"
+        <a href="/@{{ b.user.handle }}" class="blog-card"
            {% if b.user.accent_color %}style="--blog-accent: {{ b.user.accent_color }};"{% endif %}>
           {% if b.user.avatar_url %}
-          <img src="{{ b.user.avatar_url }}" alt="" class="explore-blog-avatar" onerror="this.style.display='none';">
+          <img src="{{ b.user.avatar_url }}" alt="" class="avatar avatar-lg" onerror="this.style.display='none';">
           {% else %}
-          <span class="explore-blog-avatar fallback" aria-hidden="true">{{ (b.user.display_name or b.user.handle or '?')[0]|upper }}</span>
+          <span class="avatar avatar-lg" aria-hidden="true">{{ (b.user.display_name or b.user.handle or '?')[0]|upper }}</span>
           {% endif %}
-          <span style="min-width:0;">
-            <span style="display:block;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              {{ b.user.blog_title or b.user.display_name or ('@' ~ b.user.handle) }}
-            </span>
-            <span style="display:block;font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);">
-              @{{ b.user.handle }} · 글 {{ b.post_count }}개
+          <span class="blog-card-body">
+            <span class="blog-card-name">{{ b.user.blog_title or b.user.display_name or ('@' ~ b.user.handle) }}</span>
+            <span class="meta-row">
+              {% if b.user.blog_title or b.user.display_name %}<span>@{{ b.user.handle }}</span>{% endif %}
+              <span>글 {{ b.post_count }}개</span>
             </span>
             {% if b.user.bio %}
-            <span style="display:block;font-size:0.82rem;color:var(--text-main);margin-top:0.2rem;
-                         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ b.user.bio }}</span>
+            <span class="blog-card-bio">{{ b.user.bio }}</span>
             {% endif %}
           </span>
         </a>
@@ -86,19 +95,22 @@
     </div>
 
     {% if total_pages > 1 %}
-    <nav class="d-flex justify-content-center gap-2 mt-4">
+    <nav class="d-flex justify-content-center align-items-center gap-3 mt-5" aria-label="페이지">
       {% if current_page > 1 %}
-      <a href="/explore?page={{ current_page - 1 }}" class="btn btn-outline-secondary btn-sm">← 이전</a>
+      <a href="/explore?page={{ current_page - 1 }}" class="btn-ghost"><i class="bi bi-arrow-left"></i>이전</a>
       {% endif %}
-      <span class="btn btn-sm disabled">{{ current_page }} / {{ total_pages }}</span>
+      <span class="text-muted small">{{ current_page }} / {{ total_pages }}</span>
       {% if current_page < total_pages %}
-      <a href="/explore?page={{ current_page + 1 }}" class="btn btn-outline-secondary btn-sm">다음 →</a>
+      <a href="/explore?page={{ current_page + 1 }}" class="btn-ghost">다음<i class="bi bi-arrow-right"></i></a>
       {% endif %}
     </nav>
     {% endif %}
 
     {% else %}
-    <div class="page-card text-center text-muted">아직 공개된 블로그가 없습니다.</div>
+    <div class="page-card empty-state">
+      <i class="bi bi-people empty-state-icon" aria-hidden="true"></i>
+      <p class="empty-state-title">아직 공개된 블로그가 없습니다</p>
+    </div>
     {% endif %}
   </section>
 </div>

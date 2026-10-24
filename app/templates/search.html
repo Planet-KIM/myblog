@@ -2,14 +2,27 @@
 {% from "_card.html" import post_card %}
 {% block title %}{% if q %}'{{ q }}' 검색{% else %}검색{% endif %} · Planet KIM{% endblock %}
 
+{% block extra_head %}
+<style>
+  .search-form { display: flex; gap: var(--space-sm); max-width: 640px; margin-top: var(--space-lg); }
+  .search-form .search-input-wrap { flex: 1; }
+  .search-form .form-control { padding-top: 0.65rem; padding-bottom: 0.65rem; }
+  .search-filters { margin-top: var(--space-md); }
+  .search-count { margin: var(--space-md) 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-content" style="max-width:var(--max-width); margin:0 auto;">
-  <header style="margin-bottom:1.5rem;">
-    <h1 class="section-title" style="margin-bottom:1rem;">검색</h1>
-    <form method="get" action="/search" style="display:flex; gap:0.5rem; max-width:640px;">
-      <input type="search" name="q" value="{{ q }}" placeholder="제목·내용으로 검색"
-             autocomplete="off" autofocus
-             style="flex:1; background:var(--surface); border:1px solid var(--border); color:var(--text-main); border-radius:var(--input-radius); padding:0.6rem 0.9rem; font:inherit;">
+<div class="page-content">
+  <header class="page-header">
+    <span class="eyebrow">Search</span>
+    <h1>검색</h1>
+    <form method="get" action="/search" class="search-form" role="search">
+      <div class="search-input-wrap">
+        <i class="bi bi-search search-input-icon" aria-hidden="true"></i>
+        <input type="search" name="q" value="{{ q }}" placeholder="제목·내용으로 검색"
+               autocomplete="off" autofocus class="form-control search-input" aria-label="검색어">
+      </div>
       {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
       {% if author %}<input type="hidden" name="author" value="{{ author }}">{% endif %}
       <button type="submit" class="btn-travel">검색</button>
@@ -17,27 +30,28 @@
 
     {# 활성 필터 #}
     {% if tag or author %}
-    <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.8rem;">
+    <div class="chip-row search-filters">
       {% if tag %}
       <a href="/search?q={{ q|urlencode }}{% if author %}&author={{ author }}{% endif %}"
-         class="badge-tint badge-tint-violet" style="text-decoration:none;">#{{ tag }} <i class="bi bi-x"></i></a>
+         class="chip active" aria-label="태그 필터 #{{ tag }} 해제">#{{ tag }} <i class="bi bi-x"></i></a>
       {% endif %}
       {% if author %}
       <a href="/search?q={{ q|urlencode }}{% if tag %}&tag={{ tag }}{% endif %}"
-         class="badge-tint badge-tint-sea" style="text-decoration:none;">@{{ author }} <i class="bi bi-x"></i></a>
+         class="chip active" aria-label="작성자 필터 @{{ author }} 해제">@{{ author }} <i class="bi bi-x"></i></a>
       {% endif %}
     </div>
     {% endif %}
 
     {% if has_criteria %}
-    <p class="text-muted" style="margin-top:0.8rem; font-size:0.9rem;">결과 {{ total }}건</p>
+    <p class="search-count">결과 {{ total }}건</p>
     {% endif %}
   </header>
 
   {% if not has_criteria %}
-  <div class="page-card text-center text-muted" style="padding:3rem 1.5rem;">
-    <i class="bi bi-search" style="font-size:1.8rem; opacity:0.6;"></i>
-    <p style="margin:0.7rem 0 0;">검색어를 입력해 모든 블로그의 글을 찾아보세요.</p>
+  <div class="page-card empty-state">
+    <i class="bi bi-search empty-state-icon" aria-hidden="true"></i>
+    <p class="empty-state-title">무엇을 찾고 있나요?</p>
+    <p class="empty-state-body">검색어를 입력해 모든 블로그의 글을 찾아보세요.</p>
   </div>
   {% elif posts %}
   {% set _qs = 'q=' ~ (q|urlencode) ~ ('&tag=' ~ tag if tag else '') ~ ('&author=' ~ author if author else '') %}
@@ -47,20 +61,21 @@
     {% endfor %}
   </div>
   {% if total_pages > 1 %}
-  <nav class="d-flex justify-content-center gap-2 mt-4">
+  <nav class="d-flex justify-content-center align-items-center gap-3 mt-5" aria-label="페이지">
     {% if current_page > 1 %}
-    <a href="/search?{{ _qs }}&page={{ current_page - 1 }}" class="btn btn-outline-secondary btn-sm">← 이전</a>
+    <a href="/search?{{ _qs }}&page={{ current_page - 1 }}" class="btn-ghost"><i class="bi bi-arrow-left"></i>이전</a>
     {% endif %}
-    <span class="btn btn-sm disabled">{{ current_page }} / {{ total_pages }}</span>
+    <span class="text-muted small">{{ current_page }} / {{ total_pages }}</span>
     {% if current_page < total_pages %}
-    <a href="/search?{{ _qs }}&page={{ current_page + 1 }}" class="btn btn-outline-secondary btn-sm">다음 →</a>
+    <a href="/search?{{ _qs }}&page={{ current_page + 1 }}" class="btn-ghost">다음<i class="bi bi-arrow-right"></i></a>
     {% endif %}
   </nav>
   {% endif %}
   {% else %}
-  <div class="page-card text-center text-muted" style="padding:3rem 1.5rem;">
-    <i class="bi bi-emoji-neutral" style="font-size:1.8rem; opacity:0.6;"></i>
-    <p style="margin:0.7rem 0 0;">{% if q %}'{{ q }}'{% endif %}에 해당하는 글을 찾지 못했어요.</p>
+  <div class="page-card empty-state">
+    <i class="bi bi-search empty-state-icon" aria-hidden="true"></i>
+    <p class="empty-state-title">검색 결과가 없어요</p>
+    <p class="empty-state-body">{% if q %}'{{ q }}'에 해당하는 글을 찾지 못했어요. {% endif %}다른 검색어로 다시 시도해 보세요.</p>
   </div>
   {% endif %}
 </div>

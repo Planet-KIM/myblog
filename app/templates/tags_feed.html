@@ -3,22 +3,26 @@
 
 {% block title %}#{{ tag.name }}{% endblock %}
 
+{% block extra_head %}
+<style>
+  .tag-related { margin-bottom: var(--space-xl); }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-content">
-  <header class="page-card mb-4">
-    <div class="text-muted" style="font-family:var(--font-mono); font-size:0.8rem;">TAG</div>
-    <h1 class="section-title" style="margin-bottom:0.25rem;">#{{ tag.name }}</h1>
-    <div class="text-muted" style="font-size:0.85rem;">이 태그의 공개 글 {{ total_posts }}개</div>
+  <header class="page-header">
+    <span class="eyebrow">Tag</span>
+    <h1>#{{ tag.name }}</h1>
+    <p class="lead-text">이 태그의 공개 글 {{ total_posts }}개</p>
   </header>
 
   {% if popular_tags %}
-  <div class="mb-4" style="display:flex; flex-wrap:wrap; gap:0.4rem;">
+  <nav class="chip-row tag-related" aria-label="인기 태그">
     {% for t in popular_tags %}
-    <a href="/tags/{{ t.slug }}"
-       class="badge-tint {% if t.id == tag.id %}badge-tint-sea{% else %}badge-tint-violet{% endif %}"
-       style="text-decoration:none;">#{{ t.name }} <span style="opacity:0.7;">{{ t.count }}</span></a>
+    <a href="/tags/{{ t.slug }}" class="chip{% if t.id == tag.id %} active{% endif %}"{% if t.id == tag.id %} aria-current="page"{% endif %}>#{{ t.name }}<span class="count">{{ t.count }}</span></a>
     {% endfor %}
-  </div>
+  </nav>
   {% endif %}
 
   {% if posts %}
@@ -29,19 +33,22 @@
   </div>
 
   {% if total_pages > 1 %}
-  <nav class="d-flex justify-content-center gap-2 mt-4">
+  <nav class="d-flex justify-content-center align-items-center gap-3 mt-5" aria-label="페이지">
     {% if current_page > 1 %}
-    <a href="/tags/{{ tag.slug }}?page={{ current_page - 1 }}" class="btn btn-outline-secondary btn-sm">← 이전</a>
+    <a href="/tags/{{ tag.slug }}?page={{ current_page - 1 }}" class="btn-ghost"><i class="bi bi-arrow-left"></i>이전</a>
     {% endif %}
-    <span class="btn btn-sm disabled">{{ current_page }} / {{ total_pages }}</span>
+    <span class="text-muted small">{{ current_page }} / {{ total_pages }}</span>
     {% if current_page < total_pages %}
-    <a href="/tags/{{ tag.slug }}?page={{ current_page + 1 }}" class="btn btn-outline-secondary btn-sm">다음 →</a>
+    <a href="/tags/{{ tag.slug }}?page={{ current_page + 1 }}" class="btn-ghost">다음<i class="bi bi-arrow-right"></i></a>
     {% endif %}
   </nav>
   {% endif %}
 
   {% else %}
-  <div class="page-card text-center text-muted">이 태그의 공개 글이 아직 없습니다.</div>
+  <div class="page-card empty-state">
+    <i class="bi bi-hash empty-state-icon" aria-hidden="true"></i>
+    <p class="empty-state-title">이 태그의 공개 글이 아직 없습니다</p>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

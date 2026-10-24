@@ -1,32 +1,71 @@
 {% extends "base.html" %}
 {% block title %}알림{% endblock %}
+{% block extra_head %}
+<style>
+  .notif-wrap { max-width: var(--reading-max-width); margin: 0 auto; }
+  .notif-list { padding: 0; overflow: hidden; }
+  .notif-item {
+    display: flex;
+    gap: var(--space-md);
+    align-items: center;
+    padding: var(--space-md) var(--space-lg);
+    border-top: 1px solid var(--border);
+    text-decoration: none;
+    transition: background-color var(--transition-fast);
+  }
+  .notif-item:first-child { border-top: 0; }
+  .notif-item:hover { background: var(--surface-light); }
+  .notif-item.is-unread { background: var(--primary-soft); }
+  .notif-body { min-width: 0; flex: 1; }
+  .notif-msg {
+    display: block;
+    color: var(--text-main);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+  }
+  .notif-msg i { color: var(--primary); margin-right: var(--space-xs); }
+  .notif-time { font-size: var(--fs-xs); color: var(--text-muted); }
+  .notif-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: var(--primary);
+    flex-shrink: 0;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-content" style="max-width:720px; margin:0 auto;">
-  <h1 class="section-title" style="margin-bottom:1.25rem;">알림</h1>
+<div class="page-content notif-wrap">
+  <header class="page-header">
+    <span class="eyebrow">Notifications</span>
+    <h1>알림</h1>
+    <p class="lead-text">새 팔로워와 내 글에 달린 댓글을 모아 봅니다.</p>
+  </header>
   {% if items %}
-  <div class="page-card" style="padding:0; overflow:hidden;">
+  <div class="page-card notif-list">
     {% for it in items %}
-    <a href="{{ it.link }}"
-       style="display:flex; gap:0.75rem; align-items:center; padding:0.9rem 1.1rem; border-top:1px solid var(--border); text-decoration:none;{% if not it.n.is_read %} background:rgba(var(--primary-rgb),0.06);{% endif %}">
+    <a href="{{ it.link }}" class="notif-item{% if not it.n.is_read %} is-unread{% endif %}">
       {% if it.actor and it.actor.avatar_url %}
-      <img src="{{ it.actor.avatar_url }}" alt="" onerror="this.style.display='none';"
-           style="width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0;">
+      <img src="{{ it.actor.avatar_url }}" alt="" class="avatar" onerror="this.style.display='none';">
       {% else %}
-      <span style="width:40px; height:40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; background:linear-gradient(135deg, var(--primary), rgba(0,0,0,.22));">{{ ((it.actor.display_name or it.actor.handle or '?')[0]|upper) if it.actor else '?' }}</span>
+      <span class="avatar" aria-hidden="true">{{ ((it.actor.display_name or it.actor.handle or '?')[0]|upper) if it.actor else '?' }}</span>
       {% endif %}
-      <span style="min-width:0; flex:1;">
-        <span style="display:block; color:var(--text-main); font-size:0.92rem; line-height:1.5;">
-          <i class="bi {% if it.n.type == 'follow' %}bi-person-plus{% else %}bi-chat-dots{% endif %} me-1" style="color:var(--primary);"></i>{{ it.msg }}
+      <span class="notif-body">
+        <span class="notif-msg">
+          <i class="bi {% if it.n.type == 'follow' %}bi-person-plus{% else %}bi-chat{% endif %}" aria-hidden="true"></i>{{ it.msg }}
         </span>
-        <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted);">{{ it.n.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        <span class="notif-time">{{ it.n.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
       </span>
+      {% if not it.n.is_read %}<span class="notif-dot" aria-label="읽지 않음"></span>{% endif %}
     </a>
     {% endfor %}
   </div>
   {% else %}
-  <div class="page-card text-center text-muted" style="padding:3rem 1.5rem;">
-    <i class="bi bi-bell-slash" style="font-size:1.8rem; opacity:0.6;"></i>
-    <p style="margin:0.7rem 0 0;">아직 알림이 없어요.</p>
+  <div class="page-card empty-state">
+    <i class="bi bi-bell empty-state-icon" aria-hidden="true"></i>
+    <p class="empty-state-title">아직 알림이 없어요</p>
+    <p class="empty-state-body">누군가 나를 팔로우하거나 내 글에 댓글을 남기면 여기에 표시됩니다.</p>
   </div>
   {% endif %}
 </div>

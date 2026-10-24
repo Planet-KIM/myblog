@@ -2,11 +2,49 @@
 
 {% block title %}프로필 편집{% endblock %}
 
-{% block content %}
-<div class="page-content" style="max-width:720px;">
-  <div class="page-card">
-    <h1 class="section-title">프로필 편집</h1>
+{% block extra_head %}
+<style>
+  .profile-wrap { max-width: var(--reading-max-width); margin: 0 auto; }
+  .profile-wrap .page-header a { color: var(--primary); }
+  .form-section-title {
+    font-size: var(--fs-md);
+    margin: var(--space-xl) 0 var(--space-md);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border);
+  }
+  .form-section-title:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+  .form-text { color: var(--text-muted); font-size: var(--fs-xs); }
+  .input-group-text { background: var(--surface-light); border-color: var(--border-dark); color: var(--text-muted); }
+  .accent-hex { max-width: 160px; }
+  .accent-picker {
+    width: 44px;
+    height: 40px;
+    padding: 2px;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--input-radius);
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .form-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-xl); }
+</style>
+{% endblock %}
 
+{% block content %}
+<div class="page-content profile-wrap">
+  <header class="page-header">
+    <span class="eyebrow">Profile</span>
+    <h1>프로필 편집</h1>
+    <p class="lead-text">
+      내 블로그 주소:
+      {% if form.handle %}
+      <a href="/@{{ form.handle }}">/@{{ form.handle }}</a>
+      {% else %}
+      핸들을 설정하면 /@핸들 로 공개됩니다.
+      {% endif %}
+    </p>
+  </header>
+
+  <div class="page-card">
     {% if error %}
     <div class="alert alert-danger" role="alert">{{ error }}</div>
     {% endif %}
@@ -14,16 +52,8 @@
     <div class="alert alert-success" role="alert">{{ success }}</div>
     {% endif %}
 
-    <p class="text-muted" style="font-size:0.85rem;">
-      내 블로그 주소:
-      {% if form.handle %}
-      <a href="/@{{ form.handle }}">/@{{ form.handle }}</a>
-      {% else %}
-      <span>핸들을 설정하면 /@핸들 로 공개됩니다.</span>
-      {% endif %}
-    </p>
-
-    <form method="post" action="/me/profile" class="mt-3">
+    <form method="post" action="/me/profile">
+      <h2 class="form-section-title">기본 정보</h2>
       <div class="mb-3">
         <label for="handle" class="form-label">핸들 (블로그 주소)</label>
         <div class="input-group">
@@ -53,6 +83,7 @@
         <textarea class="form-control" id="bio" name="bio" rows="3" maxlength="500">{{ form.bio }}</textarea>
       </div>
 
+      <h2 class="form-section-title">블로그 꾸미기</h2>
       <div class="mb-3">
         <label for="avatar_url" class="form-label">프로필 이미지 URL</label>
         <input type="url" class="form-control" id="avatar_url" name="avatar_url"
@@ -64,25 +95,25 @@
         <label for="cover_url" class="form-label">커버(배너) 이미지 URL</label>
         <input type="url" class="form-control" id="cover_url" name="cover_url"
                value="{{ form.cover_url }}" placeholder="https://... 또는 /static/...">
-        <div class="form-text">블로그 홈 상단 배너로 표시됩니다. 비우면 강조색/기본 그라데이션.</div>
+        <div class="form-text">블로그 홈 상단 배너로 표시됩니다. 비우면 강조색을 옅게 깐 배경이 쓰입니다.</div>
       </div>
 
       <div class="mb-3">
         <label for="accent_color" class="form-label">강조색 (HEX)</label>
         <div class="d-flex align-items-center gap-2">
-          <input type="text" class="form-control" id="accent_color" name="accent_color"
-                 value="{{ form.accent_color }}" placeholder="#0ea5e9"
-                 pattern="#[0-9a-fA-F]{6}" style="max-width:160px;">
-          <input type="color" id="accent_picker" value="{{ form.accent_color or '#0ea5e9' }}"
-                 aria-label="강조색 선택" style="width:42px;height:38px;padding:2px;border-radius:6px;"
+          <input type="text" class="form-control accent-hex" id="accent_color" name="accent_color"
+                 value="{{ form.accent_color }}" placeholder="#b4542f"
+                 pattern="#[0-9a-fA-F]{6}">
+          <input type="color" id="accent_picker" class="accent-picker" value="{{ form.accent_color or '#b4542f' }}"
+                 aria-label="강조색 선택"
                  oninput="document.getElementById('accent_color').value=this.value">
         </div>
-        <div class="form-text">아바타 테두리·커버 그라데이션에 쓰입니다. 비우면 기본 테마색.</div>
+        <div class="form-text">블로그 커버 배경 등에 쓰입니다. 비우면 기본 테마색.</div>
       </div>
 
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">저장</button>
-        <a href="/me" class="btn btn-outline-secondary">내 대시보드</a>
+      <div class="form-actions">
+        <button type="submit" class="btn-travel">저장</button>
+        <a href="/me" class="btn-ghost">내 대시보드</a>
       </div>
     </form>
   </div>

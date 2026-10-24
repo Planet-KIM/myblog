@@ -1,513 +1,217 @@
 {% extends "base.html" %}
 
-{% block title %}My Dashboard{% endblock %}
+{% block title %}내 대시보드{% endblock %}
 
 {% block extra_head %}
 <style>
-  main.container {
-    max-width: 100% !important;
-    width: 100% !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-  }
-  main.container .page-content {
-    max-width: 100%;
-    width: 100%;
-    margin: 0;
-    padding: 1.4rem 0 2.4rem;
-  }
-  main.container .page-card {
-    width: 100%;
-    margin: 0;
-  }
-  .me-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.4rem;
-  }
-  .me-title {
-    margin: 0;
-    font-size: 1.6rem;
-  }
-  .me-subtitle {
-    margin: 0.2rem 0 0;
-    color: var(--text-muted);
-    font-size: 0.88rem;
-  }
-  .me-tabs .nav-link {
-    border-radius: 999px;
-    padding: 0.42rem 0.9rem;
-    font-size: 0.82rem;
-    border: 1px solid var(--border);
-    color: var(--text-main);
-    background: transparent;
-  }
-  .me-tabs .nav-link.active {
-    color: #fff;
-    border-color: transparent;
-    background: var(--gradient-primary);
-  }
+  .me-header { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-lg); flex-wrap: wrap; }
+  .me-header h1 { margin-bottom: var(--space-sm); }
+  .me-tabs .segmented-item { white-space: nowrap; }
+  .me-note { color: var(--text-muted); font-size: var(--fs-sm); margin: 0 0 var(--space-md); }
+
+  /* 북마크 */
   .bookmark-toolbar {
     display: grid;
-    gap: 0.75rem;
+    gap: var(--space-sm);
     grid-template-columns: 1.3fr 0.9fr 0.9fr auto;
-    margin: 1.2rem 0 1rem;
+    margin-bottom: var(--space-md);
   }
   .bookmark-toolbar .form-control,
-  .bookmark-toolbar .form-select {
-    background: var(--surface-soft, var(--surface));
-    color: var(--text-main);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 0.85rem;
-    padding: 0.5rem 0.65rem;
-  }
-  .bookmark-count {
-    color: var(--text-muted);
-    font-size: 0.84rem;
-    margin-bottom: 1rem;
-  }
-  .bookmark-list {
-    display: grid;
-    gap: 0.9rem;
-  }
+  .bookmark-toolbar .form-select { font-size: var(--fs-sm); }
+  .bookmark-count { color: var(--text-muted); font-size: var(--fs-sm); margin-bottom: var(--space-md); }
+  .bookmark-count strong { color: var(--text-primary); }
+  .bookmark-list { display: grid; gap: var(--space-md); }
   .bookmark-card {
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    background: linear-gradient(150deg, rgba(70, 95, 130, 0.18), rgba(14, 28, 56, 0.22));
+    border-radius: var(--card-radius);
     overflow: hidden;
+    transition: border-color var(--transition-fast);
   }
-  .bookmark-card.no-thumb .bookmark-card-inner {
-    grid-template-columns: 1fr;
-  }
-  .bookmark-card-inner {
-    display: grid;
-    grid-template-columns: 180px 1fr;
-    gap: 0;
-    min-height: 132px;
-  }
+  .bookmark-card:hover { border-color: var(--border-dark); }
+  .bookmark-card.no-thumb .bookmark-card-inner { grid-template-columns: 1fr; }
+  .bookmark-card-inner { display: grid; grid-template-columns: 200px 1fr; min-height: 140px; }
   .bookmark-thumb {
     width: 100%;
     height: 100%;
-    min-height: 132px;
+    min-height: 140px;
     object-fit: cover;
     border-right: 1px solid var(--border);
-    background: var(--surface);
+    background: var(--surface-light);
   }
-  .bookmark-body {
-    padding: 0.9rem 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.52rem;
-  }
-  .bookmark-title {
-    margin: 0;
-    font-size: 1.02rem;
-    line-height: 1.35;
-  }
-  .bookmark-title a {
-    color: var(--text-primary);
-    text-decoration: none;
-  }
-  .bookmark-title a:hover {
-    color: var(--primary);
-  }
+  .bookmark-body { padding: var(--space-md) var(--space-lg); display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
+  .bookmark-title { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-snug); }
+  .bookmark-title a { color: var(--text-primary); text-decoration: none; transition: color var(--transition-fast); }
+  .bookmark-title a:hover { color: var(--primary); }
   .bookmark-preview {
-    font-size: 0.85rem;
+    font-size: var(--fs-sm);
     color: var(--text-main);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .bookmark-meta { font-size: var(--fs-xs); }
+  .bookmark-actions { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
+  .bookmark-actions a { color: var(--primary); font-size: var(--fs-sm); font-weight: 600; text-decoration: none; }
+  .bookmark-actions a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .btn-unbookmark { padding: 0.35rem 0.75rem; font-size: var(--fs-xs); }
+
+  .bookmark-empty,
+  .api-empty {
+    border: 1px dashed var(--border-dark);
+    border-radius: var(--card-radius);
+    padding: var(--space-xl) var(--space-md);
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    text-align: center;
+  }
+
+  /* GitHub 이슈 */
+  .issues-controls { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; margin-bottom: var(--space-md); }
+  .issues-meta { color: var(--text-muted); font-size: var(--fs-xs); margin-left: var(--space-xs); }
+  .issues-list { display: grid; gap: var(--space-sm); }
+  .issue-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    padding: var(--space-md) var(--space-lg);
+  }
+  .issue-card.is-clickable { cursor: pointer; transition: border-color var(--transition-fast); }
+  .issue-card.is-clickable:hover { border-color: var(--border-dark); }
+  .issue-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-sm); }
+  .issue-title { margin: 0; font-size: var(--fs-md); line-height: var(--lh-snug); }
+  .issue-title a { color: var(--text-primary); text-decoration: none; }
+  .issue-title a:hover { color: var(--primary); }
+  .issue-state {
+    --tone: var(--text-muted);
+    border-radius: var(--radius-sm);
+    padding: 0.15rem 0.5rem;
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--tone) 11%, transparent);
+    color: color-mix(in srgb, var(--tone) 72%, var(--text-primary));
+  }
+  .issue-state.open { --tone: var(--secondary); }
+  .issue-state.closed { --tone: var(--danger); }
+  .issue-sub { margin-top: var(--space-sm); font-size: var(--fs-xs); }
+  .issue-preview {
+    margin: var(--space-sm) 0 0;
+    color: var(--text-main);
+    font-size: var(--fs-sm);
     line-height: 1.55;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .bookmark-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.7rem;
-    font-size: 0.77rem;
-    color: var(--text-muted);
-  }
-  .bookmark-actions {
-    margin-top: auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.7rem;
-  }
-  .bookmark-actions a {
-    color: var(--accent);
-    font-size: 0.82rem;
-    text-decoration: none;
-    font-weight: 600;
-  }
-  .bookmark-actions a:hover {
-    text-decoration: underline;
-  }
-  .btn-unbookmark {
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.34rem 0.7rem;
-    background: transparent;
-    color: var(--text-main);
-    font-size: 0.78rem;
-  }
-  .btn-unbookmark:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-  .bookmark-empty,
-  .api-empty {
-    border: 1px dashed var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-    color: var(--text-muted);
-    font-size: 0.86rem;
-    text-align: center;
-  }
-  .issues-controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-    align-items: center;
-    margin: 1rem 0 0.9rem;
-  }
-  .issues-controls .btn {
-    border-radius: 999px;
-    font-size: 0.78rem;
-    border: 1px solid var(--border);
-    color: var(--text-main);
-    background: transparent;
-    padding: 0.3rem 0.7rem;
-  }
-  .issues-controls .btn.active {
-    background: var(--gradient-primary);
-    border-color: transparent;
-    color: #fff;
-  }
-  .issues-meta {
-    color: var(--text-muted);
-    font-size: 0.78rem;
-  }
-  .issues-list {
-    display: grid;
-    gap: 0.8rem;
-    margin-top: 0.9rem;
-  }
-  .issue-card {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--surface);
-    padding: 0.9rem 0.95rem;
-  }
-  .issue-card.is-clickable {
-    cursor: pointer;
-    transition: border-color var(--transition-fast, 0.2s ease), transform var(--transition-fast, 0.2s ease);
-  }
-  .issue-card.is-clickable:hover {
-    border-color: var(--primary);
-    transform: translateY(-1px);
-  }
-  .issue-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.7rem;
-  }
-  .issue-title {
-    margin: 0;
-    font-size: 0.95rem;
-    line-height: 1.4;
-  }
-  .issue-title a {
-    color: var(--text-primary);
-    text-decoration: none;
-  }
-  .issue-title a:hover {
-    color: var(--primary);
-    text-decoration: underline;
-  }
-  .issue-state {
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-  }
-  .issue-state.open {
-    border-color: rgba(42, 161, 152, 0.55);
-    color: #2aa198;
-  }
-  .issue-state.closed {
-    border-color: rgba(204, 102, 102, 0.55);
-    color: #cc6666;
-  }
-  .issue-sub {
-    margin-top: 0.45rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-    color: var(--text-muted);
-    font-size: 0.76rem;
-  }
-  .issue-preview {
-    margin: 0.5rem 0 0;
-    color: var(--text-main);
-    font-size: 0.83rem;
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .issue-labels {
-    margin-top: 0.55rem;
-    display: flex;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-  }
+  .issue-preview.is-empty { color: var(--text-muted); }
+  .issue-labels { margin-top: var(--space-sm); display: flex; gap: var(--space-xs); flex-wrap: wrap; }
   .issue-label {
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.16rem 0.48rem;
-    font-size: 0.68rem;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-sm);
+    padding: 0.1rem 0.45rem;
+    font-size: var(--fs-xs);
     color: var(--text-muted);
   }
   .issues-error {
-    margin-top: 0.7rem;
-    border: 1px solid rgba(204, 102, 102, 0.45);
-    border-radius: 10px;
-    color: #cc6666;
-    padding: 0.65rem 0.75rem;
-    font-size: 0.78rem;
-    background: rgba(204, 102, 102, 0.08);
+    margin-bottom: var(--space-md);
+    border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+    border-radius: var(--radius-md);
+    color: var(--danger);
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--fs-sm);
+    background: color-mix(in srgb, var(--danger) 7%, transparent);
   }
-  .api-list {
-    display: grid;
-    gap: 0.9rem;
-    margin-top: 1rem;
-  }
+
+  /* 승인 API */
+  .api-list { display: grid; gap: var(--space-md); }
   .api-card {
-    border: 1px solid var(--border);
-    border-radius: 12px;
     background: var(--surface);
-    padding: 0.95rem;
-  }
-  .api-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.8rem;
-    margin-bottom: 0.6rem;
-    flex-wrap: wrap;
-  }
-  .api-name {
-    margin: 0;
-    font-size: 0.96rem;
-  }
-  .api-path {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    color: var(--text-muted);
-  }
-  .api-badges {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-  }
-  .api-badge {
     border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.2rem 0.55rem;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    white-space: nowrap;
+    border-radius: var(--card-radius);
+    padding: var(--space-lg);
   }
-  .api-purpose {
-    color: var(--text-main);
-    font-size: 0.84rem;
-    margin-bottom: 0.7rem;
-  }
-  .api-sample-label {
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    font-weight: 600;
-    margin: 0.4rem 0 0.3rem;
-  }
+  .api-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); flex-wrap: wrap; }
+  .api-name { margin: 0; font-size: var(--fs-md); }
+  .api-path { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); }
+  .api-badges { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+  .api-purpose { color: var(--text-main); font-size: var(--fs-sm); margin-bottom: var(--space-sm); }
+  .api-sample-label { color: var(--text-muted); font-size: var(--fs-xs); font-weight: 600; margin: var(--space-sm) 0 var(--space-xs); }
   .api-sample-box {
     border: 1px solid var(--border);
-    border-radius: 10px;
-    background: rgba(10, 20, 40, 0.55);
-    padding: 0.55rem 0.65rem;
+    border-radius: var(--radius-md);
+    background: var(--surface-light);
+    padding: var(--space-sm) var(--space-md);
     font-family: var(--font-mono);
-    font-size: 0.74rem;
+    font-size: var(--fs-xs);
     color: var(--text-main);
     white-space: pre-wrap;
     word-break: break-all;
   }
-  .api-copy-btn {
-    margin-top: 0.35rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    padding: 0.2rem 0.45rem;
-  }
-  .api-copy-btn:hover {
-    color: var(--primary);
-    border-color: var(--primary);
-  }
-  .pager-wrap {
-    margin-top: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-  }
-  .pager-info {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-  }
-  .pager-links {
-    display: flex;
-    gap: 0.5rem;
-  }
+  .api-copy-btn { margin-top: var(--space-xs); padding: 0.2rem 0.6rem; font-size: var(--fs-xs); }
+
+  /* 페이지 이동 */
+  .pager-wrap { margin-top: var(--space-lg); display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+  .pager-info { color: var(--text-muted); font-size: var(--fs-sm); }
+  .pager-links { display: flex; gap: var(--space-sm); }
   .pager-links a,
   .pager-links span {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.32rem 0.62rem;
-    font-size: 0.78rem;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--btn-radius);
+    padding: 0.35rem 0.8rem;
+    font-size: var(--fs-sm);
+    font-weight: 600;
     text-decoration: none;
-    color: var(--text-main);
+    color: var(--text-primary);
+    transition: background-color var(--transition-fast);
   }
-  .pager-links a:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-  #me-bookmark-panel.is-loading {
-    opacity: 0.62;
-    pointer-events: none;
-    transition: opacity var(--transition-fast, 0.2s ease);
-  }
+  .pager-links span { color: var(--text-disabled); border-color: var(--border); }
+  .pager-links a:hover { background: var(--surface-light); }
+
+  #me-bookmark-panel.is-loading { opacity: 0.6; pointer-events: none; transition: opacity var(--transition-fast); }
+
   @media (max-width: 860px) {
-    main.container {
-      padding-left: 0.75rem !important;
-      padding-right: 0.75rem !important;
-    }
-    main.container .page-content {
-      padding: 1rem 0 2rem;
-    }
-    main.container .page-card {
-      padding: 1rem;
-    }
-    .bookmark-toolbar {
-      grid-template-columns: 1fr;
-    }
-    .bookmark-card-inner {
-      grid-template-columns: 1fr;
-    }
-    .bookmark-thumb {
-      border-right: none;
-      border-bottom: 1px solid var(--border);
-      max-height: 190px;
-    }
+    .bookmark-toolbar { grid-template-columns: 1fr; }
+    .bookmark-card-inner { grid-template-columns: 1fr; }
+    .bookmark-thumb { border-right: none; border-bottom: 1px solid var(--border); max-height: 180px; }
   }
   @media (max-width: 640px) {
-    .me-header {
-      align-items: flex-start;
-      margin-bottom: 1rem;
-    }
-    .me-tabs {
-      width: 100%;
-    }
-    .me-tabs .nav {
-      width: 100%;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.45rem;
-    }
-    .me-tabs .nav-item {
-      width: 100%;
-    }
-    .me-tabs .nav-link {
-      width: 100%;
-      text-align: center;
-      padding: 0.48rem 0.55rem;
-    }
-    .bookmark-body {
-      padding: 0.75rem 0.8rem;
-    }
-    .bookmark-meta {
-      gap: 0.4rem 0.6rem;
-      font-size: 0.74rem;
-    }
-    .bookmark-actions {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.5rem;
-    }
-    .bookmark-actions a {
-      display: inline-block;
-    }
-    .btn-unbookmark {
-      width: 100%;
-      text-align: center;
-    }
-    .pager-wrap {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .pager-links {
-      width: 100%;
-      justify-content: space-between;
-    }
+    .me-tabs, .me-tabs .segmented-control { width: 100%; }
+    .me-tabs .segmented-item { flex: 1; padding-inline: var(--space-sm); }
+    .bookmark-body { padding: var(--space-md); }
+    .bookmark-actions { flex-direction: column; align-items: stretch; }
+    .btn-unbookmark { width: 100%; }
+    .pager-wrap { flex-direction: column; align-items: stretch; }
+    .pager-links { width: 100%; justify-content: space-between; }
     .pager-links a,
-    .pager-links span {
-      width: 49%;
-      text-align: center;
-    }
+    .pager-links span { width: 49%; text-align: center; }
   }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="page-content">
-  <section class="page-card">
-    <div class="me-header">
+  <section>
+    <header class="page-header me-header">
       <div>
-        <h1 class="me-title">My Dashboard</h1>
-        <p class="me-subtitle">{{ current_user.email }} 계정 기준으로 북마크와 내부 승인 API를 확인합니다.</p>
+        <span class="eyebrow">Dashboard</span>
+        <h1>내 대시보드</h1>
+        <p class="lead-text">{{ current_user.email }} 계정의 북마크와 내부 승인 API, GitHub 이슈를 확인합니다.</p>
       </div>
-      <div class="me-tabs">
-        <ul class="nav nav-pills">
-          <li class="nav-item">
-            <a class="nav-link {% if selected_tab == 'bookmarks' %}active{% endif %}"
-               href="{{ request.url.include_query_params(tab='bookmarks', page=1) }}">
-              Bookmarked Posts
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if selected_tab == 'apis' %}active{% endif %}"
-               href="{{ request.url.include_query_params(tab='apis', page=1) }}">
-              Approved APIs
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link {% if selected_tab == 'issues' %}active{% endif %}"
-               href="{{ request.url.include_query_params(tab='issues', issue_page=1) }}">
-              GitHub Issues
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
+      <nav class="me-tabs" aria-label="대시보드 탭">
+        <div class="segmented-control">
+          <a class="segmented-item {% if selected_tab == 'bookmarks' %}active{% endif %}"
+             href="{{ request.url.include_query_params(tab='bookmarks', page=1) }}"{% if selected_tab == 'bookmarks' %} aria-current="page"{% endif %}>북마크</a>
+          <a class="segmented-item {% if selected_tab == 'apis' %}active{% endif %}"
+             href="{{ request.url.include_query_params(tab='apis', page=1) }}"{% if selected_tab == 'apis' %} aria-current="page"{% endif %}>승인 API</a>
+          <a class="segmented-item {% if selected_tab == 'issues' %}active{% endif %}"
+             href="{{ request.url.include_query_params(tab='issues', issue_page=1) }}"{% if selected_tab == 'issues' %} aria-current="page"{% endif %}>GitHub 이슈</a>
+        </div>
+      </nav>
+    </header>
 
     {% if selected_tab == 'bookmarks' %}
       <form id="bookmark-filter-form" class="bookmark-toolbar" method="get" action="/me">
@@ -549,17 +253,17 @@
                     <a href="/board/{{ post.id }}">{{ post.title or 'Untitled' }}</a>
                   </h3>
                   <div class="bookmark-preview">{{ post.preview or '미리보기 텍스트가 없습니다.' }}</div>
-                  <div class="bookmark-meta">
-                    <span><i class="bi bi-folder2-open me-1"></i>{{ post.category.name if post.category else 'Uncategorized' }}</span>
-                    <span><i class="bi bi-calendar3 me-1"></i>{{ post.created_at.strftime("%Y-%m-%d") }}</span>
-                    <span><i class="bi bi-clock-history me-1"></i>{{ post.bookmark_saved_at.strftime("%Y-%m-%d %H:%M") }}</span>
-                    <span><i class="bi bi-hand-thumbs-up me-1"></i>{{ post.like_count }}</span>
-                    <span><i class="bi bi-eye me-1"></i>{{ post.view_count }}</span>
+                  <div class="meta-row bookmark-meta">
+                    <span>{{ post.category.name if post.category else '미분류' }}</span>
+                    <span>{{ post.created_at.strftime("%Y.%m.%d") }} 작성</span>
+                    <span>{{ post.bookmark_saved_at.strftime("%Y.%m.%d") }} 저장</span>
+                    <span>좋아요 {{ post.like_count }}</span>
+                    <span>조회 {{ post.view_count }}</span>
                   </div>
                   <div class="bookmark-actions">
                     <a href="/board/{{ post.id }}">게시글 열기</a>
-                    <button type="button" class="btn-unbookmark js-unbookmark-btn" data-post-id="{{ post.id }}">
-                      <i class="bi bi-bookmark-check-fill me-1"></i>북마크 해제
+                    <button type="button" class="btn-ghost btn-unbookmark js-unbookmark-btn" data-post-id="{{ post.id }}">
+                      <i class="bi bi-bookmark-dash"></i>북마크 해제
                     </button>
                   </div>
                 </div>
@@ -589,7 +293,7 @@
         </div>
       </div>
     {% elif selected_tab == 'apis' %}
-      <p class="me-subtitle">내부 API 화이트리스트입니다. 실행 기능 없이, 호출 규약/권한/샘플 요청만 제공합니다.</p>
+      <p class="me-note">내부 API 화이트리스트입니다. 실행 기능 없이, 호출 규약/권한/샘플 요청만 제공합니다.</p>
       {% if approved_api_catalog %}
         <div class="api-list">
           {% for api in approved_api_catalog %}
@@ -600,19 +304,19 @@
                   <div class="api-path"><strong>{{ api.method }}</strong> {{ api.path }}</div>
                 </div>
                 <div class="api-badges">
-                  <span class="api-badge">{{ api.auth }}</span>
-                  <span class="api-badge">{{ api.access }}</span>
+                  <span class="badge-tint badge-tint-sky api-badge">{{ api.auth }}</span>
+                  <span class="badge-tint api-badge">{{ api.access }}</span>
                 </div>
               </div>
               <div class="api-purpose">{{ api.purpose }}</div>
               <div class="api-sample-label">cURL</div>
               <div class="api-sample-box" id="api-curl-{{ loop.index }}">{{ api.curl_example }}</div>
-              <button type="button" class="api-copy-btn js-copy-api" data-copy-target="api-curl-{{ loop.index }}">
+              <button type="button" class="btn-ghost api-copy-btn js-copy-api" data-copy-target="api-curl-{{ loop.index }}">
                 cURL 복사
               </button>
               <div class="api-sample-label">fetch</div>
               <div class="api-sample-box" id="api-fetch-{{ loop.index }}">{{ api.fetch_example }}</div>
-              <button type="button" class="api-copy-btn js-copy-api" data-copy-target="api-fetch-{{ loop.index }}">
+              <button type="button" class="btn-ghost api-copy-btn js-copy-api" data-copy-target="api-fetch-{{ loop.index }}">
                 fetch 복사
               </button>
             </article>
@@ -622,13 +326,13 @@
         <div class="api-empty">표시할 API 항목이 없습니다.</div>
       {% endif %}
     {% else %}
-      <p class="me-subtitle">GitHub 이슈 진행 상황을 이곳에서 빠르게 확인합니다.</p>
+      <p class="me-note">GitHub 이슈 진행 상황을 이곳에서 빠르게 확인합니다.</p>
       <div class="issues-controls">
-        <a class="btn {% if issue_state == 'open' %}active{% endif %}"
+        <a class="chip {% if issue_state == 'open' %}active{% endif %}"
            href="{{ request.url.include_query_params(tab='issues', issue_state='open', issue_page=1) }}">Open</a>
-        <a class="btn {% if issue_state == 'closed' %}active{% endif %}"
+        <a class="chip {% if issue_state == 'closed' %}active{% endif %}"
            href="{{ request.url.include_query_params(tab='issues', issue_state='closed', issue_page=1) }}">Closed</a>
-        <a class="btn {% if issue_state == 'all' %}active{% endif %}"
+        <a class="chip {% if issue_state == 'all' %}active{% endif %}"
            href="{{ request.url.include_query_params(tab='issues', issue_state='all', issue_page=1) }}">All</a>
         <span class="issues-meta">
           repo: <strong>{{ github_repo }}</strong>
@@ -657,13 +361,13 @@
           {% if issue.body_preview %}
           <p class="issue-preview">{{ issue.body_preview }}</p>
           {% else %}
-          <p class="issue-preview" style="opacity:.72;">본문 없음</p>
+          <p class="issue-preview is-empty">본문 없음</p>
           {% endif %}
-          <div class="issue-sub">
-            <span>author: {{ issue.author }}</span>
-            <span>comments: {{ issue.comments }}</span>
-            <span>created: {{ issue.created_at }}</span>
-            <span>updated: {{ issue.updated_at }}</span>
+          <div class="meta-row issue-sub">
+            <span>{{ issue.author }}</span>
+            <span>댓글 {{ issue.comments }}</span>
+            <span>생성 {{ issue.created_at }}</span>
+            <span>수정 {{ issue.updated_at }}</span>
           </div>
           {% if issue.labels %}
           <div class="issue-labels">

@@ -6,146 +6,67 @@
 {% block extra_head %}
 <link rel="alternate" type="application/rss+xml" title="{{ owner.blog_title or owner.display_name or ('@' ~ owner.handle) }} RSS" href="/@{{ owner.handle }}/rss">
 <style>
+  /* 블로그(프로필) 머리말: 커버 → 아바타·이름·메타 → 카테고리 칩 */
   .blog-header {
     --blog-accent: var(--primary);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--card-radius);
-    overflow: hidden;
-    box-shadow: var(--shadow-md);
-    margin-bottom: 1.5rem;
+    margin: 0 0 var(--space-lg);
   }
   .blog-cover {
-    height: 150px;
-    background: var(--gradient-primary);
-    position: relative;
+    height: 168px;
+    border-radius: var(--card-radius);
+    background: color-mix(in srgb, var(--blog-accent) 12%, var(--surface-light));
   }
-  .blog-cover.has-image { height: 190px; background-size: cover; background-position: center; }
-  .blog-cover::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.28));
+  .blog-cover.has-image {
+    height: 220px;
+    background-size: cover;
+    background-position: center;
   }
   .blog-identity {
     display: flex;
-    gap: 1.25rem;
-    align-items: flex-end;
-    padding: 0 1.75rem 1.5rem;
-    margin-top: -44px;
-    position: relative;
+    gap: var(--space-lg);
+    align-items: flex-start;
+    padding: var(--space-md) var(--space-lg) var(--space-lg);
+    border-bottom: 1px solid var(--border);
     flex-wrap: wrap;
   }
-  .blog-avatar {
-    width: 92px;
-    height: 92px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-    border: 4px solid var(--blog-accent);
-    background: var(--surface-light);
-    box-shadow: var(--shadow-md);
+  .blog-avatar.avatar {
+    margin-top: calc(-1 * (var(--space-md) + 48px));
+    border: 4px solid var(--bg-body);
+    background-color: var(--surface-dark);
   }
-  .blog-avatar-fallback {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-mono);
-    font-size: 2.1rem;
-    font-weight: 700;
-    color: #fff;
-    background: linear-gradient(135deg, var(--blog-accent), rgba(0, 0, 0, 0.25));
-  }
-  .blog-identity-main { flex: 1; min-width: 220px; padding-bottom: 0.25rem; }
+  .blog-identity-main { flex: 1; min-width: 220px; }
   .blog-name {
-    font-family: var(--font-display);
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
+    font-size: var(--fs-2xl);
+    margin: 0 0 var(--space-xs);
     letter-spacing: -0.02em;
-    display: inline-block;
   }
-  .blog-name::after {
-    content: "";
-    display: block;
-    width: 36px;
-    height: 3px;
-    margin-top: 0.4rem;
-    border-radius: 3px;
-    background: var(--blog-accent);
-  }
-  .blog-stats {
-    display: flex;
-    gap: 0.9rem;
-    align-items: center;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-top: 0.55rem;
-  }
-  .blog-stats strong { color: var(--text-main); font-weight: 600; }
-  .blog-bio { color: var(--text-main); margin: 0.7rem 0 0; max-width: 60ch; line-height: 1.7; }
-  .blog-actions { display: flex; gap: 0.5rem; align-items: center; padding-bottom: 0.4rem; }
-
-  .follow-btn {
-    border: 1px solid var(--blog-accent);
-    background: var(--blog-accent);
-    color: #fff;
-    font-weight: 600;
-    font-size: 0.85rem;
-    padding: 0.4rem 1.1rem;
-    border-radius: var(--btn-radius);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-  .follow-btn:hover { filter: brightness(1.08); }
-  .follow-btn.is-following {
-    background: transparent;
+  .blog-name + .meta-row strong { color: var(--text-primary); font-weight: 600; }
+  .blog-bio {
     color: var(--text-main);
-    border-color: var(--border-light);
+    margin: var(--space-sm) 0 0;
+    max-width: 60ch;
+    line-height: var(--lh-body);
   }
-  .blog-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    border-radius: var(--btn-radius);
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    background: var(--surface);
-    transition: all var(--transition-fast);
+  .blog-actions { display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap; }
+  .blog-actions .btn-icon { padding: 0.5rem 0.7rem; }
+  .btn-travel.is-following {
+    background: transparent;
+    border-color: var(--border-dark);
+    color: var(--text-primary);
   }
-  .blog-icon-btn:hover { color: var(--blog-accent); border-color: var(--blog-accent); }
+  .btn-travel.is-following:hover { background: var(--surface-light); }
 
-  .blog-filter {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-bottom: 1.25rem;
-  }
-  .blog-pill {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    padding: 0.35rem 0.85rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    background: var(--surface);
-    text-decoration: none;
-    transition: all var(--transition-fast);
-    white-space: nowrap;
-  }
-  .blog-pill:hover { color: var(--text-primary); border-color: var(--border-light); }
-  .blog-pill.is-active {
-    color: #fff;
-    background: var(--blog-accent);
-    border-color: var(--blog-accent);
-  }
+  .blog-filter { margin-bottom: var(--space-xl); }
 
-  @media (max-width: 560px) {
-    .blog-identity { padding-inline: 1rem; }
+  .blog-series { margin-bottom: var(--space-xl); }
+  .blog-series .chip i { color: var(--primary); }
+
+  @media (max-width: 576px) {
+    .blog-cover { height: 120px; }
+    .blog-cover.has-image { height: 160px; }
+    .blog-identity { padding-inline: var(--space-sm); gap: var(--space-md); }
+    .blog-avatar.avatar { --size: 72px; margin-top: calc(-1 * (var(--space-md) + 36px)); }
+    .blog-name { font-size: var(--fs-xl); }
     .blog-actions { width: 100%; }
   }
 </style>
@@ -156,20 +77,19 @@
   <!-- Blog header -->
   <header class="blog-header"{% if owner.accent_color %} style="--blog-accent: {{ owner.accent_color }};"{% endif %}>
     <div class="blog-cover{% if owner.cover_url %} has-image{% endif %}"
-         {% if owner.cover_url %}style="background-image:url('{{ owner.cover_url }}');"
-         {% elif owner.accent_color %}style="background:linear-gradient(135deg, {{ owner.accent_color }}, {{ owner.accent_color }}99);"{% endif %}></div>
+         {% if owner.cover_url %}style="background-image:url('{{ owner.cover_url }}');"{% endif %}></div>
     <div class="blog-identity">
       {% if owner.avatar_url %}
-      <img src="{{ owner.avatar_url }}" alt="{{ owner.display_name or owner.handle }} 프로필" class="blog-avatar"
+      <img src="{{ owner.avatar_url }}" alt="{{ owner.display_name or owner.handle }} 프로필" class="avatar avatar-xl blog-avatar"
            onerror="this.style.display='none';">
       {% else %}
-      <div class="blog-avatar blog-avatar-fallback" aria-hidden="true">{{ (owner.display_name or owner.handle or '?')[0]|upper }}</div>
+      <div class="avatar avatar-xl blog-avatar" aria-hidden="true">{{ (owner.display_name or owner.handle or '?')[0]|upper }}</div>
       {% endif %}
 
       <div class="blog-identity-main">
         <h1 class="blog-name">{{ owner.blog_title or owner.display_name or ('@' ~ owner.handle) }}</h1>
-        <div class="blog-stats">
-          <span>@{{ owner.handle }}</span>
+        <div class="meta-row">
+          {% if owner.blog_title or owner.display_name %}<span>@{{ owner.handle }}</span>{% endif %}
           <span><strong>{{ total_posts }}</strong> 글</span>
           <span><strong>{{ follower_count }}</strong> 팔로워</span>
         </div>
@@ -179,18 +99,18 @@
       </div>
 
       <div class="blog-actions">
-        <a href="/@{{ owner.handle }}/rss" class="blog-icon-btn" title="RSS 구독" aria-label="RSS 구독"><i class="bi bi-rss"></i></a>
+        <a href="/@{{ owner.handle }}/rss" class="btn-ghost btn-icon" title="RSS 구독" aria-label="RSS 구독"><i class="bi bi-rss"></i></a>
         {% if is_owner %}
-        <a href="/board/new" class="btn-travel">새 글</a>
-        <a href="/me/profile" class="btn btn-outline-secondary btn-sm">프로필 편집</a>
+        <a href="/me/profile" class="btn-ghost">프로필 편집</a>
+        <a href="/board/new" class="btn-travel"><i class="bi bi-pencil"></i>새 글</a>
         {% elif current_user %}
-        <button type="button" class="follow-btn js-blog-follow{% if is_following %} is-following{% endif %}"
+        <button type="button" class="btn-travel follow-btn js-blog-follow{% if is_following %} is-following{% endif %}"
                 data-author-id="{{ owner.id }}"
                 aria-pressed="{{ 'true' if is_following else 'false' }}">
           {{ '팔로잉' if is_following else '팔로우' }}
         </button>
         {% else %}
-        <a href="/auth/login?next=/@{{ owner.handle }}" class="btn btn-outline-secondary btn-sm">로그인 후 팔로우</a>
+        <a href="/auth/login?next=/@{{ owner.handle }}" class="btn-ghost">로그인 후 팔로우</a>
         {% endif %}
       </div>
     </div>
@@ -198,27 +118,22 @@
 
   <!-- Category filter -->
   {% if categories %}
-  <nav class="blog-filter" aria-label="카테고리">
-    <a href="/@{{ owner.handle }}" class="blog-pill{% if not active_category %} is-active{% endif %}">전체</a>
+  <nav class="chip-row blog-filter" aria-label="카테고리">
+    <a href="/@{{ owner.handle }}" class="chip{% if not active_category %} active{% endif %}"{% if not active_category %} aria-current="page"{% endif %}>전체</a>
     {% for c in categories %}
-    <a href="/@{{ owner.handle }}?category={{ c.id }}" class="blog-pill{% if active_category == c.id %} is-active{% endif %}">{{ c.name }}</a>
+    <a href="/@{{ owner.handle }}?category={{ c.id }}" class="chip{% if active_category == c.id %} active{% endif %}"{% if active_category == c.id %} aria-current="page"{% endif %}>{{ c.name }}</a>
     {% endfor %}
   </nav>
   {% endif %}
 
   <!-- 매거진 / 시리즈 -->
   {% if owner_series %}
-  <section style="margin-bottom:1.5rem;">
-    <h2 style="font-family:var(--font-display); font-size:1.1rem; font-weight:700; color:var(--text-primary); margin:0 0 0.8rem;">
-      <i class="bi bi-journal-album" style="color:var(--primary);"></i> 매거진 · 시리즈
-    </h2>
-    <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+  <section class="blog-series">
+    <h2 class="hub-subtitle">매거진 · 시리즈</h2>
+    <div class="chip-row">
       {% for s in owner_series %}
-      <a href="/series/{{ s.slug|urlencode }}"
-         style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.45rem 0.85rem; border:1px solid var(--border); border-radius:10px; text-decoration:none; color:var(--text-main); background:var(--surface);">
-        <i class="bi bi-collection" style="color:var(--primary);"></i>
-        <span style="font-weight:600;">{{ s.label }}</span>
-        <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted);">{{ s.count }}편</span>
+      <a href="/series/{{ s.slug|urlencode }}" class="chip">
+        <i class="bi bi-collection"></i>{{ s.label }}<span class="count">{{ s.count }}편</span>
       </a>
       {% endfor %}
     </div>
@@ -235,21 +150,22 @@
 
   {% if total_pages > 1 %}
   {% set _cat = ('&category=' ~ active_category) if active_category else '' %}
-  <nav class="d-flex justify-content-center gap-2 mt-4">
+  <nav class="d-flex justify-content-center align-items-center gap-3 mt-5" aria-label="페이지">
     {% if current_page > 1 %}
-    <a href="/@{{ owner.handle }}?page={{ current_page - 1 }}{{ _cat }}" class="btn btn-outline-secondary btn-sm">← 이전</a>
+    <a href="/@{{ owner.handle }}?page={{ current_page - 1 }}{{ _cat }}" class="btn-ghost"><i class="bi bi-arrow-left"></i>이전</a>
     {% endif %}
-    <span class="btn btn-sm disabled">{{ current_page }} / {{ total_pages }}</span>
+    <span class="text-muted small">{{ current_page }} / {{ total_pages }}</span>
     {% if current_page < total_pages %}
-    <a href="/@{{ owner.handle }}?page={{ current_page + 1 }}{{ _cat }}" class="btn btn-outline-secondary btn-sm">다음 →</a>
+    <a href="/@{{ owner.handle }}?page={{ current_page + 1 }}{{ _cat }}" class="btn-ghost">다음<i class="bi bi-arrow-right"></i></a>
     {% endif %}
   </nav>
   {% endif %}
 
   {% else %}
-  <div class="page-card text-center text-muted">
-    {% if active_category %}이 카테고리에 글이 없습니다.{% else %}아직 공개된 글이 없습니다.{% endif %}
-    {% if is_owner %}<br><a href="/board/new" class="btn-travel mt-3 d-inline-block">첫 글 쓰기</a>{% endif %}
+  <div class="page-card empty-state">
+    <i class="bi bi-journal-text empty-state-icon" aria-hidden="true"></i>
+    <p class="empty-state-title">{% if active_category %}이 카테고리에 글이 없습니다{% else %}아직 공개된 글이 없습니다{% endif %}</p>
+    {% if is_owner %}<a href="/board/new" class="btn-travel">첫 글 쓰기</a>{% endif %}
   </div>
   {% endif %}
 </div>

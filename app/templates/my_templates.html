@@ -1,60 +1,137 @@
 {% extends "base.html" %}
 {% block title %}내 매거진 템플릿 · Planet KIM{% endblock %}
 
+{% block extra_head %}
+<style>
+  .tpl-header { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-lg); flex-wrap: wrap; }
+  .tpl-section { margin-bottom: var(--space-2xl); }
+  .hub-subtitle { font-size: var(--fs-lg); margin: 0 0 var(--space-xs); }
+  .hub-note { color: var(--text-muted); font-size: var(--fs-sm); margin: 0 0 var(--space-md); }
+
+  /* 스타터 레이아웃 카드 (form 안의 버튼 전체가 클릭 영역) */
+  .starter-card {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+  }
+  .starter-card:hover,
+  .starter-card:focus-visible { border-color: var(--primary); }
+  .tpl-thumb {
+    display: block;
+    aspect-ratio: 3 / 4;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+  }
+  .tpl-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+  .starter-name {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 0 var(--space-xs);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: var(--fs-sm);
+  }
+  .starter-name i { color: var(--primary); }
+  .starter-desc { padding: 0 var(--space-xs) var(--space-xs); font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.4; }
+
+  /* 내 레이아웃 */
+  .tpl-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    height: 100%;
+    padding: var(--space-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+  }
+  .tpl-card .tpl-thumb { max-height: 300px; }
+  .tpl-name {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tpl-meta { min-width: 0; }
+  .tpl-card .meta-row { font-size: var(--fs-xs); }
+  .tpl-actions { display: flex; gap: var(--space-sm); margin-top: auto; }
+  .tpl-actions form { margin: 0; }
+  .tpl-actions form:first-child { flex: 1; }
+  .tpl-actions .btn-travel { width: 100%; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-content" style="max-width:1000px; margin:0 auto;">
-  <header style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; margin-bottom:0.75rem;">
-    <h1 class="section-title" style="margin:0;">매거진 만들기</h1>
-    <a href="/board/new?editor=tiptap" class="btn-travel">빈 캔버스로 바로 시작</a>
+<div class="page-content">
+  <header class="page-header tpl-header">
+    <div>
+      <span class="eyebrow">Magazine</span>
+      <h1>매거진 만들기</h1>
+      <p class="lead-text">아래에서 잡지 레이아웃을 골라 시작하거나, 직접 만든 레이아웃을 재사용하세요. 발행한 매거진 하단의 <strong>“레이아웃 저장”</strong>을 누르면 <strong>내 레이아웃</strong>에 쌓입니다.</p>
+    </div>
+    <a href="/board/new?editor=tiptap" class="btn-travel"><i class="bi bi-plus-lg"></i>빈 캔버스로 시작</a>
   </header>
-  <p class="text-muted" style="font-size:0.9rem; margin-bottom:1.5rem;">
-    아래에서 잡지 레이아웃을 골라 시작하거나, 직접 만든 레이아웃을 재사용하세요. 발행한 매거진 하단의 <strong>“레이아웃 저장”</strong>을 누르면 <strong>내 레이아웃</strong>에 쌓입니다.
-  </p>
 
   {% if starters %}
-  <h2 style="font-family:var(--font-display); font-size:1.15rem; font-weight:700; color:var(--text-primary); margin:0 0 0.3rem;">레이아웃 고르기</h2>
-  <p class="text-muted" style="font-size:0.85rem; margin:0 0 1rem;">실제 잡지에서 쓰는 형식(표지·목차·피처·포토 에세이 등)을 고르면 바로 편집이 시작돼요. 빈 레이아웃부터 시작할 수도 있어요.</p>
-  <div class="row g-3" style="margin-bottom:2.2rem;">
-    {% for st in starters %}
-    <div class="col-6 col-md-4 col-lg-3">
-      <form method="post" action="/board/from-starter/{{ st.key }}" style="margin:0; height:100%;">
-        <button type="submit" class="page-card" title="{{ st.name }} — {{ st.description }}"
-                style="width:100%; height:100%; text-align:left; border:1px solid var(--border); cursor:pointer; background:var(--surface); display:flex; flex-direction:column; gap:0.5rem; padding:0.6rem; transition:border-color var(--transition-fast), transform var(--transition-fast);"
-                onmouseover="this.style.borderColor='var(--primary)';this.style.transform='translateY(-3px)';"
-                onmouseout="this.style.borderColor='var(--border)';this.style.transform='none';">
-          <span style="display:block; aspect-ratio:3/4; border-radius:8px; overflow:hidden; background:#f1ece4; border:1px solid var(--border);">
-            <img src="/board/starter/{{ st.key }}/thumb.png" alt="{{ st.name }} 레이아웃 미리보기" loading="lazy" style="width:100%; height:100%; object-fit:cover; object-position:top center; display:block;">
-          </span>
-          <span style="display:flex; align-items:center; gap:0.35rem; font-weight:600; color:var(--text-primary); font-size:0.9rem;"><i class="bi {{ st.icon }}" style="color:var(--primary);"></i>{{ st.name }}</span>
-          <span style="font-size:0.75rem; color:var(--text-muted); line-height:1.3;">{{ st.description }}</span>
-        </button>
-      </form>
+  <section class="tpl-section">
+    <h2 class="hub-subtitle">레이아웃 고르기</h2>
+    <p class="hub-note">실제 잡지에서 쓰는 형식(표지·목차·피처·포토 에세이 등)을 고르면 바로 편집이 시작돼요.</p>
+    <div class="row g-3">
+      {% for st in starters %}
+      <div class="col-6 col-md-4 col-lg-3">
+        <form method="post" action="/board/from-starter/{{ st.key }}" class="h-100 m-0">
+          <button type="submit" class="starter-card" title="{{ st.name }} — {{ st.description }}">
+            <span class="tpl-thumb">
+              <img src="/board/starter/{{ st.key }}/thumb.png" alt="{{ st.name }} 레이아웃 미리보기" loading="lazy">
+            </span>
+            <span class="starter-name"><i class="bi {{ st.icon }}"></i>{{ st.name }}</span>
+            <span class="starter-desc">{{ st.description }}</span>
+          </button>
+        </form>
+      </div>
+      {% endfor %}
     </div>
-    {% endfor %}
-  </div>
-  <h2 style="font-family:var(--font-display); font-size:1.15rem; font-weight:700; color:var(--text-primary); margin:0 0 0.8rem;">내 레이아웃</h2>
+  </section>
   {% endif %}
+
+  <section class="tpl-section">
+  {% if starters %}<h2 class="hub-subtitle mb-3">내 레이아웃</h2>{% endif %}
 
   {% if items %}
   <div class="row g-3">
     {% for it in items %}
     <div class="col-12 col-sm-6 col-lg-4">
-      <div class="page-card" style="display:flex; flex-direction:column; gap:0.7rem; height:100%;">
-        <div style="aspect-ratio:3/4; max-height:300px; border-radius:10px; overflow:hidden; background:#f1ece4; border:1px solid var(--border);">
-          <img src="/me/templates/{{ it.t.id }}/thumb.png" alt="{{ it.t.name }} 레이아웃 미리보기" loading="lazy"
-               style="width:100%; height:100%; object-fit:cover; object-position:top center; display:block;">
+      <div class="tpl-card">
+        <div class="tpl-thumb">
+          <img src="/me/templates/{{ it.t.id }}/thumb.png" alt="{{ it.t.name }} 레이아웃 미리보기" loading="lazy">
         </div>
-        <div style="min-width:0;">
-          <span style="display:block; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.t.name }}</span>
-          <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted);">{{ it.pages }}페이지 · {{ it.t.created_at.strftime('%Y-%m-%d') }}</span>
+        <div class="tpl-meta">
+          <span class="tpl-name">{{ it.t.name }}</span>
+          <span class="meta-row"><span>{{ it.pages }}페이지</span><span>{{ it.t.created_at.strftime('%Y-%m-%d') }}</span></span>
         </div>
-        <div style="display:flex; gap:0.5rem; margin-top:auto;">
-          <form method="post" action="/board/from-template/{{ it.t.id }}" style="flex:1; margin:0;">
-            <button type="submit" class="btn-travel" style="width:100%;">이 레이아웃으로 새 글</button>
+        <div class="tpl-actions">
+          <form method="post" action="/board/from-template/{{ it.t.id }}">
+            <button type="submit" class="btn-travel">이 레이아웃으로 새 글</button>
           </form>
-          <form method="post" action="/me/templates/{{ it.t.id }}/delete" style="margin:0;"
+          <form method="post" action="/me/templates/{{ it.t.id }}/delete"
                 onsubmit="return confirm('이 템플릿을 삭제할까요?');">
-            <button type="submit" class="btn btn-outline-secondary btn-sm" aria-label="삭제"><i class="bi bi-trash"></i></button>
+            <button type="submit" class="btn-ghost" aria-label="삭제" title="삭제"><i class="bi bi-trash"></i></button>
           </form>
         </div>
       </div>
@@ -62,12 +139,13 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="page-card text-center text-muted" style="padding:3rem 1.5rem;">
-    <i class="bi bi-grid-1x2" style="font-size:1.9rem; opacity:0.6;"></i>
-    <p style="margin:0.8rem 0 0; font-weight:600; color:var(--text-main);">아직 저장한 레이아웃이 없어요</p>
-    <p style="font-size:0.88rem; margin:0.3rem 0 0;">매거진(Magazine 에디터)으로 글을 발행한 뒤, 글 하단의 “레이아웃 저장”을 눌러보세요.</p>
-    <a href="/board/new?editor=tiptap" class="btn-travel d-inline-block" style="margin-top:1.2rem;">매거진 만들기</a>
+  <div class="page-card empty-state">
+    <i class="bi bi-grid-1x2 empty-state-icon" aria-hidden="true"></i>
+    <p class="empty-state-title">아직 저장한 레이아웃이 없어요</p>
+    <p class="empty-state-body">매거진 에디터로 글을 발행한 뒤, 글 하단의 “레이아웃 저장”을 눌러보세요.</p>
+    <a href="/board/new?editor=tiptap" class="btn-travel">매거진 만들기</a>
   </div>
   {% endif %}
+  </section>
 </div>
 {% endblock %}
