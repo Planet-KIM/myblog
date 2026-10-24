@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block title %}About · Planet KIM{% endblock %}
+
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/main-cv.css') }}">
 {% endblock %}
@@ -12,17 +14,17 @@
     </div>
   {% endif %}
 
-  <div class="d-flex justify-content-between align-items-center mb-3 no-print cv-toolbar">
+  <div class="no-print cv-toolbar">
     <div class="segmented-control" id="lang-segmented-control">
       <button id="btn-lang-ko" type="button" class="segmented-item active">KO</button>
       <button id="btn-lang-en" type="button" class="segmented-item">EN</button>
     </div>
     <div class="d-flex align-items-center gap-2">
-      <button id="btn-theme" type="button" class="btn btn-outline-secondary btn-sm cv-btn-theme">
-        Dark
+      <button id="btn-theme" type="button" class="btn-ghost cv-tool-btn">
+        다크 모드
       </button>
-      <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
-        PDF로 저장
+      <button type="button" class="btn-ghost cv-tool-btn" onclick="window.print()">
+        <i class="bi bi-download" aria-hidden="true"></i>PDF로 저장
       </button>
     </div>
   </div>
@@ -34,35 +36,33 @@
     <!-- ===== KO VERSION ===== -->
     <div id="cv-lang-ko">
       <!-- HERO -->
-      <div class="cv-hero p-4 mb-4">
-        <div class="d-flex flex-column gap-3">
-          <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+      <div class="cv-hero">
+        <div>
+          <div class="cv-hero-top">
+            <img
+              src="{{ url_for('static', path='images/myimage.jpeg') }}"
+              alt="Profile image"
+              class="cv-avatar"
+            />
             <div>
-              <img
-                src="{{ url_for('static', path='images/myimage.jpeg') }}"
-                alt="Profile image"
-                class="cv-avatar mb-2 mb-md-0"
-              />
-            </div>
-            <div>
-              <div class="cv-name mb-1">{{ cv.profile.name_ko }}</div>
-              <div class="cv-role mb-2">
+              <h1 class="cv-name">{{ cv.profile.name_ko }}</h1>
+              <div class="cv-role">
                 {{ cv.profile.role_ko }}
               </div>
-              <p class="mb-0 cv-meta">
+              <p class="cv-meta">
                 {{ cv.profile.intro_ko }}
               </p>
             </div>
           </div>
 
-          <div class="cv-contact small text-muted d-flex flex-wrap gap-3">
+          <div class="cv-contact">
             <div>
-              <strong>이메일</strong> :
+              <strong>이메일</strong>
               <a href="mailto:{{ cv.profile.email }}">{{ cv.profile.email }}</a>
             </div>
             <div>
-              <strong>GitHub</strong> :
-              <a href="{{ cv.profile.github }}" target="_blank">{{ cv.profile.github }}</a>
+              <strong>GitHub</strong>
+              <a href="{{ cv.profile.github }}" target="_blank" rel="noopener">{{ cv.profile.github }}</a>
             </div>
             <!--<div>
               <strong>Website</strong> :
@@ -74,35 +74,25 @@
 
       <!-- EDUCATION -->
       <section class="cv-section">
-        <h2 class="cv-section-title">학력 (Education)</h2>
-        <div class="d-flex justify-content-between">
-          <div>
-            <strong>{{ cv.education.ko.title }}</strong>
-          </div>
-          <div class="text-muted small">
-            {{ cv.education.ko.period }}
-          </div>
+        <h2 class="cv-section-title">학력</h2>
+        <div class="cv-row">
+          <strong>{{ cv.education.ko.title }}</strong>
+          <span class="cv-period">{{ cv.education.ko.period }}</span>
         </div>
-        <p class="mb-1 small text-muted">
-          {{ cv.education.ko.desc }}
-        </p>
+        <p class="cv-desc">{{ cv.education.ko.desc }}</p>
         {% if cv.education.ko.extra %}
-          <p class="mb-1 small text-muted">
-            {{ cv.education.ko.extra }}
-          </p>
+          <p class="cv-desc">{{ cv.education.ko.extra }}</p>
         {% endif %}
       </section>
 
       <!-- PROFESSIONAL EXPERIENCE -->
       <section class="cv-section">
-        <h2 class="cv-section-title">경력 (Professional Experience)</h2>
-        <div class="d-flex justify-content-between">
-          <div>
-            <strong>{{ cv.experience.ko.position }}</strong>
-          </div>
-          <div class="text-muted small">{{ cv.experience.ko.period }}</div>
+        <h2 class="cv-section-title">경력</h2>
+        <div class="cv-row">
+          <strong>{{ cv.experience.ko.position }}</strong>
+          <span class="cv-period">{{ cv.experience.ko.period }}</span>
         </div>
-        <ul class="mb-1 small text-muted">
+        <ul>
           {% for b in cv.experience.ko.bullets %}
             <li>{{ b|safe }}</li>
           {% endfor %}
@@ -111,27 +101,23 @@
 
       <!-- INDUSTRY EXPERIENCE -->
       <section class="cv-section">
-        <h2 class="cv-section-title">산업 경력 (Industry Experience)</h2>
+        <h2 class="cv-section-title">산업 경력</h2>
         {% for job in cv.industry.ko %}
-          <div class="mb-2">
-            <div class="d-flex justify-content-between">
-              <div>
-                <strong>{{ job.role }}, {{ job.company }}</strong>
-              </div>
-              <div class="text-muted small">{{ job.period }}</div>
+          <div class="cv-job">
+            <div class="cv-row">
+              <strong>{{ job.role }}, {{ job.company }}</strong>
+              <span class="cv-period">{{ job.period }}</span>
             </div>
-            <p class="mb-1 small text-muted">
-              {{ job.desc }}
-            </p>
+            <p class="cv-desc">{{ job.desc }}</p>
           </div>
         {% endfor %}
       </section>
 
       <!-- SKILLS -->
       <section class="cv-section">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <h2 class="cv-section-title mb-0" style="border-bottom:none; padding-bottom:0;">
-                <span id="skill-section-title-text">기술 스택 (Skills)</span>
+        <div class="cv-section-head">
+            <h2 class="cv-section-title">
+                <span id="skill-section-title-text">기술 스택</span>
             </h2>
             <div class="segmented-control" id="skills-segmented-control">
               <button id="btn-skills-mode" type="button" class="segmented-item active">Skills</button>
@@ -140,16 +126,13 @@
         </div>
 
         <!-- 기존 Skills 뷰 -->
-        <div id="skills-view" class="mt-3">
+        <div id="skills-view">
             <div class="row">
               <div class="col-md-6 mb-3">
-                <h3 class="h6 mb-2 text-muted">Machine Learning / Deep Learning</h3>
+                <h3 class="cv-subhead">Machine Learning / Deep Learning</h3>
                 <div>
                   {% for s in cv.skills.ml %}
-                    <span
-                      class="tech-badge"
-                      style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
-                    >
+                    <span class="tech-badge" data-kind="{{ s.kind }}">
                       {{ s.label }}
                     </span>
                   {% endfor %}
@@ -157,13 +140,10 @@
               </div>
 
               <div class="col-md-6 mb-3">
-                <h3 class="h6 mb-2 text-muted">BioAI Tools (재현 &amp; 최적화)</h3>
+                <h3 class="cv-subhead">BioAI Tools (재현 &amp; 최적화)</h3>
                 <div>
                   {% for s in cv.skills.bioai %}
-                    <span
-                      class="tech-badge"
-                      style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
-                    >
+                    <span class="tech-badge" data-kind="{{ s.kind }}">
                       {{ s.label }}
                     </span>
                   {% endfor %}
@@ -171,13 +151,10 @@
               </div>
 
               <div class="col-md-6 mb-3">
-                <h3 class="h6 mb-2 text-muted">Software Engineering</h3>
+                <h3 class="cv-subhead">Software Engineering</h3>
                 <div>
                   {% for s in cv.skills.se %}
-                    <span
-                      class="tech-badge"
-                      style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
-                    >
+                    <span class="tech-badge" data-kind="{{ s.kind }}">
                       {{ s.label }}
                     </span>
                   {% endfor %}
@@ -185,13 +162,10 @@
               </div>
 
               <div class="col-md-6 mb-3">
-                <h3 class="h6 mb-2 text-muted">Data Engineering / Analysis</h3>
+                <h3 class="cv-subhead">Data Engineering / Analysis</h3>
                 <div>
                   {% for s in cv.skills.data %}
-                    <span
-                      class="tech-badge"
-                      style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
-                    >
+                    <span class="tech-badge" data-kind="{{ s.kind }}">
                       {{ s.label }}
                     </span>
                   {% endfor %}
@@ -202,10 +176,10 @@
         <!-- ========================= -->
         <!--  (B) 연구 관심사 View -->
         <!-- ========================= -->
-        <div id="research-view" class="mt-3 d-none">
+        <div id="research-view" class="d-none">
             {% for sec in cv.research_interest.sections %}
-              <h3 class="h6 fw-bold mt-3">{{ sec.subtitle }}</h3>
-              <ul class="small mb-2">
+              <h3 class="cv-subhead mt-3">{{ sec.subtitle }}</h3>
+              <ul class="mb-2">
                 {% for b in sec.bullets %}
                   <li>{{ b|safe }}</li>
                 {% endfor %}
@@ -216,11 +190,11 @@
 
       <!-- RESEARCH & PROJECTS -->
       <section class="cv-section">
-        <h2 class="cv-section-title">연구 및 프로젝트 경험 (Research &amp; Projects)</h2>
+        <h2 class="cv-section-title">연구 및 프로젝트</h2>
 
         {% for p in cv.projects %}
           <div class="timeline-item {% if not p.end_year %}is-present{% endif %}">
-            <div class="d-flex justify-content-between">
+            <div class="cv-row">
               <div class="timeline-title">
                 {{ p.title_ko }}
               </div>
@@ -228,17 +202,17 @@
                 {{ p.start_year }} – {% if p.end_year %}{{ p.end_year }}{% else %}현재{% endif %}
               </div>
             </div>
-            <div class="timeline-meta mb-1">
+            <div class="timeline-meta">
               {{ p.meta_ko }}
             </div>
-            <ul class="mb-1 small">
+            <ul>
               {% for b in p.bullets_ko %}
                 <li>{{ b|safe }}</li>
               {% endfor %}
             </ul>
-            <div class="timeline-links mb-2">
+            <div class="timeline-links">
               {% for link in p.links %}
-                <a href="{{ link.url }}" target="_blank">{{ link.label }}</a>{% if not loop.last %} · {% endif %}
+                <a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>{% if not loop.last %} · {% endif %}
               {% endfor %}
             </div>
           </div>
@@ -249,35 +223,33 @@
     <!-- ===== EN VERSION ===== -->
     <div id="cv-lang-en" class="d-none">
       <!-- HERO -->
-      <div class="cv-hero p-4 mb-4">
-        <div class="d-flex flex-column gap-3">
-          <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+      <div class="cv-hero">
+        <div>
+          <div class="cv-hero-top">
+            <img
+              src="{{ url_for('static', path='images/myimage.jpeg') }}"
+              alt="Profile image"
+              class="cv-avatar"
+            />
             <div>
-              <img
-                src="{{ url_for('static', path='images/myimage.jpeg') }}"
-                alt="Profile image"
-                class="cv-avatar mb-2 mb-md-0"
-              />
-            </div>
-            <div>
-              <div class="cv-name mb-1">{{ cv.profile.name_en }}</div>
-              <div class="cv-role mb-2">
+              <h1 class="cv-name">{{ cv.profile.name_en }}</h1>
+              <div class="cv-role">
                 {{ cv.profile.role_en }}
               </div>
-              <p class="mb-0 cv-meta">
+              <p class="cv-meta">
                 {{ cv.profile.intro_en }}
               </p>
             </div>
           </div>
 
-          <div class="cv-contact small text-muted d-flex flex-wrap gap-3">
+          <div class="cv-contact">
             <div>
-              <strong>Email</strong> :
+              <strong>Email</strong>
               <a href="mailto:{{ cv.profile.email }}">{{ cv.profile.email }}</a>
             </div>
             <div>
-              <strong>GitHub</strong> :
-              <a href="{{ cv.profile.github }}" target="_blank">{{ cv.profile.github }}</a>
+              <strong>GitHub</strong>
+              <a href="{{ cv.profile.github }}" target="_blank" rel="noopener">{{ cv.profile.github }}</a>
             </div>
             <!--<div>
               <strong>Website</strong> :
@@ -290,34 +262,24 @@
       <!-- EDUCATION -->
       <section class="cv-section">
         <h2 class="cv-section-title">Education</h2>
-        <div class="d-flex justify-content-between">
-          <div>
-            <strong>{{ cv.education.en.title }}</strong>
-          </div>
-          <div class="text-muted small">
-            {{ cv.education.en.period }}
-          </div>
+        <div class="cv-row">
+          <strong>{{ cv.education.en.title }}</strong>
+          <span class="cv-period">{{ cv.education.en.period }}</span>
         </div>
-        <p class="mb-1 small text-muted">
-          {{ cv.education.en.desc }}
-        </p>
+        <p class="cv-desc">{{ cv.education.en.desc }}</p>
         {% if cv.education.en.extra %}
-          <p class="mb-1 small text-muted">
-            {{ cv.education.en.extra }}
-          </p>
+          <p class="cv-desc">{{ cv.education.en.extra }}</p>
         {% endif %}
       </section>
 
       <!-- PROFESSIONAL EXPERIENCE -->
       <section class="cv-section">
         <h2 class="cv-section-title">Professional Experience</h2>
-        <div class="d-flex justify-content-between">
-          <div>
-            <strong>{{ cv.experience.en.position }}</strong>
-          </div>
-          <div class="text-muted small">{{ cv.experience.en.period }}</div>
+        <div class="cv-row">
+          <strong>{{ cv.experience.en.position }}</strong>
+          <span class="cv-period">{{ cv.experience.en.period }}</span>
         </div>
-        <ul class="mb-1 small text-muted">
+        <ul>
           {% for b in cv.experience.en.bullets %}
             <li>{{ b|safe }}</li>
           {% endfor %}
@@ -328,16 +290,12 @@
       <section class="cv-section">
         <h2 class="cv-section-title">Industry Experience</h2>
         {% for job in cv.industry.en %}
-          <div class="mb-2">
-            <div class="d-flex justify-content-between">
-              <div>
-                <strong>{{ job.role }}, {{ job.company }}</strong>
-              </div>
-              <div class="text-muted small">{{ job.period }}</div>
+          <div class="cv-job">
+            <div class="cv-row">
+              <strong>{{ job.role }}, {{ job.company }}</strong>
+              <span class="cv-period">{{ job.period }}</span>
             </div>
-            <p class="mb-1 small text-muted">
-              {{ job.desc }}
-            </p>
+            <p class="cv-desc">{{ job.desc }}</p>
           </div>
         {% endfor %}
       </section>
@@ -347,13 +305,10 @@
         <h2 class="cv-section-title">Skills</h2>
         <div class="row">
           <div class="col-md-6 mb-3">
-            <h3 class="h6 mb-2 text-muted">Machine Learning / Deep Learning</h3>
+            <h3 class="cv-subhead">Machine Learning / Deep Learning</h3>
             <div>
               {% for s in cv.skills.ml %}
-                <span
-                  class="tech-badge"
-                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
-                >
+                <span class="tech-badge" data-kind="{{ s.kind }}">
                   {{ s.label }}
                 </span>
               {% endfor %}
@@ -361,13 +316,10 @@
           </div>
 
           <div class="col-md-6 mb-3">
-            <h3 class="h6 mb-2 text-muted">BioAI Tools (Reproduced &amp; Optimized)</h3>
+            <h3 class="cv-subhead">BioAI Tools (Reproduced &amp; Optimized)</h3>
             <div>
               {% for s in cv.skills.bioai %}
-                <span
-                  class="tech-badge"
-                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
-                >
+                <span class="tech-badge" data-kind="{{ s.kind }}">
                   {{ s.label }}
                 </span>
               {% endfor %}
@@ -375,13 +327,10 @@
           </div>
 
           <div class="col-md-6 mb-3">
-            <h3 class="h6 mb-2 text-muted">Software Engineering</h3>
+            <h3 class="cv-subhead">Software Engineering</h3>
             <div>
               {% for s in cv.skills.se %}
-                <span
-                  class="tech-badge"
-                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
-                >
+                <span class="tech-badge" data-kind="{{ s.kind }}">
                   {{ s.label }}
                 </span>
               {% endfor %}
@@ -389,13 +338,10 @@
           </div>
 
           <div class="col-md-6 mb-3">
-            <h3 class="h6 mb-2 text-muted">Data Engineering / Analysis</h3>
+            <h3 class="cv-subhead">Data Engineering / Analysis</h3>
             <div>
               {% for s in cv.skills.data %}
-                <span
-                  class="tech-badge"
-                  style="background-color: {{ cv.skill_palette[s.kind] or cv.skill_palette['default'] }};"
-                >
+                <span class="tech-badge" data-kind="{{ s.kind }}">
                   {{ s.label }}
                 </span>
               {% endfor %}
@@ -410,7 +356,7 @@
 
         {% for p in cv.projects %}
           <div class="timeline-item {% if not p.end_year %}is-present{% endif %}">
-            <div class="d-flex justify-content-between">
+            <div class="cv-row">
               <div class="timeline-title">
                 {{ p.title_en }}
               </div>
@@ -418,17 +364,17 @@
                 {{ p.start_year }} – {% if p.end_year %}{{ p.end_year }}{% else %}Present{% endif %}
               </div>
             </div>
-            <div class="timeline-meta mb-1">
+            <div class="timeline-meta">
               {{ p.meta_en }}
             </div>
-            <ul class="mb-1 small">
+            <ul>
               {% for b in p.bullets_en %}
                 <li>{{ b|safe }}</li>
               {% endfor %}
             </ul>
-            <div class="timeline-links mb-2">
+            <div class="timeline-links">
               {% for link in p.links %}
-                <a href="{{ link.url }}" target="_blank">{{ link.label }}</a>{% if not loop.last %} · {% endif %}
+                <a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>{% if not loop.last %} · {% endif %}
               {% endfor %}
             </div>
           </div>
@@ -440,19 +386,19 @@
 
     <!-- RIGHT: RECENT POSTS -->
     <div class="col-lg-4 cv-sidebar">
-      <section class="mb-4">
-        <h2 class="h5 border-bottom pb-2 d-flex justify-content-between align-items-center cv-side-title">
-          Recent Posts
-          <a href="/board" class="small text-decoration-none text-muted cv-side-link">more</a>
+      <section class="cv-sidebar-inner">
+        <h2 class="cv-side-title">
+          최근 글
+          <a href="/board/" class="cv-side-link">전체 보기 <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
         </h2>
         <ul class="list-group cv-recent-list">
           {% for post in recent_posts %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
+            <li class="list-group-item d-flex justify-content-between align-items-center gap-3">
               <a href="/board/{{ post.id }}">{{ post.title }}</a>
-              <span class="text-muted small">{{ post.created_at.strftime("%m-%d") }}</span>
+              <span class="cv-period">{{ post.created_at.strftime("%m-%d") }}</span>
             </li>
           {% else %}
-            <li class="list-group-item">아직 작성된 글이 없습니다.</li>
+            <li class="list-group-item text-muted">아직 작성된 글이 없습니다.</li>
           {% endfor %}
         </ul>
       </section>
@@ -460,7 +406,7 @@
   </div>
 
   <!-- FOOTER -->
-  <footer class="cv-footer small">
+  <footer class="cv-footer">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
       <div>
         © {{ current_year }} {{ cv.profile.name_en }} · KAIST GSMSE jklab
@@ -469,7 +415,7 @@
         <span>Contact:</span>
         <a href="mailto:{{ cv.profile.email }}">{{ cv.profile.email }}</a>
         <span>·</span>
-        <a href="{{ cv.profile.github }}" target="_blank">GitHub</a>
+        <a href="{{ cv.profile.github }}" target="_blank" rel="noopener">GitHub</a>
       </div>
     </div>
   </footer>
@@ -505,8 +451,8 @@
       if (!navThemeToggle) return;
       navThemeToggle.innerHTML =
         theme === "dark"
-          ? '<i class="bi bi-sun-fill"></i>'
-          : '<i class="bi bi-moon-fill"></i>';
+          ? '<i class="bi bi-sun"></i>'
+          : '<i class="bi bi-moon"></i>';
     }
 
     function setTheme(theme) {
@@ -515,7 +461,7 @@
       root.setAttribute("data-theme", normalized);
       document.body.setAttribute("data-bs-theme", normalized);
       if (themeBtn) {
-        themeBtn.textContent = isDark ? "Light" : "Dark";
+        themeBtn.textContent = isDark ? "라이트 모드" : "다크 모드";
         themeBtn.setAttribute("aria-label", `Switch to ${isDark ? "light" : "dark"} mode`);
       }
       syncGlobalThemeIcon(normalized);
@@ -579,7 +525,7 @@
         if (btnResearch) btnResearch.classList.toggle("active", !isSkills);
         
         if (titleSpan) {
-          titleSpan.textContent = isSkills ? "기술 스택 (Skills)" : "💡 Research Interest (연구 관심사)";
+          titleSpan.textContent = isSkills ? "기술 스택" : "연구 관심사";
         }
       }
 

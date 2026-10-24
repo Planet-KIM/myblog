@@ -5,13 +5,17 @@
 
 document.addEventListener('DOMContentLoaded', function () {
 
-  // ── Color palette (MIT / Apache 2.0 safe colors) ──
+  // ── Color palette — theme.css 브랜드 토큰에서 파생 (테마 일관성) ──
+  const rootCss = getComputedStyle(document.documentElement);
+  const tok = (name, fallback) => rootCss.getPropertyValue(name).trim() || fallback;
   const COLORS = [
-    '#6366f1', '#10b981', '#f59e0b', '#ef4444',
-    '#8b5cf6', '#06b6d4', '#f97316', '#ec4899',
-    '#14b8a6', '#84cc16',
+    tok('--primary', '#b4542f'), tok('--accent', '#2a82c4'), tok('--secondary', '#3f8f5c'),
+    tok('--warning', '#c4820e'), tok('--cat-tech', '#7a5bbf'), tok('--cat-life', '#c0567f'),
+    tok('--primary-dark', '#8f3f20'), tok('--accent-dark', '#1d6098'), tok('--secondary-dark', '#2f7047'),
   ];
   const getColor = (id) => COLORS[id % COLORS.length];
+  // '#rrggbb' + 알파 2자리 (토큰이 hex가 아니면 그대로)
+  const withAlpha = (c, aa) => (/^#[0-9a-f]{6}$/i.test(c) ? c + aa : c);
 
   // ── 1) Parse hidden data ─────────────────────────
   const nodesById = {};
@@ -81,8 +85,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (totalPosts === 0) {
       container.innerHTML =
-        '<p class="text-center text-muted small py-3 mb-0" style="border-top:1px solid var(--border)">' +
-        'Post some articles to see the distribution chart.</p>';
+        '<p class="cat-chart-empty">' +
+        '글을 작성하면 카테고리별 분포가 여기에 표시됩니다.</p>';
       return;
     }
 
@@ -90,10 +94,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const chartH = Math.min(280, Math.max(80, rootItems.length * 42));
     container.style.height = chartH + 'px';
 
-    const css       = getComputedStyle(document.documentElement);
-    const clrBorder = css.getPropertyValue('--border').trim()     || '#334155';
-    const clrMuted  = css.getPropertyValue('--text-muted').trim() || '#94a3b8';
-    const clrMain   = css.getPropertyValue('--text-main').trim()  || '#e2e8f0';
+    const clrBorder = tok('--border', '#e8dfd2');
+    const clrMuted  = tok('--text-muted', '#7d6f60');
+    const clrMain   = tok('--text-main', '#4c4239');
 
     new Chart(document.getElementById('stats-chart').getContext('2d'), {
       type: 'bar',
@@ -101,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function () {
         labels:   rootItems.map((i) => i.label),
         datasets: [{
           data:            rootItems.map((i) => i.count),
-          backgroundColor: rootItems.map((i) => i.color + 'bb'),
+          backgroundColor: rootItems.map((i) => withAlpha(i.color, 'cc')),
           borderColor:     rootItems.map((i) => i.color),
           borderWidth: 1,
           borderRadius: 4,
@@ -117,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
           tooltip: {
             callbacks: {
               label: (c) =>
-                ` ${c.raw} post${c.raw !== 1 ? 's' : ''} ` +
+                ` 글 ${c.raw}개 ` +
                 `(${totalPosts ? Math.round((c.raw / totalPosts) * 100) : 0}%)`,
             },
           },
@@ -256,18 +259,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (items.every((i) => i.count === 0)) {
       container.innerHTML =
-        '<p class="text-center text-muted small py-3 mb-0">' +
-        'No posts in any category yet.</p>';
+        '<p class="cat-chart-empty">' +
+        '아직 어떤 카테고리에도 글이 없습니다.</p>';
       return;
     }
 
     const chartH = Math.min(320, Math.max(80, items.length * 40));
     container.style.height = chartH + 'px';
 
-    const css       = getComputedStyle(document.documentElement);
-    const clrBorder = css.getPropertyValue('--border').trim()     || '#334155';
-    const clrMuted  = css.getPropertyValue('--text-muted').trim() || '#94a3b8';
-    const clrMain   = css.getPropertyValue('--text-main').trim()  || '#e2e8f0';
+    const clrBorder = tok('--border', '#e8dfd2');
+    const clrMuted  = tok('--text-muted', '#7d6f60');
+    const clrMain   = tok('--text-main', '#4c4239');
 
     new Chart(document.getElementById('breakdown-chart').getContext('2d'), {
       type: 'bar',
@@ -275,7 +277,7 @@ document.addEventListener('DOMContentLoaded', function () {
         labels:   items.map((i) => i.label),
         datasets: [{
           data:            items.map((i) => i.count),
-          backgroundColor: items.map((i) => i.color + (i.depth > 0 ? '88' : 'bb')),
+          backgroundColor: items.map((i) => withAlpha(i.color, i.depth > 0 ? '88' : 'cc')),
           borderColor:     items.map((i) => i.color),
           borderWidth: 1,
           borderRadius: 4,
@@ -291,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function () {
           tooltip: {
             callbacks: {
               label: (c) =>
-                ` ${c.raw} post${c.raw !== 1 ? 's' : ''} (direct)`,
+                ` 직접 속한 글 ${c.raw}개`,
             },
           },
         },
@@ -342,9 +344,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const movedName  = nodesById[movedId]?.name    || String(movedId);
         const targetName = newParentId
           ? (nodesById[newParentId]?.name || String(newParentId))
-          : 'top level';
+          : '최상위';
 
-        if (confirm(`Move "${movedName}" to "${targetName}"?`)) {
+        if (confirm(`"${movedName}"을(를) "${targetName}"(으)로 옮길까요?`)) {
           moveCategory(movedId, newParentId);
         } else {
           window.location.reload();
@@ -355,36 +357,36 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // ── 8) API helpers ───────────────────────────────
   async function moveCategory(id, newParentId) {
-    window.loading.show('Moving category…');
+    window.loading.show('카테고리를 옮기는 중…');
     try {
       const res = await fetch('/board/categories/move', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({ category_id: id, new_parent_id: newParentId ?? null }),
       });
       if (res.ok) {
-        window.toast.success('Category moved');
+        window.toast.success('카테고리를 옮겼습니다');
         setTimeout(() => window.location.reload(), 700);
       } else {
         window.loading.hide();
-        window.toast.error('Move failed: ' + ((await res.json()).detail || 'Unknown error'));
+        window.toast.error('이동 실패: ' + ((await res.json()).detail || '알 수 없는 오류'));
       }
-    } catch { window.loading.hide(); window.toast.error('Network error.'); }
+    } catch { window.loading.hide(); window.toast.error('네트워크 오류가 발생했습니다.'); }
   }
 
   async function deleteCategory(id, reassignTo) {
-    window.loading.show('Deleting category…');
+    window.loading.show('카테고리를 삭제하는 중…');
     const body = new FormData();
     if (reassignTo) body.append('reassign_to', reassignTo);
     try {
       const res = await fetch(`/board/categories/${id}/delete`, { method: 'POST', credentials: 'same-origin', body });
       if (res.ok) {
-        window.toast.success('Category deleted');
+        window.toast.success('카테고리를 삭제했습니다');
         setTimeout(() => window.location.reload(), 700);
       } else {
         window.loading.hide();
-        window.toast.error('Delete failed: ' + ((await res.json()).detail || 'Unknown error'));
+        window.toast.error('삭제 실패: ' + ((await res.json()).detail || '알 수 없는 오류'));
       }
-    } catch { window.loading.hide(); window.toast.error('Network error.'); }
+    } catch { window.loading.hide(); window.toast.error('네트워크 오류가 발생했습니다.'); }
   }
 
   async function renameCategory(id, newName, nameSpan) {
@@ -398,12 +400,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const data = await res.json();
         nameSpan.textContent = data.name;
         nodesById[id].name   = data.name;
-        window.toast.success(`Renamed to "${data.name}"`);
+        window.toast.success(`"${data.name}"(으)로 이름을 바꿨습니다`);
       } else {
         nameSpan.textContent = oldName;
-        window.toast.error('Rename failed: ' + ((await res.json()).detail || 'Unknown error'));
+        window.toast.error('이름 변경 실패: ' + ((await res.json()).detail || '알 수 없는 오류'));
       }
-    } catch { nameSpan.textContent = oldName; window.toast.error('Network error.'); }
+    } catch { nameSpan.textContent = oldName; window.toast.error('네트워크 오류가 발생했습니다.'); }
   }
 
   // ── 8) Context menu ──────────────────────────────
@@ -479,8 +481,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Grip handle (SortableJS handle target)
     const grip = document.createElement('i');
-    grip.className = 'bi bi-grip-vertical text-secondary me-1';
-    grip.style.cssText = 'cursor:grab;flex-shrink:0;';
+    grip.className = 'bi bi-grip-vertical cat-grip';
+    grip.setAttribute('aria-hidden', 'true');
     container.appendChild(grip);
 
     // Toggle
@@ -488,7 +490,7 @@ document.addEventListener('DOMContentLoaded', function () {
     toggle.type      = 'button';
     toggle.className = 'tree-toggle' + (hasChildren ? '' : ' disabled');
     toggle.innerHTML = hasChildren ? '<i class="bi bi-chevron-down"></i>' : '<i class="bi bi-dash"></i>';
-    toggle.setAttribute('aria-label', hasChildren ? `Collapse ${node.name}` : 'No children');
+    toggle.setAttribute('aria-label', hasChildren ? `${node.name} 접기/펼치기` : '하위 카테고리 없음');
     if (hasChildren) toggle.setAttribute('aria-expanded', 'true');
     container.appendChild(toggle);
 
@@ -502,7 +504,7 @@ document.addEventListener('DOMContentLoaded', function () {
     label.appendChild(dot);
 
     const icon = document.createElement('i');
-    icon.className = `bi cat-icon ${hasChildren ? 'bi-folder2 text-warning' : 'bi-file-earmark-text'}`;
+    icon.className = `bi cat-icon ${hasChildren ? 'bi-folder2' : 'bi-folder'}`;
     label.appendChild(icon);
 
     const nameSpan = document.createElement('span');
@@ -512,15 +514,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (node.postCount > 0) {
       const badge = document.createElement('span');
-      badge.className     = 'badge rounded-pill ms-1';
-      badge.style.cssText = `background:${color};font-size:0.68rem;`;
-      badge.textContent   = node.postCount;
+      badge.className   = 'cat-count';
+      badge.textContent = node.postCount;
+      badge.title       = `글 ${node.postCount}개`;
       label.appendChild(badge);
     }
 
     const meta = document.createElement('span');
     meta.className   = 'cat-meta d-none d-sm-inline';
-    meta.textContent = `ID: ${node.id} · ${node.created}`;
+    meta.textContent = node.created;
     label.appendChild(meta);
 
     // Click on label → select as parent in form
@@ -540,8 +542,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const renameBtn = document.createElement('button');
     renameBtn.type      = 'button';
     renameBtn.className = 'cat-action-btn rename';
-    renameBtn.title     = 'Rename';
-    renameBtn.setAttribute('aria-label', `Rename ${node.name}`);
+    renameBtn.title     = '이름 바꾸기';
+    renameBtn.setAttribute('aria-label', `${node.name} 이름 바꾸기`);
     renameBtn.innerHTML = '<i class="bi bi-pencil"></i>';
     renameBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -569,8 +571,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const deleteBtn = document.createElement('button');
     deleteBtn.type      = 'button';
     deleteBtn.className = 'cat-action-btn delete';
-    deleteBtn.title     = 'Delete';
-    deleteBtn.setAttribute('aria-label', `Delete ${node.name}`);
+    deleteBtn.title     = '삭제';
+    deleteBtn.setAttribute('aria-label', `${node.name} 삭제`);
     deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -632,8 +634,8 @@ document.addEventListener('DOMContentLoaded', function () {
   if (roots.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'cat-empty';
-    empty.innerHTML = '<i class="bi bi-folder-x fs-2 d-block mb-2"></i>' +
-      'No categories yet.<br>Create your first one using the form on the left.';
+    empty.innerHTML = '<i class="bi bi-folder2-open"></i>' +
+      '<p>아직 카테고리가 없습니다.<br>왼쪽 폼에서 첫 카테고리를 만들어 보세요.</p>';
     treeContent.appendChild(empty);
     return;
   }

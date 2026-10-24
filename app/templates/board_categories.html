@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Board Categories{% endblock %}
+{% block title %}카테고리 관리 · Planet KIM{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/categories.css') }}">
@@ -9,13 +9,12 @@
 
 {% block content %}
 
-<!-- ── Hero ─────────────────────────────────────── -->
-<div class="categories-hero">
-  <h1 class="categories-hero-title">
-    <i class="bi bi-folder2-open hero-icon"></i>Board Categories
-  </h1>
-  <p class="categories-hero-sub">Create and manage categories for your board posts.</p>
-</div>
+<!-- ── Page header ──────────────────────────────── -->
+<header class="page-header categories-header">
+  <span class="eyebrow">Categories</span>
+  <h1>카테고리 관리</h1>
+  <p class="lead-text">글을 묶을 카테고리를 만들고, 끌어다 놓아 순서와 계층을 정리하세요.</p>
+</header>
 
 {% if error %}
 <div class="alert alert-danger" role="alert">{{ error }}</div>
@@ -36,36 +35,33 @@
 
 <!-- ── Stats Section ─────────────────────────────── -->
 {% if categories %}
-<div class="cat-stats-section mb-4">
-  <div class="cat-stat-pills">
+<div class="cat-stats-section">
+  <dl class="cat-stat-pills">
     <div class="cat-stat-pill">
-      <i class="bi bi-folder2"></i>
-      <span class="cat-stat-value">{{ categories | length }}</span>
-      <span class="cat-stat-label">Categories</span>
+      <dt class="cat-stat-label">카테고리</dt>
+      <dd class="cat-stat-value">{{ categories | length }}</dd>
     </div>
     <div class="cat-stat-pill">
-      <i class="bi bi-file-text"></i>
-      <span class="cat-stat-value" id="stat-total-posts">—</span>
-      <span class="cat-stat-label">Posts</span>
+      <dt class="cat-stat-label">글</dt>
+      <dd class="cat-stat-value" id="stat-total-posts">—</dd>
     </div>
     <div class="cat-stat-pill">
-      <i class="bi bi-trophy"></i>
-      <span class="cat-stat-value cat-stat-top" id="stat-top-cat">—</span>
-      <span class="cat-stat-label">Top category</span>
+      <dt class="cat-stat-label">가장 많은 카테고리</dt>
+      <dd class="cat-stat-value cat-stat-top" id="stat-top-cat">—</dd>
     </div>
-  </div>
+  </dl>
   <div class="cat-chart-tabs">
     <ul class="nav cat-chart-nav mb-2" id="catChartTabs" role="tablist">
       <li class="nav-item" role="presentation">
         <button class="nav-link active" id="chart-tab-overview" data-bs-toggle="tab"
                 data-bs-target="#chart-pane-overview" type="button" role="tab">
-          <i class="bi bi-bar-chart-fill me-1"></i>Overview
+          전체
         </button>
       </li>
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="chart-tab-breakdown" data-bs-toggle="tab"
                 data-bs-target="#chart-pane-breakdown" type="button" role="tab">
-          <i class="bi bi-diagram-3-fill me-1"></i>Breakdown
+          세부
         </button>
       </li>
     </ul>
@@ -86,72 +82,68 @@
 {% endif %}
 
 <!-- ── Main Layout ───────────────────────────────── -->
-<div class="row">
+<div class="row g-4">
 
   <!-- Left: Create Form -->
-  <div class="col-md-5 mb-4">
-    <div class="card" style="background:var(--surface);border:1px solid var(--border);">
-      <div class="card-header"
-           style="background:var(--surface-dark);border-bottom:1px solid var(--border);
-                  font-family:var(--font-mono);font-weight:600;">
-        <i class="bi bi-plus-circle me-2" style="color:var(--primary)"></i>New Category
-      </div>
-      <div class="card-body">
+  <div class="col-md-5">
+    <div class="cat-panel">
+      <h2 class="cat-panel-title">새 카테고리</h2>
+      <div>
         <form method="post" action="/board/categories">
           <div class="mb-3">
-            <label for="name" class="form-label">Name</label>
+            <label for="name" class="form-label">이름</label>
             <input type="text" class="form-control" id="name" name="name"
                    required placeholder="예: 개발, 일상, 강의…" />
           </div>
 
           <div class="mb-3">
-            <label for="parent_id" class="form-label">Parent Category</label>
+            <label for="parent_id" class="form-label">상위 카테고리</label>
             <select class="form-select" id="parent_id" name="parent_id">
-              <option value="">(Top level)</option>
+              <option value="">(최상위)</option>
               {% for cat in categories %}
               <option value="{{ cat.id }}">{{ cat.name }}</option>
               {% endfor %}
             </select>
-            <div class="form-text">Leave empty to create a top-level category.</div>
+            <div class="form-text">비워 두면 최상위 카테고리로 만들어집니다.</div>
           </div>
 
           <div class="mb-3">
             <label for="description" class="form-label">
-              Description <span class="text-muted">(optional)</span>
+              설명 <span class="text-muted">(선택)</span>
             </label>
             <input type="text" class="form-control" id="description" name="description" />
           </div>
 
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i>Create
+          <button type="submit" class="btn-travel">
+            <i class="bi bi-plus-lg"></i>만들기
           </button>
         </form>
       </div>
     </div>
 
     <div class="category-tree-help">
-      <i class="bi bi-info-circle mt-1" style="color:var(--primary);flex-shrink:0"></i>
-      <div>
-        <p class="mb-1">Click <i class="bi bi-chevron-down mx-1"></i> to expand / collapse a folder.</p>
-        <p class="mb-1"><strong>Drag</strong> the <i class="bi bi-grip-vertical mx-1"></i> handle to nest categories.</p>
-        <p class="mb-1">Click a name to <strong>auto-select</strong> it as parent in the form.</p>
-        <p class="mb-0"><strong>Right-click</strong> a category for quick actions.</p>
-      </div>
+      <i class="bi bi-info-circle" aria-hidden="true"></i>
+      <ul>
+        <li><i class="bi bi-chevron-down"></i> 를 눌러 하위 카테고리를 접거나 펼칩니다.</li>
+        <li><i class="bi bi-grip-vertical"></i> 손잡이를 <strong>끌어다 놓으면</strong> 다른 카테고리 아래로 옮겨집니다.</li>
+        <li>이름을 누르면 왼쪽 폼의 상위 카테고리로 <strong>자동 선택</strong>됩니다.</li>
+        <li>카테고리를 <strong>우클릭</strong>하면 빠른 메뉴가 열립니다.</li>
+      </ul>
     </div>
   </div>
 
   <!-- Right: Tree -->
   <div class="col-md-7">
-    <div class="mb-3 d-flex justify-content-between align-items-center gap-2">
-      <h5 class="mb-0" style="font-family:var(--font-mono);">Manage Categories</h5>
+    <div class="cat-tree-toolbar">
+      <h2 class="cat-panel-title mb-0">내 카테고리</h2>
       <div class="d-flex gap-2 align-items-center">
         <div class="cat-search-wrapper">
-          <i class="bi bi-search cat-search-icon"></i>
+          <i class="bi bi-search cat-search-icon" aria-hidden="true"></i>
           <input type="text" id="categorySearch" class="form-control cat-search-input"
-                 placeholder="Search…" autocomplete="off" />
+                 placeholder="검색…" autocomplete="off" aria-label="카테고리 검색" />
         </div>
-        <a href="/board/" class="btn btn-sm btn-outline-secondary flex-shrink-0">
-          <i class="bi bi-arrow-left me-1"></i>Back
+        <a href="/board/" class="btn-ghost btn-sm-ghost flex-shrink-0">
+          <i class="bi bi-arrow-left"></i>글 목록
         </a>
       </div>
     </div>
@@ -181,38 +173,35 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">
-          <i class="bi bi-trash text-danger me-2"></i>Delete Category
-        </h5>
-        <button type="button" class="btn-close btn-close-white"
-                data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title">카테고리 삭제</h5>
+        <button type="button" class="btn-close"
+                data-bs-dismiss="modal" aria-label="닫기"></button>
       </div>
       <div class="modal-body">
-        <p>Delete <strong id="deleteCatName"></strong>?</p>
+        <p class="mb-0"><strong id="deleteCatName"></strong> 카테고리를 삭제할까요?</p>
 
         <div id="deleteReassignSection" class="d-none mt-3">
           <div class="alert alert-warning d-flex align-items-center gap-2 py-2">
-            <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
-            <span>This category has <strong id="deletePostCount"></strong> post(s).
-              Select a category to reassign them to.</span>
+            <i class="bi bi-exclamation-triangle flex-shrink-0"></i>
+            <span>이 카테고리에 글이 <strong id="deletePostCount"></strong>개 있습니다.
+              글을 옮길 카테고리를 선택하세요.</span>
           </div>
-          <label class="form-label">Reassign posts to:</label>
-          <select id="deleteReassignSelect" class="form-select"
-                  style="background:var(--surface-dark);border-color:var(--border);color:var(--text-main);">
+          <label class="form-label" for="deleteReassignSelect">글을 옮길 카테고리</label>
+          <select id="deleteReassignSelect" class="form-select">
           </select>
         </div>
 
         <div id="deleteChildrenWarning" class="d-none mt-2">
           <div class="alert alert-info d-flex align-items-center gap-2 py-2">
-            <i class="bi bi-info-circle-fill flex-shrink-0"></i>
-            <span>Child categories will be moved up to the parent level.</span>
+            <i class="bi bi-info-circle flex-shrink-0"></i>
+            <span>하위 카테고리는 한 단계 위로 올라갑니다.</span>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
         <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
-          <i class="bi bi-trash me-1"></i>Delete
+          <i class="bi bi-trash me-1"></i>삭제
         </button>
       </div>
     </div>
@@ -222,14 +211,14 @@
 <!-- ── Right-click Context Menu ──────────────────── -->
 <div id="cat-ctx-menu" class="cat-context-menu">
   <div class="ctx-item" data-action="rename">
-    <i class="bi bi-pencil me-2"></i>Rename
+    <i class="bi bi-pencil"></i>이름 바꾸기
   </div>
   <div class="ctx-item" data-action="new-child">
-    <i class="bi bi-folder-plus me-2"></i>New child category
+    <i class="bi bi-folder-plus"></i>하위 카테고리 만들기
   </div>
   <div class="ctx-divider"></div>
   <div class="ctx-item danger" data-action="delete">
-    <i class="bi bi-trash me-2"></i>Delete
+    <i class="bi bi-trash"></i>삭제
   </div>
 </div>
 
