@@ -1,20 +1,18 @@
-{# 태그를 공유하는 다른 블로그의 글(토픽 기반 탐색). related_posts 가 있을 때만 표시. #}
+{# 태그를 공유하는 다른 블로그의 글(토픽 기반 탐색). related_posts 가 있을 때만 표시.
+   스타일: writer-journey.css (.reading-section / .related-*) #}
 {% if related_posts %}
-<section class="page-card no-print" style="max-width:var(--reading-max-width, 720px); margin:2.5rem auto 0;">
-  <h3 style="font-family:var(--font-mono),'Pretendard Variable',sans-serif; font-size:1.05rem; margin-bottom:1rem;">
-    <i class="bi bi-hash"></i> 관련 글
-  </h3>
-  <div style="display:flex; flex-direction:column; gap:0.2rem;">
+<section class="reading-section no-print">
+  <h2 class="reading-section-title">관련 글</h2>
+  <div class="related-list">
     {% for rp in related_posts %}
-    <a href="/board/{{ rp.id }}"
-       style="display:flex; justify-content:space-between; gap:1rem; align-items:baseline; text-decoration:none; border-top:1px solid var(--border); padding:0.7rem 0;">
-      <span style="min-width:0;">
-        <span style="display:block; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ rp.title or 'Untitled' }}</span>
+    <a href="/board/{{ rp.id }}" class="related-item">
+      <span class="related-text">
+        <span class="related-title">{{ rp.title or 'Untitled' }}</span>
         {% if rp.user and rp.user.handle %}
-        <span style="font-family:var(--font-mono); font-size:0.74rem; color:var(--text-muted);">{{ rp.user.display_name or ('@' ~ rp.user.handle) }}</span>
+        <span class="related-author">{{ rp.user.display_name or ('@' ~ rp.user.handle) }}</span>
         {% endif %}
       </span>
-      <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-muted); white-space:nowrap;">{{ rp.created_at.strftime('%Y-%m-%d') }}</span>
+      <time class="related-date" datetime="{{ rp.created_at.strftime('%Y-%m-%d') }}">{{ rp.created_at.strftime('%Y.%m.%d') }}</time>
     </a>
     {% endfor %}
   </div>

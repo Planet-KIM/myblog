@@ -4,12 +4,13 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}">
-<!-- Highlight.js for syntax highlighting -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<link rel="stylesheet" href="{{ url_for('static', path='css/writer-journey.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/markdown-rendering.css') }}">
+<!-- Highlight.js — 구문 색은 markdown-rendering.css 가 정의 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
 <style>
-  /* ── 매거진 전용 레이아웃 ────────────────────────── */
+  /* ── 매거진 전용 레이아웃: 캔버스는 화면 전체 폭, 머리말·꼬리말은 본문 칼럼 ── */
   main.container {
     max-width: 100% !important;
     padding: 0 !important;
@@ -17,151 +18,80 @@
     width: 100% !important;
   }
 
-  /* Reading progress bar */
-  .reading-progress {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--border, #e5e7eb);
-    z-index: 200;
-  }
+  .magazine-header { padding-top: var(--space-2xl); }
+  .magazine-header .article-header { margin-bottom: var(--space-xl); }
 
-  .reading-progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, var(--primary), var(--primary-dark));
-    width: 0%;
-    transition: width 0.1s ease;
-  }
-
-  /* ── Hero header (매거진 스타일) ───────────────────── */
-  .magazine-header {
-    position: relative;
-    padding: 4rem 2rem 3rem;
-    text-align: center;
-    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08), rgba(var(--primary-rgb), 0.08));
-    border-bottom: 1px solid var(--border, #e5e7eb);
-    margin-bottom: 0;
-  }
-
-  .magazine-header .editor-badge {
-    display: inline-block;
-    font-size: 0.65rem;
-    font-weight: 700;
-    padding: 0.2rem 0.7rem;
-    border-radius: 20px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    color: white;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: 1rem;
-  }
-
-  .magazine-category {
-    display: inline-block;
-    font-size: 0.8rem;
-    color: var(--primary);
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin-bottom: 1rem;
-  }
-
-  .magazine-title {
-    font-family: var(--font-display);
-    font-size: 3.2rem;
-    font-weight: 800;
-    line-height: 1.15;
-    color: var(--text-primary, #111827);
-    margin-bottom: 1.5rem;
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-    letter-spacing: -0.02em;
-  }
-
-  .magazine-meta {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-    font-size: 0.9rem;
-    color: var(--text-muted, #6b7280);
-    margin-bottom: 1.5rem;
-  }
-
-  .magazine-meta .meta-item {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  .magazine-meta .author-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 1rem;
-  }
-
-  .reading-time-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.35rem 0.85rem;
-    background: var(--surface, #f9fafb);
-    border: 1px solid var(--border, #e5e7eb);
-    border-radius: 20px;
-    font-size: 0.8rem;
-    color: var(--text-muted, #6b7280);
-  }
-
-  /* ── 매거진 콘텐츠 영역 ───────────────────────────── */
+  /* ── 매거진 콘텐츠 영역 ─────────────────────────────
+     글자 크기·행간은 기존 발행본의 블록 배치가 바뀌지 않도록 그대로 유지 */
   .magazine-content {
     width: 100%;
     max-width: 100%;
     margin: 0;
     padding: 0;
-    font-family: 'Pretendard Variable', -apple-system, sans-serif;
+    font-family: var(--font-sans);
     font-size: 1.15rem;
     line-height: 1.85;
-    color: var(--text-main, #1f2937);
+    color: var(--text-main);
   }
+
+  /* content_blocks 가 없는 글(HTML 본문)은 읽기 칼럼으로 */
+  .magazine-content > .markdown-content { padding-bottom: var(--space-xl); }
 
   /* 자유 배치 레이아웃 — 에디터와 동일한 비율 유지 */
-  .magazine-content .magazine-layout {
-    display: block;
-    width: 100%;
-  }
+  .magazine-content .magazine-layout { display: block; width: 100%; }
 
-  .magazine-content .magazine-layout > div {
-    /* inner absolute container */
-  }
+  /* 블록 안 타이포그래피 (에디터 .fb-editor 와 맞춤) */
+  .magazine-content .magazine-layout p,
+  .page-slide p { margin: 0.4em 0; }
+  .magazine-content .magazine-layout h1,
+  .page-slide h1 { font-size: 2em; font-weight: 800; margin: 0 0 0.3em; line-height: 1.1; }
+  .magazine-content .magazine-layout h2,
+  .page-slide h2 { font-size: 1.5em; font-weight: 700; margin: 0 0 0.3em; }
+  .magazine-content .magazine-layout h3,
+  .page-slide h3 { font-size: 1.2em; font-weight: 600; margin: 0 0 0.3em; }
+  .magazine-content .magazine-layout img { display: block; margin: 0; border-radius: 0; box-shadow: none; }
 
-  /* 텍스트 블록 안 타이포그래피 */
-  .magazine-content .magazine-layout p { margin: 0.5rem 0; }
-  .magazine-content .magazine-layout h1 { font-size: 2rem; font-weight: 800; margin: 0 0 0.5rem; }
-  .magazine-content .magazine-layout h2 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; }
-  .magazine-content .magazine-layout h3 { font-size: 1.2rem; font-weight: 600; margin: 0 0 0.5rem; }
-  .magazine-content .magazine-layout img { display: block; }
+  .magazine-layout blockquote,
+  .mag-reader blockquote {
+    border-left: 3px solid var(--primary);
+    padding-left: 1rem;
+    margin: 0.5rem 0;
+    color: var(--text-muted);
+  }
+  .magazine-layout code,
+  .mag-reader code {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    background: var(--surface-dark);
+    color: var(--primary-dark);
+    padding: 0.1em 0.35em;
+    border-radius: var(--radius-sm);
+  }
+  [data-theme="dark"] .magazine-layout code,
+  [data-theme="dark"] .mag-reader code { color: var(--primary-light); }
+  .magazine-layout pre code,
+  .mag-reader pre code { background: transparent; color: inherit; padding: 0; }
+  .magazine-layout .code-block,
+  .mag-reader .code-block { margin: 0.5rem 0; }
+  .magazine-layout hr,
+  .mag-reader hr { border: 0; border-top: 1px solid var(--border-dark); opacity: 1; margin: 1rem 0; }
+  .magazine-layout ul, .magazine-layout ol,
+  .mag-reader ul, .mag-reader ol { padding-left: 1.4em; margin: 0.4em 0; }
+  .magazine-layout a,
+  .mag-reader a { color: var(--primary); text-underline-offset: 3px; }
+
   /* 사진 필터 (듀오톤/흑백) — 뷰어·리더·인쇄 공통 */
   .mag-filter-bw { filter: grayscale(1) contrast(1.03); }
   .mag-filter-duotone { filter: grayscale(1) brightness(1.04) sepia(0.55) saturate(1.7) hue-rotate(-18deg) contrast(1.02); }
-  /* 여행 타임라인 */
-  .mag-timeline { line-height: 1.4; }
+
+  /* 타임라인 블록 — 테마 토큰 사용 */
+  .mag-timeline { line-height: 1.4; color: var(--text-main); }
   .mag-timeline .mtl-day + .mtl-day { margin-top: 1.1em; }
-  .mag-timeline .mtl-day-title { color: #b4542f; font-weight: 800; font-size: 1.25em; margin: 0 0 .5em; padding-bottom: .2em; border-bottom: 1px solid #e6dccf; letter-spacing: .02em; }
+  .mag-timeline .mtl-day-title { color: var(--primary); font-weight: 800; font-size: 1.25em; margin: 0 0 .5em; padding-bottom: .2em; border-bottom: 1px solid var(--border); letter-spacing: .02em; }
   .mag-timeline .mtl-item { display: grid; grid-template-columns: 3.4em 1.4em 1fr; align-items: center; column-gap: .6em; min-height: 2.3em; }
-  .mag-timeline .mtl-time { color: #8a7c6d; font-size: .82em; text-align: right; white-space: nowrap; }
+  .mag-timeline .mtl-time { color: var(--text-muted); font-size: .82em; text-align: right; white-space: nowrap; }
   .mag-timeline .mtl-mark { position: relative; align-self: stretch; }
-  .mag-timeline .mtl-mark::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ead0c2; transform: translateX(-50%); }
+  .mag-timeline .mtl-mark::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(var(--primary-rgb), 0.25); transform: translateX(-50%); }
   .mag-timeline:not(.mtl-h) .mtl-item:first-child .mtl-mark::before { top: 50%; }
   .mag-timeline:not(.mtl-h) .mtl-item:last-child .mtl-mark::before { bottom: 50%; }
   /* 가로 타임라인 + 자동 줄바꿈(모바일 넘침 보정) */
@@ -171,22 +101,20 @@
   .mag-timeline.mtl-h .mtl-mark { width: 100%; height: 16px; align-self: stretch; }
   .mag-timeline.mtl-h .mtl-mark::before { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 2px; transform: translateY(-50%); }
   .mag-timeline.mtl-h .mtl-label { margin-top: 3px; padding: 0 4px; word-break: keep-all; }
-  .mag-timeline .mtl-dot { position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; border-radius: 50%; background: #b4542f; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #b4542f; transform: translate(-50%,-50%); z-index: 1; }
-  .mag-timeline .mtl-label { color: #2a2320; font-weight: 500; }
-  .mag-timeline .mtl-empty { color: #8a7c6d; font-size: .9em; }
-  [data-theme="dark"] .mag-timeline .mtl-label { color: #e8e2d8; }
-  [data-theme="dark"] .mag-timeline .mtl-day-title { border-bottom-color: rgba(255,255,255,0.12); }
-  [data-theme="dark"] .mag-timeline .mtl-dot { border-color: #1a1511; }
-  /* 여행 지도 */
+  .mag-timeline .mtl-dot { position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; border-radius: 50%; background: var(--primary); border: 2px solid var(--bg-body); box-shadow: 0 0 0 1.5px var(--primary); transform: translate(-50%,-50%); z-index: 1; }
+  .mag-timeline .mtl-label { color: var(--text-primary); font-weight: 500; }
+  .mag-timeline .mtl-empty { color: var(--text-muted); font-size: .9em; }
+
+  /* 지도 블록 */
   .mag-map { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .mag-map-empty { padding: 18px; color: #8a7c6d; font-size: 0.9em; }
+  .mag-map-empty { padding: 18px; color: var(--text-muted); font-size: 0.9em; }
+
   /* 드롭캡 (첫 글자 장식) */
   .mag-dropcap > p:first-of-type::first-letter {
-    float: left; font-family: 'Fraunces','Noto Serif KR',Georgia,serif;
-    font-size: 3.1em; line-height: 0.76; font-weight: 700; color: #b4542f; padding: 0.02em 0.12em 0 0;
+    float: left; font-family: var(--font-display);
+    font-size: 3.1em; line-height: 0.76; font-weight: 700; color: var(--primary); padding: 0.02em 0.12em 0 0;
   }
   .reader-block.mag-dropcap > p:first-of-type::first-letter { font-size: 2.6em; }
-  [data-theme="dark"] .mag-dropcap > p:first-of-type::first-letter { color: #e08a5c; }
 
   /* ── 읽기 모드 (모바일 가독성) ───────────────────────── */
   .mag-reader { display: none; }
@@ -194,19 +122,102 @@
   #magazine-viewer-root.reader-on .page-nav-bar,
   #magazine-viewer-root.reader-on .page-dots { display: none !important; }
   #magazine-viewer-root.reader-on .mag-reader { display: block; }
-  .mag-reader-inner { max-width: 720px; margin: 0 auto; padding: 0 1rem; }
-  .mag-reader .reader-block { margin: 0 0 1.1rem; line-height: 1.75; color: var(--text-main, #333); word-break: keep-all; }
-  .mag-reader .reader-block img { margin: 0.4rem 0; }
-  .mag-reader .reader-page-sep { height: 1px; background: var(--border, #e5e7eb); margin: 2.2rem 0; }
+  .mag-reader-inner { max-width: var(--reading-max-width); margin: 0 auto; padding: 0 var(--space-lg); }
+  .mag-reader .reader-block { margin: 0 0 1.1rem; line-height: 1.75; color: var(--text-main); word-break: keep-all; }
+  .mag-reader .reader-block img { margin: 0.4rem 0; border-radius: var(--radius-md); }
+  .mag-reader .reader-page-sep { height: 1px; background: var(--border); margin: 2.2rem 0; }
+
+  .mag-mode-bar { display: flex; justify-content: center; margin: 0 0 var(--space-lg); }
   .mag-mode-toggle {
-    display: inline-flex; align-items: center; gap: 0.35rem;
-    margin: 0 auto 1rem; padding: 0.4rem 0.9rem;
-    border: 1px solid var(--border, #e5e7eb); border-radius: 999px;
-    background: var(--surface, #fff); color: var(--text-main, #444);
-    font-size: 0.8rem; font-weight: 600; cursor: pointer;
-    position: relative; left: 50%; transform: translateX(-50%);
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid var(--border-dark); border-radius: var(--btn-radius);
+    background: transparent; color: var(--text-main);
+    font-size: var(--fs-sm); font-weight: 500; cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
   }
-  .mag-mode-toggle:hover { border-color: var(--primary); color: var(--primary); }
+  .mag-mode-toggle:hover { border-color: var(--text-muted); color: var(--text-primary); background: var(--surface-light); }
+
+  /* ── Page flip viewer ─────────────────────────────── */
+  .page-viewer {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg-body);
+    user-select: none;
+  }
+
+  .page-track { display: flex; will-change: transform; }
+
+  .page-slide {
+    min-width: 100%;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+
+  /* 페이지 넘김 — 내비게이션 피드백 */
+  .page-slide.flip-out-left  { animation: flipOutLeft 0.42s cubic-bezier(0.55, 0, 1, 0.45) forwards; transform-origin: right center; perspective: 1200px; }
+  .page-slide.flip-in-right  { animation: flipInRight 0.42s cubic-bezier(0, 0.55, 0.45, 1) forwards; transform-origin: left center; perspective: 1200px; }
+  .page-slide.flip-out-right { animation: flipOutRight 0.42s cubic-bezier(0.55, 0, 1, 0.45) forwards; transform-origin: left center; perspective: 1200px; }
+  .page-slide.flip-in-left   { animation: flipInLeft 0.42s cubic-bezier(0, 0.55, 0.45, 1) forwards; transform-origin: right center; perspective: 1200px; }
+
+  @keyframes flipOutLeft  { 0% { transform: rotateY(0deg);   opacity: 1; } 100% { transform: rotateY(-90deg); opacity: 0; } }
+  @keyframes flipInRight  { 0% { transform: rotateY(90deg);  opacity: 0; } 100% { transform: rotateY(0deg);   opacity: 1; } }
+  @keyframes flipOutRight { 0% { transform: rotateY(0deg);   opacity: 1; } 100% { transform: rotateY(90deg);  opacity: 0; } }
+  @keyframes flipInLeft   { 0% { transform: rotateY(-90deg); opacity: 0; } 100% { transform: rotateY(0deg);   opacity: 1; } }
+
+  /* 페이지 이동 바 */
+  .page-nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-md);
+    padding: var(--space-md) 0 var(--space-sm);
+    border-top: 1px solid var(--border);
+  }
+
+  .page-nav-btn {
+    width: 36px; height: 36px;
+    border-radius: var(--btn-radius);
+    border: 1px solid var(--border-dark);
+    background: transparent;
+    color: var(--text-main);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
+  }
+  .page-nav-btn:hover:not(:disabled) { border-color: var(--text-muted); color: var(--text-primary); background: var(--surface-light); }
+  .page-nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .page-counter {
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    min-width: 56px;
+    text-align: center;
+  }
+
+  .page-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding-bottom: var(--space-sm);
+  }
+  .page-dot {
+    width: 6px; height: 6px;
+    border-radius: var(--radius-full);
+    background: var(--border-dark);
+    cursor: pointer;
+    border: none;
+    padding: 0;
+    transition: background-color var(--transition-fast), width var(--transition-fast);
+  }
+  .page-dot.active { background: var(--text-primary); width: 18px; }
+
+  /* 꼬리말(태그·액션·작성자·댓글)은 읽기 칼럼 */
+  .magazine-footer .article-footer { margin-top: var(--space-xl); }
 
   /* ── 인쇄 / PDF: 리더(선형) 레이아웃으로 출력, 크롬 숨김 ── */
   @media print {
@@ -215,650 +226,52 @@
     #magazine-viewer-root .page-viewer,
     #magazine-viewer-root .page-nav-bar,
     #magazine-viewer-root .page-dots,
-    #magazine-viewer-root .mag-mode-toggle { display: none !important; }
+    #magazine-viewer-root .mag-mode-bar { display: none !important; }
     #magazine-viewer-root .mag-reader { display: block !important; }
     .mag-reader-inner { max-width: none; padding: 0; }
     .mag-reader .reader-page-sep { break-before: page; border: none; height: 0; margin: 0; }
     body { background: #fff !important; }
-    .magazine-header, .magazine-content { box-shadow: none !important; }
-  }
-
-  /* 타이포그래피 */
-  .magazine-content h1 {
-    font-size: 2.5rem;
-    font-weight: 800;
-    margin: 3rem 0 1.25rem;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-  }
-
-  .magazine-content h2 {
-    font-size: 1.9rem;
-    font-weight: 700;
-    margin: 2.5rem 0 1rem;
-    line-height: 1.3;
-    letter-spacing: -0.01em;
-  }
-
-  .magazine-content h3 {
-    font-size: 1.45rem;
-    font-weight: 600;
-    margin: 2rem 0 0.75rem;
-    line-height: 1.4;
-  }
-
-  .magazine-content p {
-    margin: 1.25rem 0;
-  }
-
-  /* 인용문 — 매거진 스타일 */
-  .magazine-content blockquote {
-    border-left: 4px solid var(--primary);
-    padding: 1.25rem 0 1.25rem 2rem;
-    margin: 2.5rem 0;
-    font-style: italic;
-    font-size: 1.2rem;
-    color: var(--text-muted, #6b7280);
-    background: linear-gradient(90deg, rgba(var(--primary-rgb), 0.06), transparent);
-    border-radius: 0 12px 12px 0;
-  }
-
-  /* 코드 블록 */
-  .magazine-content pre {
-    background: #1e293b;
-    color: #e2e8f0;
-    padding: 1.5rem;
-    border-radius: 12px;
-    overflow-x: auto;
-    margin: 2rem 0;
-    font-family: 'Fira Code', monospace;
-    font-size: 0.88rem;
-    line-height: 1.7;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  }
-
-  .magazine-content code {
-    font-family: 'Fira Code', monospace;
-    font-size: 0.88em;
-    background: var(--surface, #f3f4f6);
-    padding: 0.15em 0.4em;
-    border-radius: 4px;
-    color: var(--primary);
-  }
-
-  .magazine-content pre code {
-    background: transparent;
-    color: inherit;
-    padding: 0;
-  }
-
-  /* 이미지 — 매거진 풀폭 스타일 */
-  .magazine-content img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 12px;
-    margin: 2rem auto;
-    display: block;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  }
-
-  .magazine-content .tiptap-image {
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  }
-
-  /* 멀티 컬럼 렌더링 */
-  .magazine-content div[data-type="multi-column"] {
-    display: flex;
-    gap: 2rem;
-    margin: 2rem 0;
-    align-items: flex-start;
-  }
-
-  .magazine-content div[data-type="column"] {
-    flex: 1;
-    min-width: 0;
-  }
-
-  /* 리스트 */
-  .magazine-content ul,
-  .magazine-content ol {
-    padding-left: 1.5rem;
-    margin: 1.25rem 0;
-  }
-
-  .magazine-content li {
-    margin: 0.5rem 0;
-  }
-
-  /* 구분선 */
-  .magazine-content hr {
-    border: none;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--border, #e5e7eb), transparent);
-    margin: 3rem 0;
-    position: relative;
-  }
-
-  .magazine-content hr::after {
-    content: "◆";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: var(--bg-body, #fff);
-    padding: 0 1rem;
-    color: var(--primary);
-    font-size: 0.9rem;
-  }
-
-  /* 테이블 */
-  .magazine-content table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 2rem 0;
-  }
-
-  .magazine-content th {
-    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1), rgba(var(--primary-rgb), 0.1));
-    padding: 0.85rem 1rem;
-    text-align: left;
-    font-weight: 600;
-    border-bottom: 2px solid var(--primary);
-  }
-
-  .magazine-content td {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border, #e5e7eb);
-  }
-
-  /* 하이라이트 마크 */
-  .magazine-content mark {
-    border-radius: 2px;
-    padding: 0.1em 0;
-  }
-
-  /* ── 하단 footer ──────────────────────────────────── */
-  .magazine-footer {
-    max-width: 900px;
-    margin: 2rem auto 0;
-    padding: 0 2rem 3rem;
-  }
-
-  .magazine-footer .article-tags {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--border, #e5e7eb);
-  }
-
-  .magazine-footer .tag {
-    padding: 0.35rem 0.85rem;
-    background: var(--surface, #f3f4f6);
-    border-radius: 20px;
-    font-size: 0.8rem;
-    color: var(--text-main, #374151);
-    text-decoration: none;
-    transition: all 0.2s ease;
-  }
-
-  .magazine-footer .tag:hover {
-    background: var(--primary);
-    color: white;
-  }
-
-  .article-action-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 0;
-    margin-bottom: 2rem;
-  }
-
-  .action-left, .action-right {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .btn-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.45rem 1rem;
-    border-radius: 6px;
-    font-size: 0.82rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.18s ease;
-    text-decoration: none;
-    border: 1px solid transparent;
-    background: transparent;
-    font-family: inherit;
-  }
-
-  .btn-action-edit {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-
-  .btn-action-edit:hover {
-    background: var(--primary);
-    color: white;
-  }
-
-  .btn-action-delete {
-    border-color: var(--border, #e5e7eb);
-    color: var(--text-muted, #9ca3af);
-  }
-
-  .btn-action-delete:hover {
-    border-color: #ef4444;
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.05);
-  }
-
-  .btn-action-share {
-    border-color: var(--border, #e5e7eb);
-    color: var(--text-muted, #6b7280);
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    justify-content: center;
-    border-radius: 50%;
-  }
-
-  .btn-action-share:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-    background: rgba(var(--primary-rgb), 0.05);
-  }
-
-  .action-divider {
-    width: 1px;
-    height: 20px;
-    background: var(--border, #e5e7eb);
-  }
-
-  /* Navigation between posts */
-  .post-navigation {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    margin: 3rem 0;
-  }
-
-  .nav-post {
-    padding: 1.5rem;
-    background: var(--surface, #f9fafb);
-    border: 1px solid var(--border, #e5e7eb);
-    border-radius: 12px;
-    text-decoration: none;
-    transition: all 0.2s ease;
-  }
-
-  .nav-post:hover {
-    border-color: var(--primary);
-    box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.1);
-    transform: translateY(-2px);
-  }
-
-  .nav-label {
-    font-size: 0.8rem;
-    color: var(--primary);
-    margin-bottom: 0.5rem;
-    display: block;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .nav-title {
-    font-size: 1.05rem;
-    color: var(--text-primary, #111827);
-    font-weight: 600;
-  }
-
-  .nav-post.prev { text-align: left; }
-  .nav-post.next { text-align: right; }
-
-  /* ── Mobile ───────────────────────────────────────── */
-  @media (max-width: 768px) {
-    .magazine-header { padding: 2.5rem 1rem 2rem; }
-    .magazine-title { font-size: 2rem; }
-    .magazine-content { font-size: 1rem; }
-    .post-navigation { grid-template-columns: 1fr; }
-    .magazine-footer { padding: 0 1rem 2rem; }
-  }
-
-  /* ── Dark theme ───────────────────────────────────── */
-  [data-theme="dark"] .magazine-header {
-    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.05));
-  }
-
-  [data-theme="dark"] .magazine-content blockquote {
-    background: linear-gradient(90deg, rgba(var(--primary-rgb), 0.08), transparent);
-  }
-
-  [data-theme="dark"] .nav-post {
-    background: var(--surface-dark, #1e293b);
-  }
-
-  [data-theme="dark"] .btn-action-delete,
-  [data-theme="dark"] .btn-action-share {
-    border-color: rgba(255, 255, 255, 0.1);
-    color: #9ca3af;
-  }
-
-  /* Print */
-  @media print {
-    .article-action-bar, .post-navigation, .reading-progress { display: none; }
     .magazine-content { font-size: 12pt; line-height: 1.5; }
   }
 
-  /* ── Page flip viewer ───────────────────────────────────── */
-  .page-viewer {
-    position: relative;
-    width: 100%;
-    overflow: hidden;
-    background: var(--bg-body, #fff);
-    user-select: none;
-  }
-
-  /* Sliding track */
-  .page-track {
-    display: flex;
-    will-change: transform;
-  }
-
-  .page-slide {
-    min-width: 100%;
-    flex-shrink: 0;
-    box-sizing: border-box;
-  }
-
-  /* Page entering/leaving — flip effect via perspective + rotateY */
-  .page-slide.flip-out-left {
-    animation: flipOutLeft 0.42s cubic-bezier(0.55, 0, 1, 0.45) forwards;
-    transform-origin: right center;
-    perspective: 1200px;
-  }
-  .page-slide.flip-in-right {
-    animation: flipInRight 0.42s cubic-bezier(0, 0.55, 0.45, 1) forwards;
-    transform-origin: left center;
-    perspective: 1200px;
-  }
-  .page-slide.flip-out-right {
-    animation: flipOutRight 0.42s cubic-bezier(0.55, 0, 1, 0.45) forwards;
-    transform-origin: left center;
-    perspective: 1200px;
-  }
-  .page-slide.flip-in-left {
-    animation: flipInLeft 0.42s cubic-bezier(0, 0.55, 0.45, 1) forwards;
-    transform-origin: right center;
-    perspective: 1200px;
-  }
-
-  @keyframes flipOutLeft {
-    0%   { transform: rotateY(0deg);    opacity: 1; }
-    100% { transform: rotateY(-90deg);  opacity: 0; }
-  }
-  @keyframes flipInRight {
-    0%   { transform: rotateY(90deg);   opacity: 0; }
-    100% { transform: rotateY(0deg);    opacity: 1; }
-  }
-  @keyframes flipOutRight {
-    0%   { transform: rotateY(0deg);    opacity: 1; }
-    100% { transform: rotateY(90deg);   opacity: 0; }
-  }
-  @keyframes flipInLeft {
-    0%   { transform: rotateY(-90deg);  opacity: 0; }
-    100% { transform: rotateY(0deg);    opacity: 1; }
-  }
-
-  /* Page content typography */
-  .page-slide p { margin: 0.4em 0; }
-  .page-slide h1 { font-size: 2em; font-weight: 800; margin: 0 0 0.3em; line-height: 1.1; }
-  .page-slide h2 { font-size: 1.5em; font-weight: 700; margin: 0 0 0.3em; }
-  .page-slide h3 { font-size: 1.2em; font-weight: 600; margin: 0 0 0.3em; }
-
-  /* Nav bar */
-  .page-nav-bar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1.25rem;
-    padding: 0.9rem 0 0.6rem;
-    border-top: 1px solid var(--border, #f3f4f6);
-  }
-
-  .page-nav-btn {
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    border: 1px solid var(--border, #e5e7eb);
-    background: var(--bg-body, #fff);
-    color: var(--text-main, #374151);
-    font-size: 1.3rem;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.18s;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  }
-  .page-nav-btn:hover:not(:disabled) {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: #fff;
-    box-shadow: 0 3px 12px rgba(var(--primary-rgb),0.28);
-    transform: scale(1.08);
-  }
-  .page-nav-btn:disabled { opacity: 0.25; cursor: default; transform: none; }
-
-  .page-counter {
-    font-size: 0.78rem;
-    color: var(--text-muted, #9ca3af);
-    letter-spacing: 0.1em;
-    min-width: 56px;
-    text-align: center;
-  }
-
-  /* Page dots */
-  .page-dots {
-    display: flex;
-    justify-content: center;
-    gap: 6px;
-    padding-bottom: 0.8rem;
-  }
-  .page-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--border, #d1d5db);
-    cursor: pointer;
-    border: none;
-    padding: 0;
-    transition: all 0.2s;
-  }
-  .page-dot.active {
-    background: var(--primary);
-    width: 22px;
-    border-radius: 4px;
-  }
-
-  [data-theme="dark"] .page-nav-btn { background: #1e293b; border-color: rgba(255,255,255,0.1); color: #e5e7eb; }
-
-  /* macOS Code Window styling */
-  .code-window-wrapper {
-    background: #1e293b;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    overflow: hidden;
-    margin: 2rem 0;
-    box-shadow: var(--shadow-lg);
-  }
-
-  .code-window-header {
-    background: #0f172a;
-    padding: 0.65rem 1.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  }
-
-  .window-controls {
-    display: flex;
-    gap: 6px;
-  }
-
-  .window-controls .dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    display: inline-block;
-  }
-
-  .window-controls .dot.close { background: #ef4444; }
-  .window-controls .dot.minimize { background: #f59e0b; }
-  .window-controls .dot.expand { background: #10b981; }
-
-  .window-lang {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: #94a3b8;
-    letter-spacing: 1px;
-    font-weight: 600;
-  }
-
-  .window-copy-btn {
-    background: transparent;
-    border: none;
-    color: #94a3b8;
-    cursor: pointer;
-    font-size: 0.85rem;
-    padding: 0.1rem 0.3rem;
-    border-radius: 4px;
-    transition: color var(--transition-fast), background var(--transition-fast);
-  }
-
-  .window-copy-btn:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.06);
-  }
-
-  .magazine-content pre {
-    margin: 0 !important;
-    border-radius: 0 0 12px 12px !important;
-    box-shadow: none !important;
-  }
-
-  /* Circular scroll to top button */
-  .scroll-to-top {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    width: 44px;
-    height: 44px;
-    background: var(--surface, #1e293b);
-    border-radius: 50%;
-    box-shadow: var(--shadow-lg);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    transition: transform var(--transition-fast), opacity var(--transition-fast);
-    opacity: 0;
-    pointer-events: none;
-    border: 1px solid var(--border, #334155);
-  }
-
-  .scroll-to-top.show {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .scroll-to-top:hover {
-    transform: translateY(-4px) scale(1.08);
-    border-color: var(--primary);
-  }
-
-  .progress-ring {
-    position: absolute;
-    transform: rotate(-90deg);
-  }
-
-  .progress-ring-circle-bg {
-    transition: stroke var(--transition-base);
-  }
-
-  .progress-ring-circle {
-    stroke-dasharray: 100.53;
-    stroke-dashoffset: 100.53;
-    transition: stroke-dashoffset 0.1s ease;
-  }
-
-  .scroll-icon {
-    font-size: 1.45rem;
-    color: var(--primary);
-    position: relative;
-    z-index: 2;
-    transition: transform var(--transition-fast);
-  }
-
-  .scroll-to-top:hover .scroll-icon {
-    transform: translateY(-2px);
+  @media (max-width: 768px) {
+    .magazine-header { padding-top: var(--space-lg); }
+    .mag-reader-inner { padding: 0 var(--space-md); }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Reading progress bar -->
-<div class="reading-progress">
-  <div class="reading-progress-bar" id="progressBar"></div>
-</div>
-
+{% set _who = post.user.display_name or post.user.handle or post.author or '?' %}
 <!-- Magazine header -->
-<header class="magazine-header">
-  <span class="editor-badge">Magazine</span>
+<div class="reading-column magazine-header">
+  <header class="article-header">
+    <span class="eyebrow">Magazine{% if post.category %} · <a class="eyebrow" href="/board/?category_id={{ post.category.id }}">{{ post.category.name }}</a>{% endif %}</span>
 
-  {% if post.category %}
-  <div><span class="magazine-category">{{ post.category.name }}</span></div>
-  {% endif %}
+    <h1 class="article-title">{{ post.title }}</h1>
 
-  <h1 class="magazine-title">{{ post.title }}</h1>
-
-  <div class="magazine-meta">
-    <div class="meta-item">
-      <span class="author-avatar">{{ (post.user.display_name or post.user.handle or post.author or '?')[0]|upper }}</span>
-      {% if post.user and post.user.handle %}
-      <a href="/@{{ post.user.handle }}">{{ post.user.display_name or ('@' ~ post.user.handle) }}</a>
-      {% else %}
-      <span>{{ post.author.split('@')[0] }}</span>
+    <div class="meta-row article-byline">
+      <span class="byline-author">
+        {% if post.user and post.user.avatar_url %}
+        <img class="avatar avatar-sm" src="{{ post.user.avatar_url }}" alt="">
+        {% else %}
+        <span class="avatar avatar-sm" aria-hidden="true">{{ _who[0]|upper }}</span>
+        {% endif %}
+        {% if post.user and post.user.handle %}
+        <a href="/@{{ post.user.handle }}">{{ post.user.display_name or ('@' ~ post.user.handle) }}</a>
+        {% else %}
+        <span>{{ post.author.split('@')[0] }}</span>
+        {% endif %}
+      </span>
+      <time datetime="{{ post.created_at.strftime('%Y-%m-%d') }}">{{ post.created_at.strftime('%Y.%m.%d') }}</time>
+      <span>{{ [1, ((post.content or '').split()|length / 200)|round|int]|max }}분 읽기</span>
+      <span>조회 {{ stats.views if stats else 0 }}</span>
+      {% if post.is_private %}
+      <span class="byline-private"><i class="bi bi-lock"></i> 비공개</span>
       {% endif %}
     </div>
-    <span class="meta-item">
-      {{ post.created_at.strftime('%B %d, %Y') }}
-    </span>
-    <span class="meta-item">
-      {{ stats.views if stats else 0 }} views
-    </span>
-    <span class="meta-item">
-      {{ stats.likes if stats else 0 }} likes
-    </span>
-    {% if post.is_private %}
-    <span class="meta-item" style="color: var(--primary);">
-      <i class="bi bi-lock-fill"></i> Private
-    </span>
-    {% endif %}
-  </div>
-
-  <div class="reading-time-badge">
-    <i class="bi bi-clock"></i>
-    {{ (post.content.split()|length / 200)|round|int }} min read
-  </div>
-</header>
+  </header>
+</div>
 
 <!-- Magazine content: page viewer -->
 <article class="magazine-content" id="magazineContent">
@@ -866,100 +279,102 @@
   <!-- content_blocks is parsed by JS viewer below -->
   <div id="magazine-viewer-root"></div>
   {% else %}
-  {{ post.content_html_safe | safe }}
+  <div class="reading-column markdown-content">
+    {{ post.content_html_safe | safe }}
+  </div>
   {% endif %}
 </article>
 
 <!-- Footer -->
-<footer class="magazine-footer">
-  {% if post.tags %}
-  <div class="article-tags">
-    {% for tag in post.tags %}
-    <a href="/tags/{{ tag.slug }}" class="tag">#{{ tag.name }}</a>
-    {% endfor %}
-  </div>
-  {% endif %}
+<div class="reading-column magazine-footer">
+  <footer class="article-footer">
+    {% if post.tags %}
+    <div class="article-tags">
+      {% for tag in post.tags %}
+      <a href="/tags/{{ tag.slug }}" class="chip">#{{ tag.name }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
 
-  <div class="article-action-bar">
-    <div class="action-left">
-      {% if current_user and current_user.id == post.user_id %}
-      <a href="/board/{{ post.id }}/edit" class="btn-action btn-action-edit">
-        <i class="bi bi-pencil"></i> Edit
+    <div class="article-action-bar">
+      <div class="action-left">
+        {% if current_user and current_user.id == post.user_id %}
+        <a href="/board/{{ post.id }}/edit" class="btn-action btn-action-edit">
+          <i class="bi bi-pencil"></i> Edit
+        </a>
+        {% if post.content_blocks %}
+        <form method="post" action="/board/{{ post.id }}/save-template"
+              onsubmit="var n=prompt('레이아웃 이름', this.querySelector('[name=name]').value); if(n===null) return false; this.querySelector('[name=name]').value=n; return true;">
+          <input type="hidden" name="name" value="{{ post.title or '내 레이아웃' }}">
+          <button type="submit" class="btn-action">
+            <i class="bi bi-grid-1x2"></i> 레이아웃 저장
+          </button>
+        </form>
+        {% endif %}
+        <form method="post" action="/board/{{ post.id }}/delete"
+              onsubmit="return confirm('Delete this story?');">
+          <button type="submit" class="btn-action btn-action-delete">
+            <i class="bi bi-trash"></i> Delete
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+      <div class="action-right">
+        <button class="btn-action btn-action-share" id="detail-like-btn" onclick="toggleDetailLike()" title="좋아요" aria-label="좋아요">
+          <i class="bi bi-hand-thumbs-up"></i> <span id="detail-like-count">{{ stats.likes if stats else 0 }}</span>
+        </button>
+        <button class="btn-action btn-action-share" id="detail-bookmark-btn" onclick="toggleDetailBookmark()" title="북마크" aria-label="북마크">
+          <i class="bi bi-bookmark"></i>
+        </button>
+        <button class="btn-action btn-action-share" onclick="copyLink()" title="링크 복사" aria-label="링크 복사">
+          <i class="bi bi-link-45deg"></i>
+        </button>
+        <button class="btn-action btn-action-share" onclick="window.print()" title="인쇄 / PDF 저장" aria-label="인쇄 / PDF 저장">
+          <i class="bi bi-printer"></i>
+        </button>
+        <button class="btn-action btn-action-share" onclick="shareTwitter()" title="X(Twitter)에 공유" aria-label="X(Twitter)에 공유">
+          <i class="bi bi-twitter-x"></i>
+        </button>
+      </div>
+    </div>
+
+    {% include "_author_card.html" %}
+
+    {% include "_series_banner.html" %}
+
+    {% include "_related_posts.html" %}
+
+    {% include "_comments.html" %}
+
+    <!-- Post navigation -->
+    <nav class="post-navigation" aria-label="이전·다음 글">
+      {% if prev_post %}
+      <a href="/board/{{ prev_post.id }}" class="nav-post prev">
+        <span class="nav-label"><i class="bi bi-arrow-left"></i> 이전 글</span>
+        <span class="nav-title">{{ prev_post.title or 'Untitled' }}</span>
       </a>
-      {% if post.content_blocks %}
-      <div class="action-divider"></div>
-      <form method="post" action="/board/{{ post.id }}/save-template" style="display:inline;"
-            onsubmit="var n=prompt('레이아웃 이름', this.querySelector('[name=name]').value); if(n===null) return false; this.querySelector('[name=name]').value=n; return true;">
-        <input type="hidden" name="name" value="{{ post.title or '내 레이아웃' }}">
-        <button type="submit" class="btn-action btn-action-edit">
-          <i class="bi bi-grid-1x2"></i> 레이아웃 저장
-        </button>
-      </form>
+      {% else %}
+      <div></div>
       {% endif %}
-      <div class="action-divider"></div>
-      <form method="post" action="/board/{{ post.id }}/delete" style="display:inline;"
-            onsubmit="return confirm('Delete this story?');">
-        <button type="submit" class="btn-action btn-action-delete">
-          <i class="bi bi-trash"></i> Delete
-        </button>
-      </form>
+
+      {% if next_post %}
+      <a href="/board/{{ next_post.id }}" class="nav-post next">
+        <span class="nav-label">다음 글 <i class="bi bi-arrow-right"></i></span>
+        <span class="nav-title">{{ next_post.title or 'Untitled' }}</span>
+      </a>
+      {% else %}
+      <div></div>
       {% endif %}
-    </div>
+    </nav>
+  </footer>
+</div>
 
-    <div class="action-right">
-      <button class="btn-action btn-action-share" id="detail-like-btn" onclick="toggleDetailLike()" title="좋아요">
-        <i class="bi bi-hand-thumbs-up"></i> <span id="detail-like-count">{{ stats.likes if stats else 0 }}</span>
-      </button>
-      <button class="btn-action btn-action-share" id="detail-bookmark-btn" onclick="toggleDetailBookmark()" title="북마크">
-        <i class="bi bi-bookmark"></i>
-      </button>
-      <button class="btn-action btn-action-share" onclick="copyLink()" title="Copy link">
-        <i class="bi bi-link-45deg"></i>
-      </button>
-      <button class="btn-action btn-action-share" onclick="window.print()" title="인쇄 / PDF 저장">
-        <i class="bi bi-printer"></i>
-      </button>
-      <button class="btn-action btn-action-share" onclick="shareTwitter()" title="Share on X">
-        <i class="bi bi-twitter-x"></i>
-      </button>
-    </div>
-  </div>
-
-  {% include "_author_card.html" %}
-
-  {% include "_series_banner.html" %}
-
-  {% include "_related_posts.html" %}
-
-  {% include "_comments.html" %}
-
-  <!-- Post navigation -->
-  <nav class="post-navigation">
-    {% if prev_post %}
-    <a href="/board/{{ prev_post.id }}" class="nav-post prev">
-      <span class="nav-label"><i class="bi bi-arrow-left"></i> Previous</span>
-      <span class="nav-title">{{ prev_post.title or 'Previous Story' }}</span>
-    </a>
-    {% else %}
-    <div></div>
-    {% endif %}
-
-    {% if next_post %}
-    <a href="/board/{{ next_post.id }}" class="nav-post next">
-      <span class="nav-label">Next <i class="bi bi-arrow-right"></i></span>
-      <span class="nav-title">{{ next_post.title or 'Next Story' }}</span>
-    </a>
-    {% else %}
-    <div></div>
-    {% endif %}
-  </nav>
-</footer>
-
-<!-- Circular Scroll-to-Top Indicator -->
+<!-- Scroll-to-top + 읽기 진행률 링 -->
 <button type="button" id="scroll-to-top" class="scroll-to-top no-print" onclick="scrollToTop()" aria-label="맨 위로">
   <svg class="progress-ring" width="40" height="40" aria-hidden="true">
-    <circle class="progress-ring-circle-bg" stroke="rgba(var(--primary-rgb, 56, 189, 248), 0.12)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/>
-    <circle class="progress-ring-circle" id="scrollProgressRing" stroke="var(--primary)" stroke-width="3" fill="transparent" r="16" cx="20" cy="20"/>
+    <circle class="progress-ring-circle-bg" stroke-width="2" fill="transparent" r="16" cx="20" cy="20"/>
+    <circle class="progress-ring-circle" id="scrollProgressRing" stroke-width="2" fill="transparent" r="16" cx="20" cy="20"/>
   </svg>
   <i class="bi bi-arrow-up-short scroll-icon" aria-hidden="true"></i>
 </button>
@@ -1028,7 +443,7 @@
       blocks.forEach(b => {
         if (b.type === 'image' && b.src) {
           const fc = b.imgFilter && b.imgFilter !== 'none' ? ` mag-filter-${b.imgFilter}` : '';
-          html += `<figure class="reader-block"><img class="reader-img${fc}" src="${b.src}" loading="lazy" style="width:100%;height:auto;display:block;border-radius:8px;"></figure>`;
+          html += `<figure class="reader-block"><img class="reader-img${fc}" src="${b.src}" loading="lazy" style="width:100%;height:auto;display:block;"></figure>`;
         } else if (b.type === 'spacer') {
           html += '<div style="height:1rem;"></div>';
         } else if (b.content) {
@@ -1097,7 +512,10 @@
     syncToggleLabel();
     if (!root.classList.contains('reader-on')) scaleSlides();
   });
-  root.insertBefore(modeToggle, root.firstChild);
+  const modeBar = document.createElement('div');
+  modeBar.className = 'mag-mode-bar';
+  modeBar.appendChild(modeToggle);
+  root.insertBefore(modeBar, root.firstChild);
   if (window.innerWidth < 640) root.classList.add('reader-on');  // 모바일 기본 읽기 모드
   syncToggleLabel();
 
@@ -1179,7 +597,10 @@
       const cw = +fit.dataset.cw || 1200, ch = +fit.dataset.ch || 800;
       const scale = Math.min(1, w / cw);
       const canvas = fit.querySelector('.magazine-layout');
-      if (canvas) canvas.style.transform = 'scale(' + scale + ')';
+      if (canvas) {
+        canvas.style.transform = 'scale(' + scale + ')';
+        canvas.style.left = Math.max(0, (w - cw * scale) / 2) + 'px';   // 화면보다 좁은 캔버스는 가운데 정렬
+      }
       fit.style.height = (ch * scale) + 'px';
     });
   }
@@ -1190,31 +611,15 @@
   showImmediate(0);
 })();
 
-// Reading progress bar
-window.addEventListener('scroll', () => {
-  const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-  const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-  const scrolled = (winScroll / height) * 100;
-  document.getElementById('progressBar').style.width = scrolled + '%';
-});
-
 // Share
 function copyLink() {
-  navigator.clipboard.writeText(window.location.href);
-  const toast = document.createElement('div');
-  toast.textContent = 'Link copied!';
-  toast.style.cssText = `
-    position: fixed; bottom: 2rem; right: 2rem;
-    background: var(--primary); color: white;
-    padding: 1rem 1.5rem; border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 1000;
-  `;
-  document.body.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 2000);
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    if (window.toast) window.toast.success('링크를 복사했어요');
+  });
 }
 
 function shareTwitter() {
-  const text = `{{ post.title or 'Story' }}`;
+  const text = {{ (post.title or 'Story')|tojson }};
   window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`);
 }
 
@@ -1266,110 +671,42 @@ function saveRecentPost() {
   }
   list = list.filter(item => item.id !== entry.id);
   list.unshift(entry);
-  localStorage.setItem('recentPosts', JSON.stringify(list.slice(0, 15)));
+  try { localStorage.setItem('recentPosts', JSON.stringify(list.slice(0, 15))); } catch (e) {}
 }
 
-// Rework Code blocks into macOS Styled Panels
-function enhanceCodeBlocks() {
-  document.querySelectorAll('.magazine-content pre').forEach(pre => {
-    if (pre.parentElement.classList.contains('code-window-wrapper')) return;
-
-    const code = pre.querySelector('code');
-    let lang = 'code';
-    if (code) {
-      const classes = Array.from(code.classList);
-      const langClass = classes.find(c => c.startsWith('language-'));
-      if (langClass) {
-        lang = langClass.replace('language-', '').toUpperCase();
-      }
-    }
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'code-window-wrapper';
-
-    const header = document.createElement('div');
-    header.className = 'code-window-header';
-    header.innerHTML = `
-      <div class="window-controls">
-        <span class="dot close"></span>
-        <span class="dot minimize"></span>
-        <span class="dot expand"></span>
-      </div>
-      <div class="window-lang">${lang}</div>
-      <button class="window-copy-btn" title="Copy code">
-        <i class="bi bi-clipboard"></i>
-      </button>
-    `;
-
-    pre.parentNode.insertBefore(wrapper, pre);
-    wrapper.appendChild(header);
-    wrapper.appendChild(pre);
-
-    const copyBtn = header.querySelector('.window-copy-btn');
-    if (copyBtn && code) {
-      copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(code.innerText).then(() => {
-          copyBtn.innerHTML = '<i class="bi bi-clipboard-check" style="color: var(--accent);"></i>';
-          setTimeout(() => {
-            copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
-          }, 2000);
-        });
-      });
-    }
-  });
-}
-
-// Circular progress back-to-top setup
+// 맨 위로 버튼 + 진행률 링
 function initScrollProgress() {
   const scrollBtn = document.getElementById('scroll-to-top');
   const ring = document.getElementById('scrollProgressRing');
-  
-  if (scrollBtn && ring) {
-    const radius = 16;
-    const circumference = 2 * Math.PI * radius; // 100.53
-    ring.style.strokeDasharray = `${circumference} ${circumference}`;
-    ring.style.strokeDashoffset = circumference;
+  if (!scrollBtn || !ring) return;
 
-    function setProgress(percent) {
-      const offset = circumference - (percent / 100 * circumference);
-      ring.style.strokeDashoffset = offset;
-    }
+  const circumference = 2 * Math.PI * 16;
+  ring.style.strokeDasharray = `${circumference} ${circumference}`;
+  ring.style.strokeDashoffset = circumference;
 
-    window.addEventListener('scroll', () => {
-      const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-      const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
-      
-      setProgress(scrolled);
-
-      if (winScroll > 300) {
-        scrollBtn.classList.add('show');
-      } else {
-        scrollBtn.classList.remove('show');
-      }
-    });
-  }
+  window.addEventListener('scroll', () => {
+    const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
+    ring.style.strokeDashoffset = circumference - (scrolled / 100 * circumference);
+    scrollBtn.classList.toggle('show', winScroll > 300);
+  }, { passive: true });
 }
 
 function scrollToTop() {
-  window.scrollTo({
-    top: 0,
-    behavior: 'smooth'
-  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Syntax highlighting
 document.addEventListener('DOMContentLoaded', () => {
   saveRecentPost();
-  enhanceCodeBlocks();
   initScrollProgress();
 
-  document.querySelectorAll('pre code').forEach((block) => {
-    hljs.highlightElement(block);
-  });
+  if (window.hljs) {
+    document.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
+  }
 
-  // 제목 중복 제거: 본문 첫 h1이 헤더 제목과 같으면 숨김
-  const content = document.querySelector('.magazine-content');
+  // 제목 중복 제거: 본문 첫 h1이 헤더 제목과 같으면 숨김 (HTML 본문 글)
+  const content = document.querySelector('.magazine-content .markdown-content');
   if (content) {
     const firstEl = content.firstElementChild;
     if (firstEl && firstEl.tagName === 'H1') {
@@ -1378,4 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
+
+{# 코드블록 헤더(언어·복사) — 뷰어가 블록을 그린 뒤 실행 #}
+{% include "_reading_enhancements.html" %}
 {% endblock %}

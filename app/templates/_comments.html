@@ -1,62 +1,57 @@
-{# 평문 댓글 섹션. body는 Jinja 자동 이스케이프 + pre-wrap로 XSS 없이 줄바꿈 보존. #}
-<section id="comments" class="page-card no-print" style="max-width:var(--reading-max-width, 720px);margin:2.5rem auto 0;">
-  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;">
-    <h3 style="font-family:var(--font-mono),'Pretendard Variable',sans-serif;font-size:1.1rem;margin-bottom:1rem;">
-      댓글 {{ comments|length }}
-    </h3>
+{# 평문 댓글 섹션. body는 Jinja 자동 이스케이프 + pre-wrap로 XSS 없이 줄바꿈 보존.
+   스타일: writer-journey.css (.reading-section / .comment-*) #}
+<section id="comments" class="reading-section no-print">
+  <div class="reading-section-head">
+    <h2 class="reading-section-title">댓글 <span class="count">{{ comments|length }}</span></h2>
     {% if current_user and current_user.id != post.user_id %}
-    <form method="post" action="/board/{{ post.id }}/report" style="margin:0;"
+    <form method="post" action="/board/{{ post.id }}/report"
           onsubmit="return confirm('이 글을 신고하시겠어요?');">
-      <button type="submit" class="text-muted"
-              style="background:none;border:none;cursor:pointer;font-size:0.78rem;">⚑ 글 신고</button>
+      <button type="submit" class="comment-icon-btn"><i class="bi bi-flag"></i> 글 신고</button>
     </form>
     {% endif %}
   </div>
 
   {% for c in comments %}
-  <div style="padding:0.75rem 0;border-top:1px solid var(--border);">
-    <div style="display:flex;justify-content:space-between;gap:0.5rem;align-items:baseline;">
-      <span style="font-size:0.85rem;">
+  <div class="comment">
+    <div class="comment-head">
+      <span class="comment-author">
         {% if c.user and c.user.handle %}
-        <a href="/@{{ c.user.handle }}" style="font-weight:600;">{{ c.user.display_name or ('@' ~ c.user.handle) }}</a>
+        <a href="/@{{ c.user.handle }}">{{ c.user.display_name or ('@' ~ c.user.handle) }}</a>
         {% else %}
-        <span style="font-weight:600;">{{ (c.user.email.split('@')[0] if c.user else 'unknown') }}</span>
+        <span>{{ (c.user.email.split('@')[0] if c.user else 'unknown') }}</span>
         {% endif %}
-        <span class="text-muted" style="font-family:var(--font-mono);font-size:0.74rem;margin-left:0.4rem;">{{ c.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        <time class="comment-date" datetime="{{ c.created_at.strftime('%Y-%m-%dT%H:%M') }}">{{ c.created_at.strftime('%Y.%m.%d %H:%M') }}</time>
       </span>
-      <span style="display:flex;gap:0.2rem;align-items:center;">
+      <span class="comment-actions">
         {% if current_user and current_user.id != c.user_id %}
-        <form method="post" action="/board/{{ post.id }}/comment/{{ c.id }}/report" style="margin:0;"
+        <form method="post" action="/board/{{ post.id }}/comment/{{ c.id }}/report"
               onsubmit="return confirm('이 댓글을 신고하시겠어요?');">
-          <button type="submit" aria-label="댓글 신고"
-                  style="padding:0 .35rem;color:var(--text-muted);background:none;border:none;cursor:pointer;">⚑</button>
+          <button type="submit" class="comment-icon-btn" aria-label="댓글 신고" title="신고"><i class="bi bi-flag"></i></button>
         </form>
         {% endif %}
         {% if current_user and (current_user.id == c.user_id or current_user.id == post.user_id or current_user.is_admin) %}
-        <form method="post" action="/board/{{ post.id }}/comment/{{ c.id }}/delete" style="margin:0;">
-          <button type="submit" aria-label="댓글 삭제"
-                  style="padding:0 .4rem;color:var(--text-muted);background:none;border:none;cursor:pointer;">✕</button>
+        <form method="post" action="/board/{{ post.id }}/comment/{{ c.id }}/delete">
+          <button type="submit" class="comment-icon-btn" aria-label="댓글 삭제" title="삭제"><i class="bi bi-x-lg"></i></button>
         </form>
         {% endif %}
       </span>
     </div>
-    <div style="white-space:pre-wrap;color:var(--text-main);margin-top:0.25rem;font-size:0.92rem;line-height:1.6;">{{ c.body }}</div>
+    <div class="comment-body">{{ c.body }}</div>
   </div>
   {% else %}
-  <p class="text-muted" style="font-size:0.9rem;">아직 댓글이 없습니다. 첫 댓글을 남겨보세요.</p>
+  <p class="comment-empty">아직 댓글이 없습니다. 첫 댓글을 남겨보세요.</p>
   {% endfor %}
 
-  <div style="border-top:1px solid var(--border);margin-top:0.75rem;padding-top:1rem;">
+  <div class="comment-form">
     {% if current_user %}
     <form method="post" action="/board/{{ post.id }}/comment">
-      <textarea name="body" rows="3" maxlength="2000" required placeholder="댓글을 입력하세요"
-                style="width:100%;border:1px solid var(--border);border-radius:8px;padding:0.6rem;background:var(--surface);color:var(--text-main);font:inherit;"></textarea>
-      <div style="text-align:right;margin-top:0.5rem;">
+      <textarea name="body" rows="3" maxlength="2000" required placeholder="댓글을 입력하세요" class="form-control"></textarea>
+      <div class="comment-form-actions">
         <button type="submit" class="btn-travel">댓글 등록</button>
       </div>
     </form>
     {% else %}
-    <a href="/auth/login?next=/board/{{ post.id }}" class="btn btn-outline-secondary btn-sm">로그인하고 댓글 쓰기</a>
+    <a href="/auth/login?next=/board/{{ post.id }}" class="btn-ghost">로그인하고 댓글 쓰기</a>
     {% endif %}
   </div>
 </section>

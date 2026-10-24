@@ -12,14 +12,13 @@
   position: sticky;
   top: 0;
   z-index: 200;
-  background: var(--surface, #fff);
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   padding: 0.5rem 1rem;
   display: flex;
   align-items: center;
   gap: 2px;
   flex-wrap: wrap;
-  backdrop-filter: blur(12px);
 }
 
 .tiptap-toolbar-btn {
@@ -30,50 +29,50 @@
   height: 34px;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.9rem;
-  color: var(--text-main, #374151);
-  transition: all 0.15s ease;
+  font-size: var(--fs-sm);
+  color: var(--text-main);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
 }
 
 .tiptap-toolbar-btn:hover {
-  background: rgba(var(--primary-rgb), 0.1);
-  color: var(--primary);
+  background: var(--surface-light);
+  color: var(--text-primary);
 }
 
 .tiptap-toolbar-sep {
   width: 1px;
   height: 22px;
-  background: var(--border, #e5e7eb);
+  background: var(--border);
   margin: 0 6px;
 }
 
 /* ── Meta bar ─────────────────────────────────────────── */
 .tiptap-meta {
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 1rem;
-  font-size: 0.85rem;
-  background: var(--surface, #fff);
+  font-size: var(--fs-sm);
+  background: var(--surface);
 }
 
 .tiptap-meta select {
   padding: 0.3rem 0.6rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 6px;
-  background: var(--surface, #fff);
-  color: var(--text-main, #374151);
-  font-size: 0.82rem;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-main);
+  font-size: var(--fs-sm);
 }
 
 .tiptap-meta label {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted);
   cursor: pointer;
 }
 
@@ -81,15 +80,18 @@
 .tiptap-editor-wrapper {
   flex: 1;
   overflow: auto;
-  padding-bottom: 4rem;
+  /* 고정된 하단 바(.tiptap-bottom-bar, ~61px) 뒤로 페이지 탭이 숨지 않도록 여유 */
+  padding-bottom: calc(var(--space-3xl) + var(--space-xl));
 }
 
 #block-canvas {
   position: relative;
   min-height: 80vh;
+  /* 정렬용 그리드 (기능적 배경) */
+  --grid-line: color-mix(in srgb, var(--text-primary) 4%, transparent);
   background:
-    linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -97,30 +99,29 @@
 .fb {
   position: absolute;
   border: 2px solid transparent;
-  border-radius: 10px;
-  background: var(--surface, #fff);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: box-shadow 0.15s;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   z-index: 2;
 }
 
 .fb:hover {
-  border-color: #e5e7eb;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  border-color: var(--border-dark);
 }
 
 .fb.selected {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(var(--primary-rgb),0.12), 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-glow), var(--shadow-md);
   z-index: 100 !important;
 }
 
 .fb.dragging {
   opacity: 0.85;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+  box-shadow: var(--shadow-lg);
   z-index: 999 !important;
 }
 
@@ -131,8 +132,8 @@
   flex-wrap: wrap;
   gap: 4px;
   padding: 3px 6px;
-  background: var(--surface-dark, #f8fafc);
-  border-bottom: 1px solid var(--border, #f1f5f9);
+  background: var(--surface-light);
+  border-bottom: 1px solid var(--border);
   cursor: grab;
   user-select: none;
   min-height: 28px;
@@ -150,8 +151,8 @@
   letter-spacing: 0.05em;
   color: var(--primary);
   padding: 1px 6px;
-  background: rgba(var(--primary-rgb),0.08);
-  border-radius: 4px;
+  background: var(--primary-soft);
+  border-radius: var(--radius-sm);
 }
 
 .fb-btn {
@@ -162,21 +163,21 @@
   height: 22px;
   border: none;
   background: transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.7rem;
-  color: var(--text-muted, #9ca3af);
-  transition: all 0.1s;
+  color: var(--text-muted);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
 }
 
 .fb-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--surface-dark);
+  color: var(--text-primary);
 }
 
 .fb-del:hover {
-  background: #fef2f2;
-  color: #ef4444;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
 }
 
 /* ── Block Body ───────────────────────────────────────── */
@@ -195,10 +196,10 @@
 .fb-editor .tiptap {
   outline: none;
   min-height: 100%;
-  font-family: 'Pretendard Variable', -apple-system, sans-serif;
-  font-size: 1.05rem;
+  font-family: var(--font-sans);
+  font-size: 1.05rem;   /* 발행본 블록 배치와 맞물림 — 바꾸지 말 것 */
   line-height: 1.7;
-  color: var(--text-main, #1f2937);
+  color: var(--text-main);
   padding: 0.25rem;
 }
 
@@ -211,28 +212,28 @@
   border-left: 3px solid var(--primary);
   padding-left: 1rem;
   margin: 0.5rem 0;
-  color: var(--text-muted, #6b7280);
-  font-style: italic;
+  color: var(--text-muted);
 }
 
+/* 코드 표면 — 글 상세(writer-journey.css --code-*)와 같은 따뜻한 다크 */
 .fb-editor .tiptap pre {
-  background: #1e293b;
-  color: #e2e8f0;
+  background: var(--code-bg);
+  color: var(--code-fg);
   padding: 0.75rem;
-  border-radius: 6px;
-  font-family: 'Fira Code', monospace;
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   margin: 0.4rem 0;
   overflow-x: auto;
 }
 
 .fb-editor .tiptap code {
-  font-family: 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.88em;
-  background: #f3f4f6;
+  background: var(--surface-dark);
   padding: 0.1em 0.3em;
-  border-radius: 3px;
-  color: var(--primary);
+  border-radius: var(--radius-sm);
+  color: var(--primary-dark);
 }
 
 .fb-editor .tiptap pre code { background: transparent; color: inherit; padding: 0; }
@@ -240,7 +241,7 @@
 .fb-editor .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #9ca3af;
+  color: var(--text-disabled);
   pointer-events: none;
   height: 0;
 }
@@ -250,7 +251,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   display: block;
 }
 
@@ -274,7 +275,7 @@
   color: rgba(255,255,255,0.85);
   background: rgba(0,0,0,0.45);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s;
@@ -290,8 +291,8 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: var(--surface, #f9fafb);
-  border-top: 1px solid var(--border, #e5e7eb);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
@@ -300,26 +301,26 @@
   align-items: center;
   gap: 4px;
   padding: 4px 12px;
-  border: 1px solid var(--border, #d1d5db);
-  border-radius: 6px;
-  background: var(--bg-body, #fff);
-  font-size: 0.78rem;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-md);
+  background: var(--bg-body);
+  font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--text-muted, #6b7280);
+  color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
   font-family: inherit;
 }
 
 .page-tab:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 .page-tab.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--bg-body);
 }
 
 .page-tab-del {
@@ -334,27 +335,24 @@
 
 .page-tab-add {
   padding: 4px 12px;
-  border: 1px dashed var(--border, #d1d5db);
-  border-radius: 6px;
+  border: 1px dashed var(--border-dark);
+  border-radius: var(--radius-md);
   background: transparent;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--text-muted, #9ca3af);
+  color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
   font-family: inherit;
 }
 .page-tab-add:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
 }
-
-[data-theme="dark"] .page-tab-bar { background: #1e293b; border-color: rgba(255,255,255,0.08); }
-[data-theme="dark"] .page-tab { background: #0f172a; border-color: rgba(255,255,255,0.12); }
 
 /* ── Border toggle button active state ──────────────────── */
 .fb-btn-active {
-  background: rgba(var(--primary-rgb), 0.15) !important;
+  background: var(--primary-soft) !important;
   color: var(--primary) !important;
   border-color: var(--primary) !important;
 }
@@ -366,8 +364,8 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  border-radius: 4px;
-  border: 2px solid rgba(0,0,0,0.25);
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border-dark);
   cursor: pointer;
   overflow: hidden;
   flex-shrink: 0;
@@ -385,11 +383,11 @@
 .fb-border-width {
   height: 22px;
   padding: 0 2px;
-  font-size: 0.72rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 4px;
-  background: var(--surface, #fff);
-  color: var(--text-main, #374151);
+  font-size: var(--fs-xs);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-main);
   cursor: pointer;
   margin: 0 2px;
 }
@@ -401,18 +399,18 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  border: 2px dashed #e5e7eb;
-  border-radius: 6px;
+  border: 2px dashed var(--border-dark);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
   gap: 0.5rem;
 }
 
-.fb-drop p { margin: 0; font-size: 0.8rem; color: #9ca3af; }
+.fb-drop p { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
 
 .fb-drop:hover, .fb-drop.over {
   border-color: var(--primary);
-  background: rgba(var(--primary-rgb),0.03);
+  background: var(--primary-soft);
 }
 
 /* Spacer block */
@@ -420,11 +418,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #d1d5db;
+  color: var(--text-disabled);
   font-size: 0.7rem;
   letter-spacing: 0.1em;
-  border: 1px dashed #e5e7eb;
-  border-radius: 6px;
+  border: 1px dashed var(--border-dark);
+  border-radius: var(--radius-sm);
   margin: 0.25rem;
 }
 
@@ -448,8 +446,8 @@
   cursor: nwse-resize;
   background: var(--primary);
   border-radius: 3px;
-  border: 2px solid white;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .fb-rh-e {
@@ -500,112 +498,78 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--surface, #fff);
-  border-top: 1px solid var(--border, #e5e7eb);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
   padding: 0.75rem 1.5rem;
   display: flex;
   align-items: center;
   gap: 0.75rem;
   z-index: 200;
-  backdrop-filter: blur(12px);
 }
 
 .tiptap-bottom-bar .tiptap-btn {
   padding: 0.5rem 1.25rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
+  border-radius: var(--btn-radius);
+  font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
-  border: none;
+  border: 1px solid transparent;
   text-decoration: none;
-  transition: all 0.15s ease;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.tiptap-btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  color: white;
+.tiptap-btn-primary,
+.tiptap-bottom-bar .tiptap-btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-on-primary);
 }
 
-.tiptap-btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(var(--primary-rgb),0.3);
+.tiptap-btn-primary:hover,
+.tiptap-bottom-bar .tiptap-btn-primary:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
 }
 
-.tiptap-btn-secondary {
+.tiptap-btn-secondary,
+.tiptap-bottom-bar .tiptap-btn-secondary {
   background: transparent;
-  color: var(--text-main, #374151);
-  border: 1px solid var(--border, #e5e7eb);
+  color: var(--text-main);
+  border-color: var(--border-dark);
 }
 
-.tiptap-btn-secondary:hover {
-  background: var(--light-gray, #f3f4f6);
+.tiptap-btn-secondary:hover,
+.tiptap-bottom-bar .tiptap-btn-secondary:hover {
+  background: var(--surface-light);
+  border-color: var(--text-muted);
 }
 
 .tiptap-color-picker {
   width: 28px;
   height: 28px;
-  border: 2px solid var(--border, #e5e7eb);
-  border-radius: 6px;
+  border: 2px solid var(--border-dark);
+  border-radius: var(--radius-sm);
   padding: 0;
   cursor: pointer;
   background: none;
 }
 
-/* ── Dark theme ───────────────────────────────────────── */
-[data-theme="dark"] .tiptap-toolbar,
-[data-theme="dark"] .tiptap-bottom-bar,
-[data-theme="dark"] .tiptap-meta {
-  background: rgba(30,41,59,0.95);
-}
-
-[data-theme="dark"] .tiptap-toolbar-btn { color: #e2e8f0; }
-[data-theme="dark"] .tiptap-toolbar-btn:hover { background: rgba(var(--primary-rgb),0.15); }
-
-[data-theme="dark"] #block-canvas {
-  background:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-
-[data-theme="dark"] .fb {
-  background: var(--surface-dark, #1e293b);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-}
-
-[data-theme="dark"] .fb:hover { border-color: rgba(255,255,255,0.1); }
-
-[data-theme="dark"] .fb-hdr {
-  background: rgba(255,255,255,0.03);
-  border-color: rgba(255,255,255,0.05);
-}
-
-[data-theme="dark"] .fb-editor .tiptap { color: #e2e8f0; }
-[data-theme="dark"] .fb-btn { color: #6b7280; }
-[data-theme="dark"] .fb-btn:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; }
-
-[data-theme="dark"] .tiptap-btn-secondary {
-  color: #e2e8f0;
-  border-color: rgba(255,255,255,0.1);
-}
-
-[data-theme="dark"] .fb-drop { border-color: rgba(255,255,255,0.1); }
-[data-theme="dark"] .fb-drop:hover { background: rgba(var(--primary-rgb),0.05); }
+/* ── Dark theme: 토큰이 테마를 따라가므로 별도 오버라이드 불필요 ── */
 
 /* ── Inline preview ──────────────────────────────────────── */
 .inline-preview {
   position: relative;
   cursor: pointer;
-  background: var(--bg-body, #fff);
-  border-radius: 8px;
+  background: var(--bg-body);
+  border-radius: var(--radius-md);
   user-select: none;
 }
 
 .inline-preview-page {
-  font-family: 'Pretendard Variable', -apple-system, sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   line-height: 1.75;
-  color: var(--text-main, #1f2937);
+  color: var(--text-main);
   margin-bottom: 2rem;
 }
 
@@ -627,32 +591,29 @@
   content: attr(data-text);
 }
 .inline-preview-hint {
-  font-size: 0.78rem;
-  color: var(--text-muted, #9ca3af);
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 20px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
   padding: 0.3rem 1rem;
   display: inline-block;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-sm);
   margin: 1rem auto 0;
 }
 
-/* Hover state — subtle highlight to signal "clickable" */
+/* Hover state — "클릭해서 편집으로" 신호 */
 .inline-preview:hover .inline-preview-hint {
-  background: rgba(var(--primary-rgb),0.08);
+  background: var(--primary-soft);
   border-color: var(--primary);
   color: var(--primary);
 }
-
-[data-theme="dark"] .inline-preview { background: #0f172a; }
-[data-theme="dark"] .inline-preview-hint { background: #1e293b; border-color: rgba(255,255,255,0.1); }
 
 /* 사진 필터 (듀오톤/흑백) — 에디터·미리보기 공통 */
 .mag-filter-bw { filter: grayscale(1) contrast(1.03); }
 .mag-filter-duotone { filter: grayscale(1) brightness(1.04) sepia(0.55) saturate(1.7) hue-rotate(-18deg) contrast(1.02); }
 
-/* 여행 타임라인 블록 */
+/* 타임라인 블록 — 에디터에서는 흰 카드 위에 그리므로 라이트 고정색 유지 */
 .fb-body-timeline { overflow: auto; padding: 12px 14px; background: #fff; }
 .fb-tl-src { width: 100%; height: 100%; min-height: 140px; border: none; outline: none; resize: none; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; color: #2a2320; background: #fff; box-sizing: border-box; }
 .mag-timeline { font-size: 15px; line-height: 1.4; color: #2a2320; }
@@ -675,7 +636,7 @@
 .mag-timeline .mtl-label { color: #2a2320; font-weight: 500; }
 .mag-timeline .mtl-empty { color: #8a7c6d; font-size: .9em; }
 
-/* 여행 지도 블록 */
+/* 지도 블록 */
 .fb-body-map { overflow: hidden; padding: 0; background: #e9e6df; }
 .fb-map-render { width: 100%; height: 100%; }
 .mag-map { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -685,7 +646,7 @@
 .fb-editor.mag-dropcap .ProseMirror > p:first-of-type::first-letter,
 .mag-dropcap > p:first-of-type::first-letter {
   float: left;
-  font-family: 'Fraunces', 'Noto Serif KR', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 3.1em; line-height: 0.76; font-weight: 700;
-  color: #b4542f; padding: 0.02em 0.12em 0 0;
+  color: var(--primary); padding: 0.02em 0.12em 0 0;
 }
