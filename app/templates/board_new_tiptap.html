@@ -1,19 +1,58 @@
 {% extends "base.html" %}
 
-{% block title %}Write - Magazine{% endblock %}
+{% block title %}새 글 쓰기 · 매거진{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}">
 
 <style>
-  body { margin: 0; padding: 0; overflow-x: hidden; }
-  main.container {
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
+  /* 글쓰기는 전체 화면: 사이트 헤더·푸터 숨김 (.navbar 의 display 를 이기도록 클래스 선택자) */
+  body { overflow-x: hidden; }
+  body > .site-nav,
+  body > .site-footer { display: none !important; }
+  main.container { max-width: none; width: 100%; padding: 0; margin: 0; }
+
+  /* 템플릿이 소유한 툴바·메타 요소 (나머지 편집기 크롬은 tiptap-editor.css) */
+  .tiptap-toolbar .toolbar-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-right: var(--space-sm);
+    padding: 0 var(--space-xs);
+    color: var(--text-main);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
   }
-  body > nav { display: none; }
+  .tiptap-toolbar .toolbar-back:hover { color: var(--primary); }
+  .tiptap-toolbar .word-count {
+    margin: 0 var(--space-sm);
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .tiptap-meta { flex-wrap: wrap; }
+  .tiptap-meta input[type="text"] {
+    flex: 0 1 260px;
+    min-width: 200px;
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--input-radius);
+    background: var(--surface);
+    color: var(--text-main);
+  }
+  .tiptap-meta input[type="text"]::placeholder { color: var(--text-disabled); }
+  .tiptap-meta input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: var(--shadow-glow);
+  }
+  .tiptap-meta label { white-space: nowrap; margin: 0; }
+  .tiptap-meta input[type="checkbox"] { accent-color: var(--primary); }
 </style>
 {% endblock %}
 
@@ -22,11 +61,9 @@
   <form id="post-form" method="post" action="/board/new">
     <!-- Toolbar -->
     <div class="tiptap-toolbar" id="tiptap-toolbar">
-      <a href="/board/" style="text-decoration: none; color: inherit; font-weight: 600; font-size: 0.9rem; margin-right: 1rem;">
-        ← Stories
-      </a>
+      <a href="/board/" class="toolbar-back"><i class="bi bi-arrow-left"></i>글 목록</a>
       <div class="tiptap-toolbar-sep"></div>
-      <div id="wordCount" style="font-size: 0.78rem; color: var(--text-muted, #9ca3af); margin-right: 0.5rem;">0 words</div>
+      <div id="wordCount" class="word-count">0자</div>
       <div class="tiptap-toolbar-sep"></div>
       <!-- Toolbar buttons injected by JS -->
     </div>
@@ -42,18 +79,19 @@
       </select>
 
       <input type="text" name="tags" id="tags" placeholder="태그 (쉼표로 구분)"
-             value="{{ tags_value or '' }}" autocomplete="off" style="min-width:200px;">
-      {% include "_tag_suggestions.html" %}
+             value="{{ tags_value or '' }}" autocomplete="off">
 
       <label>
         <input type="checkbox" value="true" id="is_private" name="is_private">
-        Private
+        비공개
       </label>
 
       <label>
         <input type="checkbox" value="true" id="show_title" name="show_title" checked>
-        Show title
+        제목 표시
       </label>
+
+      {% include "_tag_suggestions.html" %}
     </div>
 
     <!-- Block Canvas -->
@@ -73,13 +111,29 @@
     <div class="tiptap-bottom-bar">
       <button type="submit" class="tiptap-btn tiptap-btn-primary">Publish</button>
       <button type="button" class="tiptap-btn tiptap-btn-secondary tiptap-btn-preview">Preview</button>
-      <a href="/board/" class="tiptap-btn tiptap-btn-secondary" style="text-decoration: none;">Cancel</a>
+      <a href="/board/" class="tiptap-btn tiptap-btn-secondary">Cancel</a>
     </div>
   </form>
 </div>
 
 <script>
 window.DRAFT_ID = "{{ draft_id }}";
+</script>
+<script>
+// 글자 수 (공백 제외) — 블록 본문만 센다
+(function () {
+  const out = document.getElementById('wordCount');
+  const canvas = document.getElementById('block-canvas');
+  if (!out || !canvas) return;
+  function update() {
+    let n = 0;
+    canvas.querySelectorAll('.fb-editor').forEach(el => { n += el.innerText.replace(/\s/g, '').length; });
+    out.textContent = `${n.toLocaleString()}자`;
+  }
+  canvas.addEventListener('input', update);
+  canvas.addEventListener('keyup', update);
+  setTimeout(update, 800);
+})();
 </script>
 <script type="module" src="{{ url_for('static', path='editor/board_new_tiptap.js') }}?v={{ asset_ver('editor/board_new_tiptap.js') }}"></script>
 {% endblock %}

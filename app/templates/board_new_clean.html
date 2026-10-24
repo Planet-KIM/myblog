@@ -1,30 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Write{% endblock %}
+{% block title %}새 글 쓰기{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/writing-enhanced.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
 
 <style>
-  body {
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-  }
-
-  /* 글쓰기 페이지: main 컨테이너 전체 너비로 */
-  main.container {
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
-  }
-
-  /* Hide default nav */
-  body > nav {
-    display: none;
-  }
+  /* 글쓰기는 전체 화면: 사이트 헤더·푸터 숨김 (.navbar 의 display 를 이기도록 클래스 선택자) */
+  body { overflow-x: hidden; }
+  body > .site-nav,
+  body > .site-footer { display: none !important; }
+  main.container { max-width: none; width: 100%; padding: 0; margin: 0; }
 </style>
 {% endblock %}
 
@@ -33,37 +20,37 @@
   <!-- Clean, minimal toolbar -->
   <div class="clean-toolbar">
     <div class="toolbar-left">
-      <a href="/board/" style="text-decoration: none; color: inherit; font-weight: 600; font-size: 1rem;">
-        ← Stories
-      </a>
+      <a href="/board/" class="toolbar-back"><i class="bi bi-arrow-left"></i>글 목록</a>
 
-      <div class="word-count-display" id="wordCount">0 words</div>
+      <div class="word-count-display" id="wordCount">0자</div>
     </div>
 
     <div class="toolbar-right">
       <!-- Text color -->
       <div class="color-control">
-        <label>Text</label>
+        <label for="textColorPicker">글자</label>
         <div class="color-input-wrapper">
-          <input type="color" id="textColorPicker" value="#1a1a1a" title="Text color">
+          <input type="color" id="textColorPicker" value="#262019" title="글자 색">
         </div>
       </div>
 
       <!-- Background color -->
       <div class="color-control">
-        <label>Background</label>
+        <label for="bgColorPicker">배경</label>
         <div class="color-input-wrapper">
-          <input type="color" id="bgColorPicker" value="#ffffff" title="Background color">
+          <input type="color" id="bgColorPicker" value="#ffffff" title="배경 색">
         </div>
       </div>
 
       <!-- Reset -->
-      <button type="button" class="clean-btn clean-btn-secondary" id="resetColors" title="Reset colors">
-        Reset
+      <button type="button" class="clean-btn clean-btn-secondary" id="resetColors" title="색 초기화">
+        초기화
       </button>
 
+      <div class="toolbar-divider"></div>
+
       <!-- Theme toggle -->
-      <button class="theme-btn" id="themeToggle" title="Toggle dark mode">
+      <button type="button" class="theme-btn" id="themeToggle" title="다크 모드 전환" aria-label="다크 모드 전환">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="sunIcon">
           <circle cx="12" cy="12" r="5"></circle>
           <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -81,16 +68,16 @@
       </button>
 
       <!-- Layout switcher -->
-      <div class="layout-switcher" title="Content layout">
-        <button class="layout-btn" data-layout="left"    title="Left">&#9001;</button>
-        <button class="layout-btn" data-layout="center"  title="Center">&#9632;</button>
-        <button class="layout-btn" data-layout="full"    title="Full width">&#9644;</button>
-        <button class="layout-btn" data-layout="right"   title="Right">&#9002;</button>
+      <div class="layout-switcher" title="본문 폭">
+        <button type="button" class="layout-btn" data-layout="left"   title="왼쪽 정렬" aria-label="왼쪽 정렬"><i class="bi bi-align-start"></i></button>
+        <button type="button" class="layout-btn" data-layout="center" title="가운데" aria-label="가운데"><i class="bi bi-align-center"></i></button>
+        <button type="button" class="layout-btn" data-layout="full"   title="전체 폭" aria-label="전체 폭"><i class="bi bi-arrow-left-right"></i></button>
+        <button type="button" class="layout-btn" data-layout="right"  title="오른쪽 정렬" aria-label="오른쪽 정렬"><i class="bi bi-align-end"></i></button>
       </div>
 
       <!-- Focus mode -->
       <button type="button" class="clean-btn clean-btn-secondary" id="focusToggle">
-        Focus
+        <i class="bi bi-arrows-fullscreen"></i>집중 모드
       </button>
     </div>
   </div>
@@ -107,18 +94,19 @@
       </select>
 
       <input type="text" name="tags" id="tags" placeholder="태그 (쉼표로 구분)"
-             value="{{ tags_value or '' }}" autocomplete="off" style="min-width:200px;">
-      {% include "_tag_suggestions.html" %}
+             value="{{ tags_value or '' }}" autocomplete="off">
 
       <label>
         <input type="checkbox" value="true" id="is_private" name="is_private">
-        Private
+        비공개
       </label>
 
       <label>
         <input type="checkbox" value="true" id="show_title" name="show_title" checked>
-        Show title
+        제목 표시
       </label>
+
+      {% include "_tag_suggestions.html" %}
     </div>
 
     <!-- The editor - Pure, spacious, distraction-free -->
@@ -135,16 +123,16 @@
 
     <!-- Fixed action bar at bottom -->
     <div class="bottom-action-bar">
-      <button type="submit" class="clean-btn clean-btn-primary">Publish</button>
-      <button type="button" class="clean-btn clean-btn-secondary" id="saveDraft">Save Draft</button>
-      <a href="/board/" class="clean-btn clean-btn-secondary" style="text-decoration: none;">Cancel</a>
+      <a href="/board/" class="clean-btn clean-btn-secondary">취소</a>
+      <button type="button" class="clean-btn clean-btn-secondary" id="saveDraft">임시 저장</button>
+      <button type="submit" class="clean-btn clean-btn-primary">발행하기</button>
     </div>
   </form>
 </div>
 
 <!-- Focus 모드 종료 버튼 (우측 하단 고정) -->
-<button id="focusExitBtn" title="Focus 모드 종료 (ESC)">
-  ✕ Exit Focus
+<button type="button" id="focusExitBtn" title="집중 모드 끝내기 (ESC)">
+  <i class="bi bi-fullscreen-exit"></i>집중 모드 끝내기
 </button>
 
 <script>
@@ -207,14 +195,12 @@ let focusMode = false;
 function enterFocus() {
   focusMode = true;
   document.body.classList.add('focus-active');
-  focusToggle.textContent = 'Focus';
   focusExitBtn.style.display = 'flex';
 }
 
 function exitFocus() {
   focusMode = false;
   document.body.classList.remove('focus-active');
-  focusToggle.textContent = 'Focus';
   focusExitBtn.style.display = 'none';
 }
 
@@ -226,11 +212,15 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && focusMode) exitFocus();
 });
 
-// Word count
+// 글자 수 (공백 제외) — 에디터에 입력할 때마다 갱신
 function updateWordCount(text) {
-  const words = text.trim().split(/\s+/).filter(word => word.length > 0).length;
-  document.getElementById('wordCount').textContent = `${words} words`;
+  const chars = text.replace(/\s/g, '').length;
+  document.getElementById('wordCount').textContent = `${chars.toLocaleString()}자`;
 }
+document.addEventListener('input', (e) => {
+  const pm = e.target.closest && e.target.closest('.ProseMirror');
+  if (pm) updateWordCount(pm.innerText);
+});
 
 // Color management
 const textColorPicker = document.getElementById('textColorPicker');
@@ -278,11 +268,11 @@ bgColorPicker.addEventListener('input', (e) => {
   applyBgColor(e.target.value);
 });
 
-// Reset colors
+// Reset colors — 현재 테마 토큰 값으로
 resetColorsBtn.addEventListener('click', () => {
-  const theme = html.getAttribute('data-theme');
-  const defaultText = theme === 'dark' ? '#e8e6e3' : '#1a1a1a';
-  const defaultBg = theme === 'dark' ? '#1e1e1e' : '#ffffff';
+  const tokens = getComputedStyle(html);
+  const defaultText = tokens.getPropertyValue('--text-primary').trim();
+  const defaultBg = tokens.getPropertyValue('--surface').trim();
 
   textColorPicker.value = defaultText;
   bgColorPicker.value = defaultBg;
@@ -294,6 +284,13 @@ resetColorsBtn.addEventListener('click', () => {
 // Load saved colors
 const savedTextColor = localStorage.getItem('editorTextColor');
 const savedBgColor = localStorage.getItem('editorBgColor');
+
+// 저장된 색이 없으면 스와치를 현재 테마 색으로 표시
+{
+  const tokens = getComputedStyle(html);
+  if (!savedTextColor) textColorPicker.value = tokens.getPropertyValue('--text-primary').trim();
+  if (!savedBgColor) bgColorPicker.value = tokens.getPropertyValue('--surface').trim();
+}
 
 if (savedTextColor) {
   textColorPicker.value = savedTextColor;
