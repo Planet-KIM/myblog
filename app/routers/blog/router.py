@@ -477,7 +477,7 @@ def read_index(
     latest_query = visible_posts_query(with_options=True)
     board_posts = latest_query.order_by(models.BoardPost.created_at.desc()).limit(5).all()
 
-    # 히어로 아래 featured: 조회수 높은 공개 글 3개 (없으면 최신)
+    # 히어로 아래 featured: 조회수 높은 공개 글 4개 (없으면 최신) — 커버 스토리 1 + 옆 목록 3
     featured_posts = (
         visible_posts_query(with_options=True)
         .outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id)
@@ -485,7 +485,7 @@ def read_index(
             func.coalesce(models.PostStats.views, 0).desc(),
             models.BoardPost.created_at.desc(),
         )
-        .limit(3)
+        .limit(4)
         .all()
     )
 
@@ -621,6 +621,7 @@ def read_index(
             "board_posts": board_posts,
             "featured_posts": featured_posts,
             "featured_bloggers": featured_bloggers,
+            "today": datetime.now(),
             "blogger_count": blogger_count,
             "tag_total": tag_total,
             "categories": categories,

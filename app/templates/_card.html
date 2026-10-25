@@ -3,7 +3,7 @@
    Bootstrap 유틸리티만 쓴다. 홈(bento)·아카이브(story-card)는 전용 디자인. #}
 {% macro post_card(post, show_author=true) %}
     <div class="col-12 col-md-6">
-      <article class="travel-card h-100">
+      <article class="travel-card h-100" data-vt-card>
         {# 카드 전체 클릭: 오버레이(z-2)가 본문 위, 작성자 링크(z-3)만 그 위 #}
         <a href="/board/{{ post.id }}" class="card-link-overlay z-2" aria-label="{{ post.title }}"></a>
         {% if post.thumbnail %}
@@ -33,7 +33,7 @@
             {% if post.is_private %}<span class="badge-tint badge-tint-rose"><i class="bi bi-lock"></i>비공개</span>{% endif %}
           </div>
           {% endif %}
-          <h3 class="card-title">
+          <h3 class="card-title" data-vt-title>
             <a href="/board/{{ post.id }}">
               {% if post.show_title != False %}{{ post.title or 'Untitled' }}{% else %}Untitled{% endif %}
             </a>

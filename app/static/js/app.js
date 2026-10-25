@@ -357,3 +357,22 @@ window.AppUtils = {
   theme: window.theme,
   loading: window.loading
 };
+// ─────────────────────────────────────────────
+// Page transitions: 클릭한 글 카드의 제목만 'post-title' 로 이름 붙여
+// 글 상세 제목(.article-title)으로 이어지게 한다. 같은 이름이 한 페이지에
+// 둘 이상이면 전환이 취소되므로, 매번 이전 이름을 지우고 하나만 붙인다.
+// ─────────────────────────────────────────────
+document.addEventListener('click', (event) => {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+  document.querySelectorAll('[data-vt-title]').forEach((el) => { el.style.viewTransitionName = ''; });
+
+  const card = event.target.closest('[data-vt-card]');
+  if (!card || event.target.closest('button, form')) return;
+
+  const title = card.querySelector('[data-vt-title]');
+  if (!title) return;
+  // 글 상세에서 관련 글을 누른 경우: 현재 제목과 이름이 겹치지 않게 비운다
+  document.querySelectorAll('.article-title').forEach((el) => { el.style.viewTransitionName = 'none'; });
+  title.style.viewTransitionName = 'post-title';
+});

@@ -8,91 +8,111 @@
 
 {% block content %}
 
-{# ─── Hero ───────────────────────────────────────────────── #}
-<section class="home-hero">
-  <span class="eyebrow">Blog portal</span>
-  <h1 class="home-hero-title">모든 이야기가<br>여기 모입니다</h1>
-  <p class="lead-text">코드·강의·일상까지, 다양한 블로그의 글을 한 화면에서 둘러보세요.</p>
-  <div class="meta-row home-hero-stats">
-    <span>블로거 {{ blogger_count }}</span>
-    <span>글 {{ visible_post_total }}</span>
-    <span>태그 {{ tag_total }}</span>
+{# ─── Masthead: 잡지 제호 자리 — 소개는 짧게, 주인공은 아래 커버 스토리 ─── #}
+<section class="home-masthead">
+  <div class="masthead-intro">
+    <span class="eyebrow">Blog portal</span>
+    <h1 class="masthead-title">모든 이야기가 여기 모입니다</h1>
   </div>
-  <div class="home-hero-cta">
-    <a href="/explore" class="btn-travel">블로그 둘러보기</a>
-    <a href="{% if current_user %}/board/new{% else %}/auth/signup{% endif %}" class="btn-ghost">
-      {% if current_user %}글 쓰기{% else %}내 블로그 시작{% endif %}
-    </a>
+  <div class="masthead-aside">
+    <p class="masthead-lead">코드·강의·일상까지, 여러 블로그의 글을 한 화면에서 둘러보세요.</p>
+    <div class="meta-row">
+      <span>{{ today.year }}년 {{ today.month }}월 {{ today.day }}일</span>
+      <span>블로거 {{ blogger_count }}</span>
+      <span>글 {{ visible_post_total }}</span>
+    </div>
+    <div class="masthead-cta">
+      <a href="/explore" class="btn-travel">블로그 둘러보기</a>
+      <a href="{% if current_user %}/board/new{% else %}/auth/signup{% endif %}" class="btn-ghost">
+        {% if current_user %}글 쓰기{% else %}내 블로그 시작{% endif %}
+      </a>
+    </div>
   </div>
 </section>
 
-{# ─── Featured (지금 인기 있는 글) ───────────────────────────── #}
+{# ─── Cover: 이미지가 있는 인기 글을 커버로, 나머지는 번호 목록 ─── #}
 {% if featured_posts and not search_query and not selected_category_id %}
-<section class="home-section">
-  <div class="home-section-head">
-    <h2>지금 인기 있는 글</h2>
-    <a href="/board/?sort=popular" class="section-link">더 보기 <i class="bi bi-arrow-right"></i></a>
-  </div>
-  <div class="featured-grid">
-    {% for post in featured_posts %}
-    <a href="/board/{{ post.id }}" class="featured-card">
-      <span class="featured-thumb">
-        {% if post.thumbnail %}
-        <img src="{{ post.thumbnail }}" alt="" loading="lazy" onerror="this.closest('.featured-thumb').classList.add('no-img');">
+{% set _with_img = featured_posts | selectattr('thumbnail') | list %}
+{% set cover = (_with_img or featured_posts) | first %}
+<section class="home-cover" aria-label="커버 스토리">
+  <article class="cover-story{% if not cover.thumbnail %} is-typographic{% endif %}" data-vt-card>
+    <a href="/board/{{ cover.id }}" class="cover-link">
+      <span class="cover-text">
+        <span class="eyebrow">Cover story{% if cover.category %} · {{ cover.category.name }}{% endif %}</span>
+        <span class="cover-title" data-vt-title>{% if cover.show_title != False %}{{ cover.title or 'Untitled' }}{% else %}Untitled{% endif %}</span>
+        {% if cover.preview %}<span class="cover-preview">{{ cover.preview }}</span>{% endif %}
+      </span>
+    </a>
+    <div class="meta-row cover-byline">
+      {% if cover.user and cover.user.handle %}
+      <a href="/@{{ cover.user.handle }}" class="cover-author">
+        {% if cover.user.avatar_url %}
+        <img src="{{ cover.user.avatar_url }}" alt="" class="avatar avatar-sm">
+        {% else %}
+        <span class="avatar avatar-sm">{{ (cover.user.display_name or cover.user.handle)[0]|upper }}</span>
         {% endif %}
-      </span>
-      <span class="featured-body">
-        {% if post.category %}<span class="eyebrow">{{ post.category.name }}</span>{% endif %}
-        <span class="featured-title">{% if post.show_title != False %}{{ post.title or 'Untitled' }}{% else %}Untitled{% endif %}</span>
-        <span class="featured-preview">{{ post.preview }}</span>
-        <span class="meta-row">
-          {% if post.user and post.user.handle %}<span>@{{ post.user.handle }}</span>{% endif %}
-          <span>조회 {{ post.view_count }}</span>
-          {% if post.reading_minutes %}<span>{{ post.reading_minutes }}분</span>{% endif %}
-        </span>
-      </span>
-    </a>
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
-
-{# ─── 주목받는 블로거 ───────────────────────────────────────── #}
-{% if featured_bloggers and not search_query and not selected_category_id %}
-<section class="home-section">
-  <div class="home-section-head">
-    <h2>주목받는 블로거</h2>
-    <a href="/explore" class="section-link">전체 보기 <i class="bi bi-arrow-right"></i></a>
-  </div>
-  <div class="bloggers-row">
-    {% for b in featured_bloggers %}
-    <a href="/@{{ b.user.handle }}" class="blogger-card"
-       {% if b.user.accent_color %}style="--blog-accent: {{ b.user.accent_color }};"{% endif %}>
-      {% if b.user.avatar_url %}
-      <img src="{{ b.user.avatar_url }}" alt="" class="avatar avatar-lg blogger-avatar" onerror="this.style.display='none';">
-      {% else %}
-      <span class="avatar avatar-lg blogger-avatar">{{ (b.user.display_name or b.user.handle or '?')[0]|upper }}</span>
+        {{ cover.user.display_name or ('@' ~ cover.user.handle) }}
+      </a>
       {% endif %}
-      {% set bname = b.user.blog_title or b.user.display_name %}
-      <span class="blogger-name">{{ bname or ('@' ~ b.user.handle) }}</span>
-      {% if bname %}<span class="blogger-handle">@{{ b.user.handle }}</span>{% endif %}
-      <span class="blogger-count">글 {{ b.post_count }}</span>
-    </a>
-    {% endfor %}
-    {% if current_user %}
-    <a href="/me/profile" class="blogger-card blogger-card-cta">
-      <span class="avatar avatar-lg blogger-avatar"><i class="bi bi-person-gear"></i></span>
-      <span class="blogger-name">내 블로그 꾸미기</span>
-      <span class="blogger-handle">프로필 편집</span>
-    </a>
-    {% else %}
-    <a href="/auth/signup" class="blogger-card blogger-card-cta">
-      <span class="avatar avatar-lg blogger-avatar"><i class="bi bi-plus-lg"></i></span>
-      <span class="blogger-name">블로거 되기</span>
-      <span class="blogger-handle">무료로 시작</span>
+      <span>{{ cover.created_at.strftime("%Y.%m.%d") }}</span>
+      <span>{{ cover.reading_minutes }}분</span>
+      <span>조회 {{ cover.view_count }}</span>
+    </div>
+    {% if cover.thumbnail %}
+    {# 같은 글로 가는 두 번째 링크 — 스크린리더·탭 순서에서는 제외 #}
+    <a href="/board/{{ cover.id }}" class="cover-media" tabindex="-1" aria-hidden="true">
+      <img src="{{ cover.thumbnail }}" alt="" fetchpriority="high" decoding="async"
+           onerror="this.closest('.cover-story').classList.add('is-typographic'); this.parentElement.remove();">
     </a>
     {% endif %}
-  </div>
+  </article>
+
+  <aside class="cover-side">
+    <h2 class="home-label">많이 읽은 글</h2>
+    <ol class="most-read">
+      {% for p in featured_posts if p.id != cover.id %}
+      <li data-vt-card>
+        <a href="/board/{{ p.id }}" class="most-read-item">
+          <span class="most-read-num" aria-hidden="true">{{ loop.index }}</span>
+          <span class="most-read-body">
+            {% if p.category %}<span class="eyebrow">{{ p.category.name }}</span>{% endif %}
+            <span class="most-read-title" data-vt-title>{% if p.show_title != False %}{{ p.title or 'Untitled' }}{% else %}Untitled{% endif %}</span>
+            <span class="meta-row">
+              {% if p.user and p.user.handle %}<span>@{{ p.user.handle }}</span>{% endif %}
+              <span>조회 {{ p.view_count }}</span>
+            </span>
+          </span>
+          {% if p.thumbnail %}
+          <img class="most-read-thumb" src="{{ p.thumbnail }}" alt="" loading="lazy" onerror="this.remove();">
+          {% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ol>
+
+    {% if featured_bloggers %}
+    <h2 class="home-label">오늘의 작가</h2>
+    <ul class="cover-authors">
+      {% for b in featured_bloggers[:4] %}
+      <li>
+        <a href="/@{{ b.user.handle }}" class="cover-author-item"
+           {% if b.user.accent_color %}style="--blog-accent: {{ b.user.accent_color }};"{% endif %}>
+          {% if b.user.avatar_url %}
+          <img src="{{ b.user.avatar_url }}" alt="" class="avatar blogger-avatar" onerror="this.style.display='none';">
+          {% else %}
+          <span class="avatar blogger-avatar">{{ (b.user.display_name or b.user.handle or '?')[0]|upper }}</span>
+          {% endif %}
+          <span class="cover-author-name">{{ b.user.blog_title or b.user.display_name or ('@' ~ b.user.handle) }}</span>
+          <span class="cover-author-count">글 {{ b.post_count }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    <a href="{% if current_user %}/explore{% else %}/auth/signup{% endif %}" class="section-link">
+      {% if current_user %}블로거 더 보기{% else %}나도 블로거 되기{% endif %} <i class="bi bi-arrow-right"></i>
+    </a>
+    {% endif %}
+  </aside>
 </section>
 {% endif %}
 
@@ -176,7 +196,7 @@
       {% if posts %}
         {% for post in posts %}
         <div class="{{ card_sizes[loop.index0] if card_sizes else 'bento-1' }}">
-          <article class="travel-card {{ post.card_variant }}">
+          <article class="travel-card {{ post.card_variant }}" data-vt-card>
             <a href="/board/{{ post.id }}" class="card-link-overlay" aria-label="{{ post.title }}"></a>
 
             {% if post.thumbnail %}
@@ -208,15 +228,10 @@
               </a>
               {% endif %}
 
-              <div class="card-top-meta">
-                {% if post.category %}
-                <span class="badge-tint badge-tint-{{ category_tones.get(post.category.id, 'sea') }}">{{ post.category.name }}</span>
-                {% endif %}
-                <span class="post-type-badge type-{{ post.post_type }}">{{ post.type_label }}</span>
-              </div>
+              <span class="eyebrow card-kicker">{% if post.category %}{{ post.category.name }} · {% endif %}{{ post.type_label }}</span>
 
               {% if post.show_title != False %}
-              <h3 class="card-title">
+              <h3 class="card-title" data-vt-title>
                 <a href="/board/{{ post.id }}">{{ post.title }}</a>
               </h3>
               {% endif %}

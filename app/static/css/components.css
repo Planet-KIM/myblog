@@ -732,3 +732,37 @@ input[type="search"]::-webkit-search-cancel-button {
   color: var(--text-primary) !important;
   background: var(--surface-light) !important;
 }
+
+/* ─────────────────────────────────────────────
+   Page transitions — View Transitions API (크로스 문서)
+   지원 브라우저(크롬 계열·최신 사파리)에서만 동작하고, 나머지는 평소처럼 이동.
+   - 헤더는 고정된 채로, 본문만 짧게 교차 페이드
+   - 클릭한 카드 제목(app.js 가 'post-title' 이름을 붙임) → 글 상세 제목으로 이어짐
+   ───────────────────────────────────────────── */
+@view-transition { navigation: auto; }
+
+.site-nav { view-transition-name: site-nav; }
+.article-title { view-transition-name: post-title; }
+
+::view-transition-group(*) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 180ms; }
+
+/* 제목은 늘이지 않고 왼쪽 위 기준으로 크기만 옮겨 간다 */
+::view-transition-old(post-title),
+::view-transition-new(post-title) {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  object-position: left top;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}

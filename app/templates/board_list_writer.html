@@ -380,7 +380,7 @@
           {% if posts %}
             {% for post in posts %}
             {% set _who = post.user.display_name or post.user.handle or post.author or '?' %}
-            <article class="story-card" onclick="window.location.href='/board/{{ post.id }}'">
+            <article class="story-card" data-vt-card onclick="window.location.href='/board/{{ post.id }}'">
               <div class="story-kicker">
                 {% if post.category %}
                   <span class="eyebrow">{{ post.category.name }}</span>
@@ -393,7 +393,7 @@
                 {% endif %}
               </div>
 
-              <a href="/board/{{ post.id }}" class="story-title">
+              <a href="/board/{{ post.id }}" class="story-title" data-vt-title>
                 {% if post.show_title != False %}
                   {{ post.title or 'Untitled' }}
                 {% else %}
