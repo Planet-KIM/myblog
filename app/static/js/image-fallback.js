@@ -4,6 +4,7 @@
  * Mark an <img> with data-img-fallback="<action>":
  *   hide           hide the image (img.hidden; Bootstrap makes [hidden] display:none)
  *   remove         remove the image from the DOM
+ *   hide-parent    hide the image's parent element (e.g. a thumbnail frame)
  *   remove-parent  remove the image's parent element
  * Optionally add data-img-fallback-scope="<selector>" and data-img-fallback-class="<class>"
  * to put a class on the closest matching ancestor first (e.g. switch a card to
@@ -25,6 +26,7 @@
   const ACTIONS = {
     hide: (img) => { img.hidden = true; },
     remove: (img) => { img.remove(); },
+    'hide-parent': (img) => { if (img.parentElement) img.parentElement.hidden = true; },
     'remove-parent': (img) => { if (img.parentElement) img.parentElement.remove(); },
   };
 

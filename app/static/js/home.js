@@ -1,6 +1,6 @@
 /**
- * home.js — Main page (index) interaction layer
- * (검색 단축키, 좋아요/북마크/팔로우, 뉴스레터, 이어 읽기)
+ * @file home.js — Main page (index) interaction layer
+ * (검색 단축키, 좋아요/북마크/팔로우, 뉴스레터, 이어 읽기, 정렬 자동 적용)
  */
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -178,3 +178,31 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 });
+
+/**
+ * Submit a select's form as soon as its value changes (replaces the inline
+ * onchange="this.form.submit()" on the home sort select).
+ *
+ * Mark the control with data-autosubmit. Delegated on document, so it is
+ * active from the moment this script runs and also covers controls added
+ * later. Like the inline handler it calls form.submit(), which navigates
+ * without firing a submit event.
+ *
+ * @returns {void}
+ */
+(function setupAutoSubmit() {
+  /**
+   * Submit the form of the changed [data-autosubmit] control, if any.
+   *
+   * @param {Event} event - Change event from anywhere in the document.
+   * @returns {void}
+   */
+  function submitOnChange(event) {
+    const control = event.target.closest && event.target.closest('[data-autosubmit]');
+    if (control && control.form) {
+      control.form.submit();
+    }
+  }
+
+  document.addEventListener('change', submitOnChange);
+})();

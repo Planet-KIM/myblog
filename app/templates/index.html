@@ -162,7 +162,7 @@
       <input type="hidden" name="q" value="{{ search_query }}">
       {% endif %}
       <label for="home-sort" class="visually-hidden">정렬</label>
-      <select name="sort" id="home-sort" class="form-select form-select-sm curation-sort" onchange="this.form.submit()">
+      <select name="sort" id="home-sort" class="form-select form-select-sm curation-sort" data-autosubmit>
         <option value="recent" {% if selected_sort == 'recent' %}selected{% endif %}>최신순</option>
         <option value="popular" {% if selected_sort == 'popular' %}selected{% endif %}>인기순</option>
         <option value="discussed" {% if selected_sort == 'discussed' %}selected{% endif %}>토론순</option>
@@ -218,7 +218,7 @@
                 loading="{% if loop.first %}eager{% else %}lazy{% endif %}"
                 fetchpriority="{% if loop.first %}high{% else %}auto{% endif %}"
                 decoding="async"
-                onerror="this.parentElement.style.display='none';"
+                data-img-fallback="hide-parent"
               >
             </div>
             {% endif %}
@@ -228,7 +228,7 @@
               <a class="card-author" href="/@{{ post.user.handle }}"
                  {% if post.user.accent_color %}style="--blog-accent: {{ post.user.accent_color }};"{% endif %}>
                 {% if post.user.avatar_url %}
-                <img src="{{ post.user.avatar_url }}" alt="" class="avatar avatar-sm card-avatar" onerror="this.style.display='none';">
+                <img src="{{ post.user.avatar_url }}" alt="" class="avatar avatar-sm card-avatar" data-img-fallback="hide">
                 {% else %}
                 <span class="avatar avatar-sm card-avatar">{{ (post.user.display_name or post.user.handle)[0]|upper }}</span>
                 {% endif %}

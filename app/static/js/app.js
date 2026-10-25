@@ -1,16 +1,32 @@
-/* ============================================
-   Planet KIM's Travel - Main JavaScript
-   ============================================ */
+/**
+ * @file Site-wide behavior loaded on every page (base.html): toasts, the nav
+ * theme toggle, the loading overlay, smooth in-page scrolling, lazy images,
+ * code-block copy buttons, form validation, the nav active state and page
+ * transitions. Exposes window.toast, window.theme, window.loading and
+ * window.AppUtils for page scripts.
+ */
 
 // ─────────────────────────────────────────────
 // Toast Notification System
 // ─────────────────────────────────────────────
+/**
+ * Small toast notifications stacked in a fixed .toast-container.
+ * Available as window.toast after DOMContentLoaded.
+ */
 class ToastManager {
+  /**
+   * Create the manager and attach (or reuse) the toast container.
+   */
   constructor() {
     this.container = null;
     this.init();
   }
 
+  /**
+   * Reuse an existing .toast-container or append a new one to <body>.
+   *
+   * @returns {void}
+   */
   init() {
     // Create toast container if it doesn't exist
     if (!document.querySelector('.toast-container')) {
@@ -22,6 +38,15 @@ class ToastManager {
     }
   }
 
+  /**
+   * Show a toast.
+   *
+   * @param {string} message - Message markup. Inserted as HTML, so escape any
+   *   user-provided text before passing it.
+   * @param {'success'|'error'|'warning'|'info'} [type='info'] - Visual style and icon.
+   * @param {number} [duration=5000] - Auto-dismiss delay in ms; 0 keeps it until closed.
+   * @returns {HTMLDivElement} The toast element.
+   */
   show(message, type = 'info', duration = 5000) {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type} fade-in`;
@@ -56,6 +81,12 @@ class ToastManager {
     return toast;
   }
 
+  /**
+   * Play the hide animation, then remove the toast from the DOM.
+   *
+   * @param {HTMLElement} toast - A toast created by show().
+   * @returns {void}
+   */
   remove(toast) {
     toast.classList.add('toast-hiding');
     setTimeout(() => {
@@ -65,18 +96,46 @@ class ToastManager {
     }, 300);
   }
 
+  /**
+   * Show a success toast. See show().
+   *
+   * @param {string} message - Message markup.
+   * @param {number} [duration] - Auto-dismiss delay in ms.
+   * @returns {HTMLDivElement} The toast element.
+   */
   success(message, duration) {
     return this.show(message, 'success', duration);
   }
 
+  /**
+   * Show an error toast. See show().
+   *
+   * @param {string} message - Message markup.
+   * @param {number} [duration] - Auto-dismiss delay in ms.
+   * @returns {HTMLDivElement} The toast element.
+   */
   error(message, duration) {
     return this.show(message, 'error', duration);
   }
 
+  /**
+   * Show a warning toast. See show().
+   *
+   * @param {string} message - Message markup.
+   * @param {number} [duration] - Auto-dismiss delay in ms.
+   * @returns {HTMLDivElement} The toast element.
+   */
   warning(message, duration) {
     return this.show(message, 'warning', duration);
   }
 
+  /**
+   * Show an info toast. See show().
+   *
+   * @param {string} message - Message markup.
+   * @param {number} [duration] - Auto-dismiss delay in ms.
+   * @returns {HTMLDivElement} The toast element.
+   */
   info(message, duration) {
     return this.show(message, 'info', duration);
   }
@@ -85,7 +144,15 @@ class ToastManager {
 // ─────────────────────────────────────────────
 // Theme Manager
 // ─────────────────────────────────────────────
+/**
+ * Light/dark theme switch: adds the toggle button to the nav and keeps
+ * <html data-theme>, <body data-bs-theme>, the theme-color meta tag and
+ * localStorage in sync. Available as window.theme.
+ */
 class ThemeManager {
+  /**
+   * Start from the theme the <head> script already applied (saved or OS).
+   */
   constructor() {
     // <head>의 FOUC 방지 스크립트가 이미 정한 테마(저장값 또는 OS 설정)를 그대로 따른다.
     this.theme =
@@ -95,6 +162,11 @@ class ThemeManager {
     this.init();
   }
 
+  /**
+   * Apply the current theme and add the toggle button.
+   *
+   * @returns {void}
+   */
   init() {
     // Apply saved theme
     this.applyTheme(this.theme);
@@ -103,6 +175,12 @@ class ThemeManager {
     this.createToggleButton();
   }
 
+  /**
+   * Insert the sun/moon toggle as the first item of the right-hand nav list.
+   * Does nothing on pages without that list (e.g. full-screen editors).
+   *
+   * @returns {void}
+   */
   createToggleButton() {
     const nav = document.querySelector('.navbar-nav.ms-auto');
     if (!nav) return;
@@ -116,9 +194,6 @@ class ThemeManager {
       ? '<i class="bi bi-sun"></i>'
       : '<i class="bi bi-moon"></i>';
     toggleBtn.title = 'Toggle theme';
-    toggleBtn.style.background = 'none';
-    toggleBtn.style.border = 'none';
-    toggleBtn.style.cursor = 'pointer';
     toggleBtn.setAttribute('aria-label', 'Toggle theme');
 
     toggleBtn.addEventListener('click', () => this.toggle());
@@ -127,6 +202,12 @@ class ThemeManager {
     nav.insertBefore(toggleLi, nav.firstChild);
   }
 
+  /**
+   * Apply a theme to the document and the browser UI color.
+   *
+   * @param {'light'|'dark'} theme - Theme to apply.
+   * @returns {void}
+   */
   applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     document.body.setAttribute('data-bs-theme', theme);
@@ -141,6 +222,11 @@ class ThemeManager {
     metaTheme.content = theme === 'dark' ? '#1a1511' : '#f8f4ee';
   }
 
+  /**
+   * Switch between light and dark, remember the choice and update the icon.
+   *
+   * @returns {void}
+   */
   toggle() {
     this.theme = this.theme === 'dark' ? 'light' : 'dark';
     this.applyTheme(this.theme);
@@ -159,12 +245,24 @@ class ThemeManager {
 // ─────────────────────────────────────────────
 // Loading Overlay
 // ─────────────────────────────────────────────
+/**
+ * Full-screen loading overlay with a spinner and a text line.
+ * Available as window.loading.
+ */
 class LoadingOverlay {
+  /**
+   * Create the overlay element (or reuse an existing one).
+   */
   constructor() {
     this.overlay = null;
     this.init();
   }
 
+  /**
+   * Reuse an existing .loading-overlay or append a new one to <body>.
+   *
+   * @returns {void}
+   */
   init() {
     if (!document.querySelector('.loading-overlay')) {
       this.overlay = document.createElement('div');
@@ -181,6 +279,12 @@ class LoadingOverlay {
     }
   }
 
+  /**
+   * Show the overlay.
+   *
+   * @param {string} [text='Loading...'] - Text under the spinner.
+   * @returns {void}
+   */
   show(text = 'Loading...') {
     const loadingText = this.overlay.querySelector('.loading-text');
     if (loadingText) {
@@ -189,6 +293,11 @@ class LoadingOverlay {
     this.overlay.classList.add('active');
   }
 
+  /**
+   * Hide the overlay.
+   *
+   * @returns {void}
+   */
   hide() {
     this.overlay.classList.remove('active');
   }
@@ -197,6 +306,13 @@ class LoadingOverlay {
 // ─────────────────────────────────────────────
 // Smooth Scroll
 // ─────────────────────────────────────────────
+/**
+ * Smooth-scroll in-page "#…" links to their target. Links whose hash is not a
+ * valid selector fall back to getElementById; links with no target keep the
+ * browser's default behavior.
+ *
+ * @returns {void}
+ */
 function initSmoothScroll() {
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) {
@@ -221,6 +337,12 @@ function initSmoothScroll() {
 // ─────────────────────────────────────────────
 // Lazy Loading Images
 // ─────────────────────────────────────────────
+/**
+ * Load img[data-src] when it scrolls into view (or immediately without
+ * IntersectionObserver), then drop the data-src attribute.
+ *
+ * @returns {void}
+ */
 function initLazyLoading() {
   const images = document.querySelectorAll('img[data-src]');
 
@@ -249,6 +371,11 @@ function initLazyLoading() {
 // ─────────────────────────────────────────────
 // Animate on Scroll
 // ─────────────────────────────────────────────
+/**
+ * Add .animated to .animate-on-scroll elements once 10% of them is visible.
+ *
+ * @returns {void}
+ */
 function initScrollAnimations() {
   const animatedElements = document.querySelectorAll('.animate-on-scroll');
 
@@ -270,6 +397,13 @@ function initScrollAnimations() {
 // ─────────────────────────────────────────────
 // Copy Code Blocks
 // ─────────────────────────────────────────────
+/**
+ * Wrap every <pre> in .code-wrapper and add a copy button that copies its
+ * text and confirms with a toast. Pages that render their own code blocks
+ * opt out by setting window.__skipCodeCopy before DOMContentLoaded.
+ *
+ * @returns {void}
+ */
 function initCodeCopy() {
   if (window.__skipCodeCopy) return;
   document.querySelectorAll('pre').forEach(pre => {
@@ -303,6 +437,12 @@ function initCodeCopy() {
 // ─────────────────────────────────────────────
 // Form Validation
 // ─────────────────────────────────────────────
+/**
+ * Bootstrap-style validation for forms with .needs-validation: block submit
+ * while invalid and add .was-validated to show the feedback styles.
+ *
+ * @returns {void}
+ */
 function initFormValidation() {
   const forms = document.querySelectorAll('.needs-validation');
 
@@ -320,6 +460,10 @@ function initFormValidation() {
 // ─────────────────────────────────────────────
 // Initialize Everything
 // ─────────────────────────────────────────────
+/**
+ * Boot the site once the DOM is ready: create the global helpers, run the
+ * feature initializers and mark the nav link for the current page as active.
+ */
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize global utilities
   window.toast = new ToastManager();
