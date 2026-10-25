@@ -744,6 +744,12 @@ input[type="search"]::-webkit-search-cancel-button {
 .site-nav { view-transition-name: site-nav; }
 .article-title { view-transition-name: post-title; }
 
+/* app.js 가 클릭한 카드의 제목에만 붙인다 → 글 상세 제목으로 이어짐 */
+[data-vt-title].is-transition-source { view-transition-name: post-title; }
+
+/* 글 상세에서 관련 글을 누를 때 현재 제목과 이름이 겹치지 않게 */
+.article-title.is-transition-muted { view-transition-name: none; }
+
 ::view-transition-group(*) {
   animation-duration: 320ms;
   animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);

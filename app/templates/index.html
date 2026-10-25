@@ -1,9 +1,19 @@
+{#
+  index.html: portal home — masthead, cover story with "많이 읽은 글" and
+  "오늘의 작가", curation bar, latest-post grid and sidebar.
+  Context: featured_posts, featured_bloggers, posts (+ card_sizes), board_posts,
+  ordered_categories, category_counts, recommended_blogs, popular_tags, today,
+  blogger_count, visible_post_total, selected_feed/sort/category_id, search_query.
+  Assets: static/css/home.css, static/js/image-fallback.js, static/js/home.js
+#}
 {% extends "base.html" %}
 {% block title %}Planet KIM — 홈{% endblock %}
 {% block body_class %}home-page{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/home.css') }}">
+{# Blocking on purpose (no defer): must listen before the first <img> is parsed. #}
+<script src="{{ url_for('static', path='js/image-fallback.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -62,7 +72,7 @@
     {# 같은 글로 가는 두 번째 링크 — 스크린리더·탭 순서에서는 제외 #}
     <a href="/board/{{ cover.id }}" class="cover-media" tabindex="-1" aria-hidden="true">
       <img src="{{ cover.thumbnail }}" alt="" fetchpriority="high" decoding="async"
-           onerror="this.closest('.cover-story').classList.add('is-typographic'); this.parentElement.remove();">
+           data-img-fallback="remove-parent" data-img-fallback-scope=".cover-story" data-img-fallback-class="is-typographic">
     </a>
     {% endif %}
   </article>
@@ -83,7 +93,7 @@
             </span>
           </span>
           {% if p.thumbnail %}
-          <img class="most-read-thumb" src="{{ p.thumbnail }}" alt="" loading="lazy" onerror="this.remove();">
+          <img class="most-read-thumb" src="{{ p.thumbnail }}" alt="" loading="lazy" data-img-fallback="remove">
           {% endif %}
         </a>
       </li>
@@ -98,7 +108,7 @@
         <a href="/@{{ b.user.handle }}" class="cover-author-item"
            {% if b.user.accent_color %}style="--blog-accent: {{ b.user.accent_color }};"{% endif %}>
           {% if b.user.avatar_url %}
-          <img src="{{ b.user.avatar_url }}" alt="" class="avatar blogger-avatar" onerror="this.style.display='none';">
+          <img src="{{ b.user.avatar_url }}" alt="" class="avatar blogger-avatar" data-img-fallback="hide">
           {% else %}
           <span class="avatar blogger-avatar">{{ (b.user.display_name or b.user.handle or '?')[0]|upper }}</span>
           {% endif %}

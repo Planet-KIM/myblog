@@ -1,3 +1,10 @@
+{#
+  board_list_writer.html: archive of every public post (/board/) — search,
+  feed/sort/category filters (re-rendered in place by AJAX) and the story list.
+  Context: posts, categories, selected_scope/sort/category_id, search_query,
+  current_page, total_pages, current_time.
+  Assets: static/js/board_list_writer.js (filters + whole-card links)
+#}
 {% extends "base.html" %}
 
 {% block title %}Archive{% endblock %}
@@ -380,7 +387,7 @@
           {% if posts %}
             {% for post in posts %}
             {% set _who = post.user.display_name or post.user.handle or post.author or '?' %}
-            <article class="story-card" data-vt-card onclick="window.location.href='/board/{{ post.id }}'">
+            <article class="story-card" data-vt-card data-card-href="/board/{{ post.id }}">
               <div class="story-kicker">
                 {% if post.category %}
                   <span class="eyebrow">{{ post.category.name }}</span>
@@ -465,5 +472,5 @@
   </div>
 </div>
 
-<script src="{{ url_for('static', path='js/board_list_writer.js') }}?v=1"></script>
+<script src="{{ url_for('static', path='js/board_list_writer.js') }}?v=2"></script>
 {% endblock %}

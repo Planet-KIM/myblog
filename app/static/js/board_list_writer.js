@@ -141,3 +141,29 @@
     refreshBoardResults(`${url.pathname}${url.search}`);
   });
 })();
+
+/**
+ * Make each whole story card a link to its post (replaces the inline onclick).
+ *
+ * Delegated on document so cards that the AJAX filter re-renders keep
+ * working. Like the old inline handler, it runs for every click inside a card,
+ * including clicks on the links within it.
+ *
+ * @returns {void}
+ */
+(function setupStoryCardLinks() {
+  /**
+   * Navigate to the post of the story card that was clicked, if any.
+   *
+   * @param {MouseEvent} event - Click anywhere in the document.
+   * @returns {void}
+   */
+  function openStoryCard(event) {
+    const card = event.target.closest("[data-card-href]");
+    if (card) {
+      window.location.href = card.dataset.cardHref;
+    }
+  }
+
+  document.addEventListener("click", openStoryCard);
+})();

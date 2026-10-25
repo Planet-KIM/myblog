@@ -357,22 +357,47 @@ window.AppUtils = {
   theme: window.theme,
   loading: window.loading
 };
-// ─────────────────────────────────────────────
-// Page transitions: 클릭한 글 카드의 제목만 'post-title' 로 이름 붙여
-// 글 상세 제목(.article-title)으로 이어지게 한다. 같은 이름이 한 페이지에
-// 둘 이상이면 전환이 취소되므로, 매번 이전 이름을 지우고 하나만 붙인다.
-// ─────────────────────────────────────────────
-document.addEventListener('click', (event) => {
-  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
-  document.querySelectorAll('[data-vt-title]').forEach((el) => { el.style.viewTransitionName = ''; });
+/**
+ * Page transitions: give the clicked post card's title the 'post-title'
+ * view-transition name so it morphs into the post page's .article-title.
+ *
+ * The name comes from CSS classes (components.css), not inline styles. Only one
+ * element per page may carry a given name, or the browser cancels the
+ * transition, so the previous mark is cleared on every click.
+ *
+ * @returns {void}
+ */
+(function initPageTransitions() {
+  /** Class that gives a card title the 'post-title' transition name. */
+  const SOURCE_CLASS = 'is-transition-source';
+  /** Class that removes the transition name from the current article title. */
+  const MUTED_CLASS = 'is-transition-muted';
 
-  const card = event.target.closest('[data-vt-card]');
-  if (!card || event.target.closest('button, form')) return;
+  /**
+   * Mark the title of the clicked post card as the transition source.
+   *
+   * Modified clicks (new tab/window) are ignored. Clicks on buttons or forms
+   * inside a card only clear the previous mark. On a post page the current
+   * .article-title is muted first, so a related-post click doesn't produce
+   * two elements with the same name.
+   *
+   * @param {MouseEvent} event - Click anywhere in the document.
+   * @returns {void}
+   */
+  function markTransitionSource(event) {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
-  const title = card.querySelector('[data-vt-title]');
-  if (!title) return;
-  // 글 상세에서 관련 글을 누른 경우: 현재 제목과 이름이 겹치지 않게 비운다
-  document.querySelectorAll('.article-title').forEach((el) => { el.style.viewTransitionName = 'none'; });
-  title.style.viewTransitionName = 'post-title';
-});
+    document.querySelectorAll('[data-vt-title]').forEach((el) => el.classList.remove(SOURCE_CLASS));
+
+    const card = event.target.closest('[data-vt-card]');
+    if (!card || event.target.closest('button, form')) return;
+
+    const title = card.querySelector('[data-vt-title]');
+    if (!title) return;
+    document.querySelectorAll('.article-title').forEach((el) => el.classList.add(MUTED_CLASS));
+    title.classList.add(SOURCE_CLASS);
+  }
+
+  document.addEventListener('click', markTransitionSource);
+})();
