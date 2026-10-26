@@ -22,7 +22,7 @@
 <!-- Highlight.js — 구문 색은 markdown-rendering.css 가 정의 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-<link rel="stylesheet" href="{{ url_for('static', path='css/board_detail_magazine.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/board_detail_magazine.css') }}?v={{ asset_ver('css/board_detail_magazine.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -176,7 +176,7 @@
   "recentDate": post.created_at.strftime('%m/%d')
 }|tojson }}</script>
 <script src="{{ url_for('static', path='js/board_detail.js') }}"></script>
-<script src="{{ url_for('static', path='js/board_detail_magazine.js') }}"></script>
+<script src="{{ url_for('static', path='js/board_detail_magazine.js') }}?v={{ asset_ver('js/board_detail_magazine.js') }}"></script>
 
 {# 코드블록 헤더(언어·복사) — 뷰어가 블록을 그린 뒤 실행 #}
 {% include "_reading_enhancements.html" %}

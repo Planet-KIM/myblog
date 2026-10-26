@@ -1,10 +1,11 @@
 /**
  * @file Magazine post page (board_detail_magazine.html): the page-flip viewer
  * built from the post's content blocks (with a linear reading mode for small
- * screens and print), the name prompt of the "save as layout template" form,
- * and hiding a duplicated title in HTML-bodied posts. The action bar, scroll
- * progress and recent-posts history are shared with the Markdown page in
- * board_detail.js.
+ * screens and print, and view options for two-page spreads and full width that
+ * are remembered in this browser), the name prompt of the "save as layout
+ * template" form, and hiding a duplicated title in HTML-bodied posts. The
+ * action bar, scroll progress and recent-posts history are shared with the
+ * Markdown page in board_detail.js.
  *
  * Load it WITHOUT defer right after board_detail.js: the viewer is built while
  * the page is parsed, before _reading_enhancements.html adds code-block
@@ -108,11 +109,12 @@
     const track = document.createElement('div');
     track.className = 'page-track';
 
-    const slides = pages.map((page, i) => {
+    // One slide per page; slides are grouped into views (one page, or a
+    // two-page spread) by buildViews().
+    const slides = pages.map(page => {
       const slide = document.createElement('div');
       slide.className = 'page-slide';
       slide.innerHTML = buildSlideHTML(page);
-      track.appendChild(slide);
       return slide;
     });
 
@@ -132,7 +134,7 @@
     const dots = pages.map((_, i) => {
       const d = document.createElement('button');
       d.className = 'page-dot' + (i === 0 ? ' active' : '');
-      d.addEventListener('click', () => goTo(i));
+      d.addEventListener('click', () => goTo(viewOfPage(i)));
       dotsBar.appendChild(d);
       return d;
     });
@@ -161,70 +163,153 @@
     modeToggle.addEventListener('click', () => {
       root.classList.toggle('reader-on');
       syncToggleLabel();
-      if (!root.classList.contains('reader-on')) scaleSlides();
+      applyLayout();
     });
+
+    // ── 보기 옵션: 두 페이지(펼침면) · 전체 폭 ───────────────
+    let spreadPref = readPref(PREF_SPREAD) === '1';
+    let fullPref = readPref(PREF_FULL) === '1';
+    const spreadToggle = makeOptionToggle('bi-book', '두 페이지', () => {
+      spreadPref = !spreadPref;
+      savePref(PREF_SPREAD, spreadPref);
+      applyLayout();
+    });
+    const fullToggle = makeOptionToggle('bi-arrows-angle-expand', '전체 폭', () => {
+      fullPref = !fullPref;
+      savePref(PREF_FULL, fullPref);
+      applyLayout();
+    });
+
     const modeBar = document.createElement('div');
     modeBar.className = 'mag-mode-bar';
-    modeBar.appendChild(modeToggle);
+    modeBar.append(modeToggle, spreadToggle, fullToggle);
     root.insertBefore(modeBar, root.firstChild);
     if (window.innerWidth < 640) root.classList.add('reader-on');  // 모바일 기본 읽기 모드
     syncToggleLabel();
 
     // ── State & transition ────────────────────────────────
-    let current = 0, animating = false;
+    let views = [];    // page indices shown together: [[0], [1], …] or [[0, 1], [2, 3], …]
+    let viewEls = [];  // one .page-view per entry of views
+    let current = 0, animating = false;  // current is an index into views
     const HALF = 210; // ms for each half of the flip
 
     /**
-     * Show only the slide at idx, without animation, and sync the dots,
-     * counter and prev/next buttons.
+     * Whether pages are shown as two-page spreads right now: the viewer asked
+     * for it, there is more than one page and the screen is wide enough.
      *
-     * @param {number} idx - Slide index.
-     * @returns {void}
+     * @returns {boolean} True for spreads.
      */
-    function showImmediate(idx) {
-      slides.forEach((s, i) => {
-        s.hidden = i !== idx;
-        s.className = 'page-slide';
-      });
-      dots.forEach((d, i) => d.classList.toggle('active', i === idx));
-      counter.textContent = `${idx + 1} / ${pages.length}`;
-      prevBtn.disabled = idx <= 0;
-      nextBtn.disabled = idx >= pages.length - 1;
+    function spreadActive() {
+      return spreadPref && pages.length > 1 && (root.clientWidth || window.innerWidth) >= SPREAD_MIN_WIDTH;
     }
 
     /**
-     * Flip to another slide: the current one turns away from the spine, then
+     * Index of the view that shows a page.
+     *
+     * @param {number} page - Page index.
+     * @returns {number} View index (0 when not found).
+     */
+    function viewOfPage(page) {
+      return Math.max(0, views.findIndex(v => v.includes(page)));
+    }
+
+    /**
+     * Regroup the slides into views (single pages or spreads of 1–2, 3–4, …)
+     * and keep the given page on screen.
+     *
+     * @param {boolean} spread - Build two-page spreads.
+     * @param {number} keepPage - Page index that should stay visible.
+     * @returns {void}
+     */
+    function buildViews(spread, keepPage) {
+      views = [];
+      for (let i = 0; i < pages.length; i += spread ? 2 : 1) {
+        views.push(spread && i + 1 < pages.length ? [i, i + 1] : [i]);
+      }
+      viewEls = views.map(v => {
+        const el = document.createElement('div');
+        el.className = 'page-view' + (v.length > 1 ? ' has-pair' : '');
+        v.forEach(i => el.appendChild(slides[i]));
+        return el;
+      });
+      track.replaceChildren(...viewEls);
+      root.classList.toggle('spread-on', spread);
+      current = viewOfPage(keepPage);
+    }
+
+    /**
+     * Put one flip animation class on a view (or none), removing the others.
+     *
+     * @param {HTMLElement} el - A .page-view.
+     * @param {?string} cls - Flip class to add, or null.
+     * @returns {void}
+     */
+    function setFlip(el, cls) {
+      el.classList.remove(...FLIP_CLASSES);
+      if (cls) el.classList.add(cls);
+    }
+
+    /**
+     * Sync the dots, page counter and prev/next buttons with a view.
+     *
+     * @param {number} idx - View index.
+     * @returns {void}
+     */
+    function syncNav(idx) {
+      const shown = views[idx];
+      dots.forEach((d, i) => d.classList.toggle('active', shown.includes(i)));
+      const first = shown[0] + 1, last = shown[shown.length - 1] + 1;
+      counter.textContent = `${first === last ? first : `${first}–${last}`} / ${pages.length}`;
+      prevBtn.disabled = idx <= 0;
+      nextBtn.disabled = idx >= views.length - 1;
+    }
+
+    /**
+     * Show only the view at idx, without animation, and sync the navigation.
+     *
+     * @param {number} idx - View index.
+     * @returns {void}
+     */
+    function showImmediate(idx) {
+      viewEls.forEach((el, i) => {
+        el.hidden = i !== idx;
+        setFlip(el, null);
+      });
+      syncNav(idx);
+    }
+
+    /**
+     * Flip to another view: the current one turns away from the spine, then
      * the next one turns in (HALF ms each). Ignored while a flip is running or
      * when next is out of range.
      *
-     * @param {number} next - Target slide index.
+     * @param {number} next - Target view index.
      * @param {number} [dir] - 1 for forward, -1 for backward; derived from next when omitted.
      * @returns {void}
      */
     function goTo(next, dir) {
       if (animating || next === current) return;
-      if (next < 0 || next >= pages.length) return;
+      if (next < 0 || next >= views.length) return;
       if (dir === undefined) dir = next > current ? 1 : -1;
       animating = true;
 
-      const outSlide = slides[current];
-      const inSlide  = slides[next];
+      const outView = viewEls[current];
+      const inView  = viewEls[next];
 
       // Show both for transition
-      slides.forEach(s => { s.hidden = true; });
-      outSlide.hidden = false;
-      inSlide.hidden  = false;
+      viewEls.forEach(el => { el.hidden = true; });
+      outView.hidden = false;
+      inView.hidden  = false;
 
       // Outgoing: flip away from spine
-      outSlide.className = 'page-slide ' + (dir > 0 ? 'flip-out-left' : 'flip-out-right');
+      setFlip(outView, dir > 0 ? 'flip-out-left' : 'flip-out-right');
 
       setTimeout(() => {
-        outSlide.hidden = true;
+        outView.hidden = true;
         // Incoming: flip in from spine
-        inSlide.className = 'page-slide ' + (dir > 0 ? 'flip-in-right' : 'flip-in-left');
+        setFlip(inView, dir > 0 ? 'flip-in-right' : 'flip-in-left');
 
         setTimeout(() => {
-          inSlide.className = 'page-slide';
           current = next;
           showImmediate(current);
           animating = false;
@@ -232,10 +317,40 @@
       }, HALF);
 
       // Update UI immediately
-      dots.forEach((d, i) => d.classList.toggle('active', i === next));
-      counter.textContent = `${next + 1} / ${pages.length}`;
-      prevBtn.disabled = next <= 0;
-      nextBtn.disabled = next >= pages.length - 1;
+      syncNav(next);
+    }
+
+    /**
+     * Show the view options that apply: spreads only in magazine mode, with
+     * two or more pages, on a wide enough screen. Pressed state follows the
+     * viewer's choices.
+     *
+     * @returns {void}
+     */
+    function syncOptionToggles() {
+      spreadToggle.hidden = root.classList.contains('reader-on') || pages.length < 2
+        || (root.clientWidth || window.innerWidth) < SPREAD_MIN_WIDTH;
+      spreadToggle.setAttribute('aria-pressed', String(spreadPref));
+      fullToggle.setAttribute('aria-pressed', String(fullPref));
+    }
+
+    /**
+     * Apply the view options: regroup into spreads or single pages when that
+     * changed (keeping the current page), set full width, and rescale.
+     * Waits for a running flip to finish first.
+     *
+     * @returns {void}
+     */
+    function applyLayout() {
+      if (animating) { setTimeout(applyLayout, HALF * 2 + 20); return; }
+      const spread = spreadActive();
+      if (!viewEls.length || spread !== root.classList.contains('spread-on')) {
+        buildViews(spread, viewEls.length ? views[current][0] : 0);
+        showImmediate(current);
+      }
+      root.classList.toggle('full-on', fullPref);
+      syncOptionToggles();
+      scaleSlides();
     }
 
     prevBtn.addEventListener('click', () => goTo(current - 1, -1));
@@ -254,34 +369,79 @@
     });
 
     /**
-     * Scale every page's original canvas uniformly to the viewer width
-     * (never above 1), center canvases narrower than the screen and size each
-     * .mag-fit to the scaled height. Hidden slides use the viewer width too.
+     * Scale every page's original canvas uniformly to the width of its slot
+     * (the viewer, or half of it for spreads), center canvases narrower than
+     * the slot and size each .mag-fit to the scaled height. Pages are never
+     * enlarged unless full width is on. Hidden slides use the same slot width.
      *
      * @returns {void}
      */
     function scaleSlides() {
       const w = viewer.clientWidth || viewer.offsetWidth || root.clientWidth;
       if (!w) return;
+      const probe = root.classList.contains('spread-on') && viewEls[current]?.querySelector('.page-slide');
+      const slotW = (probe && probe.clientWidth) || w;
       slides.forEach(slide => {
         const fit = slide.querySelector('.mag-fit');
         if (!fit) return;
         const cw = +fit.dataset.cw || 1200, ch = +fit.dataset.ch || 800;
-        const scale = Math.min(1, w / cw);
+        const scale = fullPref ? slotW / cw : Math.min(1, slotW / cw);
         const canvas = fit.querySelector('.magazine-layout');
         if (canvas) {
           canvas.style.transform = 'scale(' + scale + ')'; // conventions: allow (scale measured from the viewer width)
           // conventions: allow (centering offset measured from the viewer width)
-          canvas.style.left = Math.max(0, (w - cw * scale) / 2) + 'px';   // 화면보다 좁은 캔버스는 가운데 정렬
+          canvas.style.left = Math.max(0, (slotW - cw * scale) / 2) + 'px';   // 칸보다 좁은 캔버스는 가운데 정렬
         }
         fit.style.height = (ch * scale) + 'px'; // conventions: allow (scaled canvas height)
       });
     }
-    scaleSlides();
+    applyLayout();
     let _rz;
-    window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(scaleSlides, 120); });
+    window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(applyLayout, 120); });
+  }
 
-    showImmediate(0);
+  // 보기 옵션 (펼침면·전체 폭): 이 브라우저에만 기억하는 개인 설정
+  const PREF_SPREAD = 'magViewer.spread';
+  const PREF_FULL = 'magViewer.full';
+  const SPREAD_MIN_WIDTH = 900;  // px; narrower screens always show one page
+  const FLIP_CLASSES = ['flip-out-left', 'flip-in-right', 'flip-out-right', 'flip-in-left'];
+
+  /**
+   * Read a saved viewer preference.
+   *
+   * @param {string} key - localStorage key.
+   * @returns {?string} The stored value, or null when unset or storage is unavailable.
+   */
+  function readPref(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  }
+
+  /**
+   * Save a viewer preference as "1" or "0" (best effort).
+   *
+   * @param {string} key - localStorage key.
+   * @param {boolean} on - The setting.
+   * @returns {void}
+   */
+  function savePref(key, on) {
+    try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* storage unavailable: the choice lasts for this page only */ }
+  }
+
+  /**
+   * Build a pressed/unpressed option button for the mode bar.
+   *
+   * @param {string} icon - Bootstrap Icons class (e.g. "bi-book").
+   * @param {string} label - Visible label.
+   * @param {function(): void} onClick - Called after a click.
+   * @returns {HTMLButtonElement} The button (aria-pressed is set by the caller).
+   */
+  function makeOptionToggle(icon, label, onClick) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mag-mode-toggle mag-option-toggle';
+    btn.innerHTML = `<i class="bi ${icon}" aria-hidden="true"></i> ${label}`;
+    btn.addEventListener('click', onClick);
+    return btn;
   }
 
   /**
