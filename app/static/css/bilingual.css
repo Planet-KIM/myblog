@@ -2,34 +2,99 @@
  * bilingual.css: bilingual post text ({{한국어||English}}) and the language
  * switch on post pages. static/js/bilingual.js wraps each pair as
  * .bi-pair > .bi-ko + .bi-en (.is-whole when the pair is a whole paragraph,
- * heading or item) and sets data-content-lang ("ko" | "en" | "both") on <html>.
+ * heading or item; those also get a .bi-fold EN toggle) and sets on <html>:
+ *   data-content-lang  "ko" | "en" | "both"
+ *   data-both-style    "side" (나란히) | "stack" (아래에) | "fold" (펼쳐보기), used with "both"
  * Used by templates/board_detail_writer.html and board_detail_magazine.html.
- * Relies on theme tokens (--space-*, --fs-*, --btn-radius, colours).
+ * Relies on theme tokens (--space-*, --fs-*, --btn-radius, --radius-*, colours).
  */
 
 /* 기본(한국어): 영어 쪽 숨김. JS가 없거나 언어를 아직 안 정했을 때도 한국어 */
 :root:not([data-content-lang="en"]):not([data-content-lang="both"]) .bi-en { display: none; }
 :root[data-content-lang="en"] .bi-ko { display: none; }
 
-/* 함께: 문단·제목 전체가 한 쌍이면 영어를 아랫줄에 작게, 문장 속 단어 쌍이면 괄호로 */
-:root[data-content-lang="both"] .bi-pair.is-whole > .bi-en {
-  display: block;
-  margin-top: 0.3em;
-  font-size: 0.9em;
-  color: var(--text-muted);
-}
+/* 함께 — 문장 속 단어 쌍은 어느 방식이든 괄호로: "가중치 (weights)" */
 :root[data-content-lang="both"] .bi-pair:not(.is-whole) > .bi-en::before { content: "\00a0("; }  /* 줄지 않는 공백 + 괄호 */
 :root[data-content-lang="both"] .bi-pair:not(.is-whole) > .bi-en::after { content: ")"; }
 
-/* 언어 전환: 머리말 아래 세 칸짜리 버튼 묶음 */
+/* 함께 — 문단·제목 쌍의 기본 모양 '아래에'(번역 주석형): 한국어 밑에 가는 세로선 + 들여쓰기 + 작은 글씨.
+   '나란히'의 좁은 화면·표 칸과 '펼쳐보기'에서 펼친 문단도 이 모양 */
+:root[data-content-lang="both"] .bi-pair.is-whole > .bi-en {
+  display: block;
+  margin-top: 0.35em;
+  padding-left: 0.75em;
+  border-left: 2px solid var(--border);
+  font-size: 0.92em;
+  color: var(--text-muted);
+}
+:root[data-content-lang="both"] :is(h1, h2, h3, h4, h5, h6, td, th) .bi-pair > .bi-en { padding-left: 0; border-left: 0; }
+
+/* 펼쳐보기 — 문단 끝의 EN 표시를 누른 문단만 영어를 펼친다 (머리말 제목은 늘 아래에) */
+.bi-fold { display: none; }
+:root[data-content-lang="both"][data-both-style="fold"] [data-bilingual-root] .bi-pair.is-whole:not(.is-open) > .bi-en { display: none; }
+:root[data-content-lang="both"][data-both-style="fold"] .bi-fold {
+  display: inline-block;
+  margin-left: 0.5em;
+  padding: 0 0.4em;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);   /* 본문·제목 어디서나 같은 크기의 작은 배지 */
+  font-weight: 600;
+  font-style: normal;
+  line-height: 1.6;
+  letter-spacing: 0.08em;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+}
+:root[data-content-lang="both"][data-both-style="fold"] .bi-fold:hover { color: var(--text-primary); border-color: var(--text-muted); }
+:root[data-content-lang="both"][data-both-style="fold"] .bi-fold[aria-expanded="true"] { color: var(--primary); border-color: var(--primary); }
+
+/* 나란히 — 넓은 화면에서 문단마다 왼쪽 한국어, 오른쪽 영어(대역). 본문 폭도 넓힌다 */
+@media (min-width: 900px) {
+  :root[data-content-lang="both"][data-both-style="side"] [data-bilingual-root] .bi-pair.is-whole {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--space-lg);
+  }
+  :root[data-content-lang="both"][data-both-style="side"] [data-bilingual-root] .bi-pair.is-whole > .bi-en {
+    margin-top: 0;
+    padding-left: var(--space-lg);
+    border-left: 1px solid var(--border);
+    font-size: 0.95em;
+  }
+  /* 표 칸은 좁으니 '아래에' 모양 그대로 */
+  :root[data-content-lang="both"][data-both-style="side"] [data-bilingual-root] :is(td, th) .bi-pair.is-whole { display: inline; }
+  :root[data-content-lang="both"][data-both-style="side"] [data-bilingual-root] :is(td, th) .bi-pair.is-whole > .bi-en {
+    margin-top: 0.2em;
+    padding-left: 0;
+    border-left: 0;
+    font-size: 0.92em;
+  }
+  /* 마크다운 글: 읽기 칼럼 밖으로 본문만 넓힘 / 매거진 읽기 모드: 칼럼 폭 확대 */
+  :root[data-content-lang="both"][data-both-style="side"] .article-content[data-bilingual-root] {
+    margin-inline: calc((100% - min(1120px, 100vw - 2 * var(--space-xl))) / 2);
+  }
+  :root[data-content-lang="both"][data-both-style="side"] .mag-reader-inner { max-width: 1120px; }
+}
+
+/* 언어 전환: 머리말 아래 버튼 묶음 (언어, 그리고 '함께'일 때 보기 방식) */
 .bilingual-switch {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
   margin-top: var(--space-md);
+}
+.bi-seg {
+  display: inline-flex;
   border: 1px solid var(--border-dark);
   border-radius: var(--btn-radius);
   overflow: hidden;
 }
-.bilingual-switch button {
+.bi-seg button {
   padding: 0.35rem 0.9rem;
   border: 0;
   background: transparent;
@@ -39,6 +104,10 @@
   cursor: pointer;
   transition: color var(--transition-fast), background-color var(--transition-fast);
 }
-.bilingual-switch button + button { border-left: 1px solid var(--border-dark); }
-.bilingual-switch button:hover { color: var(--text-primary); background: var(--surface-light); }
-.bilingual-switch button[aria-pressed="true"] { color: var(--primary); background: var(--surface-light); font-weight: 600; }
+.bi-seg button + button { border-left: 1px solid var(--border-dark); }
+.bi-seg button:hover { color: var(--text-primary); background: var(--surface-light); }
+.bi-seg button[aria-pressed="true"] { color: var(--primary); background: var(--surface-light); font-weight: 600; }
+
+@media print {
+  .bi-fold, .bilingual-switch { display: none !important; }
+}

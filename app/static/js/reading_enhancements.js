@@ -21,7 +21,8 @@
 
   /**
    * Text of a heading without the elements matching a selector (used to read
-   * one language of a bilingual heading: drop .bi-en for Korean, .bi-ko for English).
+   * one language of a bilingual heading: drop .bi-en for Korean, .bi-ko for
+   * English, and the .bi-fold toggle either way).
    *
    * @param {Element} h - The heading.
    * @param {string} drop - Selector of the elements to leave out.
@@ -57,7 +58,7 @@
       heads.forEach(function (h, i) {
         // 이중 언어 제목(bilingual.js 가 만든 .bi-pair)은 한국어로 앵커를 만들고 두 언어를 함께 담는다
         var bilingual = h.querySelector('.bi-pair');
-        var text = bilingual ? textWithout(h, '.bi-en') : (h.textContent || '').trim();
+        var text = bilingual ? textWithout(h, '.bi-en, .bi-fold') : (h.textContent || '').trim();
         if (!text) return;
         var slug = text.toLowerCase().replace(/[^\w가-힣]+/g, '-').replace(/^-+|-+$/g, '') || ('section-' + i);
         if (used[slug]) slug = slug + '-' + i;
@@ -66,7 +67,7 @@
         var lvl = h.tagName === 'H3' ? ' class="lvl-3"' : '';
         var label = bilingual
           ? '<span class="bi-pair"><span class="bi-ko" lang="ko">' + escapeText(text) + '</span><span class="bi-en" lang="en">'
-            + escapeText(textWithout(h, '.bi-ko')) + '</span></span>'
+            + escapeText(textWithout(h, '.bi-ko, .bi-fold')) + '</span></span>'
           : escapeText(text);
         items += '<li' + lvl + '><a href="#' + h.id + '">' + label + '</a></li>';
       });
