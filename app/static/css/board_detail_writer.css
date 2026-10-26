@@ -1,0 +1,23 @@
+/**
+ * board_detail_writer.css: Markdown post page (Milkdown posts, /board/<id>) —
+ * full-width main, the reading-layout variants picked on the writing page
+ * (data-layout on .reading-container) and print hiding.
+ * Used by templates/board_detail_writer.html. Relies on theme tokens.
+ */
+
+/* 글쓰기 페이지와 동일하게 main을 100% 너비로 — 레이아웃 기준점 통일 */
+main.container {
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+/* 읽기 레이아웃 variants (글쓰기 페이지에서 고른 contentLayout) */
+.reading-container[data-layout="left"] { margin-left: 0; margin-right: auto; }
+.reading-container[data-layout="right"] { margin-left: auto; margin-right: 0; }
+.reading-container[data-layout="full"] { max-width: 100%; }
+
+@media print {
+  .article-action-bar, .post-navigation, .scroll-to-top { display: none !important; }
+}

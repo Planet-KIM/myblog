@@ -1,3 +1,16 @@
+{#
+  board_detail_magazine.html: magazine (TipTap) post page, /board/<id> — header,
+  the page-flip viewer built from content_blocks (or the HTML body as a
+  fallback), tags, action bar (edit / save as layout template / delete for the
+  owner; like, bookmark, copy link, print, share on X), author card, series
+  banner, related posts, comments and prev/next navigation.
+  Context: post, current_user, stats, prev_post, next_post, comments,
+  author_other_posts, related_posts, series_label, series_slug (+ SEO meta).
+  Assets: static/css/board_detail_magazine.css, static/js/board_detail.js
+          (shared with the Markdown page), static/js/board_detail_magazine.js
+          (viewer, layout-template prompt); partials bring their own
+          (reading_enhancements.*, author_card.css).
+#}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title or 'Story' }}{% endblock %}
@@ -9,236 +22,7 @@
 <!-- Highlight.js — 구문 색은 markdown-rendering.css 가 정의 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-<style>
-  /* ── 매거진 전용 레이아웃: 캔버스는 화면 전체 폭, 머리말·꼬리말은 본문 칼럼 ── */
-  main.container {
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
-  }
-
-  .magazine-header { padding-top: var(--space-2xl); }
-  .magazine-header .article-header { margin-bottom: var(--space-xl); }
-
-  /* ── 매거진 콘텐츠 영역 ─────────────────────────────
-     글자 크기·행간은 기존 발행본의 블록 배치가 바뀌지 않도록 그대로 유지 */
-  .magazine-content {
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-    padding: 0;
-    font-family: var(--font-sans);
-    font-size: 1.15rem;
-    line-height: 1.85;
-    color: var(--text-main);
-  }
-
-  /* content_blocks 가 없는 글(HTML 본문)은 읽기 칼럼으로 */
-  .magazine-content > .markdown-content { padding-bottom: var(--space-xl); }
-
-  /* 자유 배치 레이아웃 — 에디터와 동일한 비율 유지 */
-  .magazine-content .magazine-layout { display: block; width: 100%; }
-
-  /* 블록 안 타이포그래피 (에디터 .fb-editor 와 맞춤) */
-  .magazine-content .magazine-layout p,
-  .page-slide p { margin: 0.4em 0; }
-  .magazine-content .magazine-layout h1,
-  .page-slide h1 { font-size: 2em; font-weight: 800; margin: 0 0 0.3em; line-height: 1.1; }
-  .magazine-content .magazine-layout h2,
-  .page-slide h2 { font-size: 1.5em; font-weight: 700; margin: 0 0 0.3em; }
-  .magazine-content .magazine-layout h3,
-  .page-slide h3 { font-size: 1.2em; font-weight: 600; margin: 0 0 0.3em; }
-  .magazine-content .magazine-layout img { display: block; margin: 0; border-radius: 0; box-shadow: none; }
-
-  .magazine-layout blockquote,
-  .mag-reader blockquote {
-    border-left: 3px solid var(--primary);
-    padding-left: 1rem;
-    margin: 0.5rem 0;
-    color: var(--text-muted);
-  }
-  .magazine-layout code,
-  .mag-reader code {
-    font-family: var(--font-mono);
-    font-size: 0.86em;
-    background: var(--surface-dark);
-    color: var(--primary-dark);
-    padding: 0.1em 0.35em;
-    border-radius: var(--radius-sm);
-  }
-  [data-theme="dark"] .magazine-layout code,
-  [data-theme="dark"] .mag-reader code { color: var(--primary-light); }
-  .magazine-layout pre code,
-  .mag-reader pre code { background: transparent; color: inherit; padding: 0; }
-  .magazine-layout .code-block,
-  .mag-reader .code-block { margin: 0.5rem 0; }
-  .magazine-layout hr,
-  .mag-reader hr { border: 0; border-top: 1px solid var(--border-dark); opacity: 1; margin: 1rem 0; }
-  .magazine-layout ul, .magazine-layout ol,
-  .mag-reader ul, .mag-reader ol { padding-left: 1.4em; margin: 0.4em 0; }
-  .magazine-layout a,
-  .mag-reader a { color: var(--primary); text-underline-offset: 3px; }
-
-  /* 사진 필터 (듀오톤/흑백) — 뷰어·리더·인쇄 공통 */
-  .mag-filter-bw { filter: grayscale(1) contrast(1.03); }
-  .mag-filter-duotone { filter: grayscale(1) brightness(1.04) sepia(0.55) saturate(1.7) hue-rotate(-18deg) contrast(1.02); }
-
-  /* 타임라인 블록 — 테마 토큰 사용 */
-  .mag-timeline { line-height: 1.4; color: var(--text-main); }
-  .mag-timeline .mtl-day + .mtl-day { margin-top: 1.1em; }
-  .mag-timeline .mtl-day-title { color: var(--primary); font-weight: 800; font-size: 1.25em; margin: 0 0 .5em; padding-bottom: .2em; border-bottom: 1px solid var(--border); letter-spacing: .02em; }
-  .mag-timeline .mtl-item { display: grid; grid-template-columns: 3.4em 1.4em 1fr; align-items: center; column-gap: .6em; min-height: 2.3em; }
-  .mag-timeline .mtl-time { color: var(--text-muted); font-size: .82em; text-align: right; white-space: nowrap; }
-  .mag-timeline .mtl-mark { position: relative; align-self: stretch; }
-  .mag-timeline .mtl-mark::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(var(--primary-rgb), 0.25); transform: translateX(-50%); }
-  .mag-timeline:not(.mtl-h) .mtl-item:first-child .mtl-mark::before { top: 50%; }
-  .mag-timeline:not(.mtl-h) .mtl-item:last-child .mtl-mark::before { bottom: 50%; }
-  /* 가로 타임라인 + 자동 줄바꿈(모바일 넘침 보정) */
-  .mag-timeline.mtl-h .mtl-events { display: flex; flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
-  .mag-timeline.mtl-h .mtl-item { display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1 1 86px; min-width: 72px; max-width: 220px; min-height: 0; }
-  .mag-timeline.mtl-h .mtl-time { text-align: center; }
-  .mag-timeline.mtl-h .mtl-mark { width: 100%; height: 16px; align-self: stretch; }
-  .mag-timeline.mtl-h .mtl-mark::before { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 2px; transform: translateY(-50%); }
-  .mag-timeline.mtl-h .mtl-label { margin-top: 3px; padding: 0 4px; word-break: keep-all; }
-  .mag-timeline .mtl-dot { position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; border-radius: 50%; background: var(--primary); border: 2px solid var(--bg-body); box-shadow: 0 0 0 1.5px var(--primary); transform: translate(-50%,-50%); z-index: 1; }
-  .mag-timeline .mtl-label { color: var(--text-primary); font-weight: 500; }
-  .mag-timeline .mtl-empty { color: var(--text-muted); font-size: .9em; }
-
-  /* 지도 블록 */
-  .mag-map { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .mag-map-empty { padding: 18px; color: var(--text-muted); font-size: 0.9em; }
-
-  /* 드롭캡 (첫 글자 장식) */
-  .mag-dropcap > p:first-of-type::first-letter {
-    float: left; font-family: var(--font-display);
-    font-size: 3.1em; line-height: 0.76; font-weight: 700; color: var(--primary); padding: 0.02em 0.12em 0 0;
-  }
-  .reader-block.mag-dropcap > p:first-of-type::first-letter { font-size: 2.6em; }
-
-  /* ── 읽기 모드 (모바일 가독성) ───────────────────────── */
-  .mag-reader { display: none; }
-  #magazine-viewer-root.reader-on .page-viewer,
-  #magazine-viewer-root.reader-on .page-nav-bar,
-  #magazine-viewer-root.reader-on .page-dots { display: none !important; }
-  #magazine-viewer-root.reader-on .mag-reader { display: block; }
-  .mag-reader-inner { max-width: var(--reading-max-width); margin: 0 auto; padding: 0 var(--space-lg); }
-  .mag-reader .reader-block { margin: 0 0 1.1rem; line-height: 1.75; color: var(--text-main); word-break: keep-all; }
-  .mag-reader .reader-block img { margin: 0.4rem 0; border-radius: var(--radius-md); }
-  .mag-reader .reader-page-sep { height: 1px; background: var(--border); margin: 2.2rem 0; }
-
-  .mag-mode-bar { display: flex; justify-content: center; margin: 0 0 var(--space-lg); }
-  .mag-mode-toggle {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    padding: 0.4rem 0.85rem;
-    border: 1px solid var(--border-dark); border-radius: var(--btn-radius);
-    background: transparent; color: var(--text-main);
-    font-size: var(--fs-sm); font-weight: 500; cursor: pointer;
-    transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
-  }
-  .mag-mode-toggle:hover { border-color: var(--text-muted); color: var(--text-primary); background: var(--surface-light); }
-
-  /* ── Page flip viewer ─────────────────────────────── */
-  .page-viewer {
-    position: relative;
-    width: 100%;
-    overflow: hidden;
-    background: var(--bg-body);
-    user-select: none;
-  }
-
-  .page-track { display: flex; will-change: transform; }
-
-  .page-slide {
-    min-width: 100%;
-    flex-shrink: 0;
-    box-sizing: border-box;
-  }
-
-  /* 페이지 넘김 — 내비게이션 피드백 */
-  .page-slide.flip-out-left  { animation: flipOutLeft 0.42s cubic-bezier(0.55, 0, 1, 0.45) forwards; transform-origin: right center; perspective: 1200px; }
-  .page-slide.flip-in-right  { animation: flipInRight 0.42s cubic-bezier(0, 0.55, 0.45, 1) forwards; transform-origin: left center; perspective: 1200px; }
-  .page-slide.flip-out-right { animation: flipOutRight 0.42s cubic-bezier(0.55, 0, 1, 0.45) forwards; transform-origin: left center; perspective: 1200px; }
-  .page-slide.flip-in-left   { animation: flipInLeft 0.42s cubic-bezier(0, 0.55, 0.45, 1) forwards; transform-origin: right center; perspective: 1200px; }
-
-  @keyframes flipOutLeft  { 0% { transform: rotateY(0deg);   opacity: 1; } 100% { transform: rotateY(-90deg); opacity: 0; } }
-  @keyframes flipInRight  { 0% { transform: rotateY(90deg);  opacity: 0; } 100% { transform: rotateY(0deg);   opacity: 1; } }
-  @keyframes flipOutRight { 0% { transform: rotateY(0deg);   opacity: 1; } 100% { transform: rotateY(90deg);  opacity: 0; } }
-  @keyframes flipInLeft   { 0% { transform: rotateY(-90deg); opacity: 0; } 100% { transform: rotateY(0deg);   opacity: 1; } }
-
-  /* 페이지 이동 바 */
-  .page-nav-bar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-md);
-    padding: var(--space-md) 0 var(--space-sm);
-    border-top: 1px solid var(--border);
-  }
-
-  .page-nav-btn {
-    width: 36px; height: 36px;
-    border-radius: var(--btn-radius);
-    border: 1px solid var(--border-dark);
-    background: transparent;
-    color: var(--text-main);
-    font-size: 1.2rem;
-    line-height: 1;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
-  }
-  .page-nav-btn:hover:not(:disabled) { border-color: var(--text-muted); color: var(--text-primary); background: var(--surface-light); }
-  .page-nav-btn:disabled { opacity: 0.3; cursor: default; }
-
-  .page-counter {
-    font-size: var(--fs-sm);
-    font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
-    min-width: 56px;
-    text-align: center;
-  }
-
-  .page-dots {
-    display: flex;
-    justify-content: center;
-    gap: 6px;
-    padding-bottom: var(--space-sm);
-  }
-  .page-dot {
-    width: 6px; height: 6px;
-    border-radius: var(--radius-full);
-    background: var(--border-dark);
-    cursor: pointer;
-    border: none;
-    padding: 0;
-    transition: background-color var(--transition-fast), width var(--transition-fast);
-  }
-  .page-dot.active { background: var(--text-primary); width: 18px; }
-
-  /* 꼬리말(태그·액션·작성자·댓글)은 읽기 칼럼 */
-  .magazine-footer .article-footer { margin-top: var(--space-xl); }
-
-  /* ── 인쇄 / PDF: 리더(선형) 레이아웃으로 출력, 크롬 숨김 ── */
-  @media print {
-    .site-nav, .site-footer, .magazine-footer, .post-navigation,
-    #comments, .no-print,
-    #magazine-viewer-root .page-viewer,
-    #magazine-viewer-root .page-nav-bar,
-    #magazine-viewer-root .page-dots,
-    #magazine-viewer-root .mag-mode-bar { display: none !important; }
-    #magazine-viewer-root .mag-reader { display: block !important; }
-    .mag-reader-inner { max-width: none; padding: 0; }
-    .mag-reader .reader-page-sep { break-before: page; border: none; height: 0; margin: 0; }
-    body { background: #fff !important; }
-    .magazine-content { font-size: 12pt; line-height: 1.5; }
-  }
-
-  @media (max-width: 768px) {
-    .magazine-header { padding-top: var(--space-lg); }
-    .mag-reader-inner { padding: 0 var(--space-md); }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/board_detail_magazine.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -304,7 +88,7 @@
         </a>
         {% if post.content_blocks %}
         <form method="post" action="/board/{{ post.id }}/save-template"
-              onsubmit="var n=prompt('레이아웃 이름', this.querySelector('[name=name]').value); if(n===null) return false; this.querySelector('[name=name]').value=n; return true;">
+              data-layout-template-form data-name-prompt="레이아웃 이름">
           <input type="hidden" name="name" value="{{ post.title or '내 레이아웃' }}">
           <button type="submit" class="btn-action">
             <i class="bi bi-grid-1x2"></i> 레이아웃 저장
@@ -312,7 +96,7 @@
         </form>
         {% endif %}
         <form method="post" action="/board/{{ post.id }}/delete"
-              onsubmit="return confirm('Delete this story?');">
+              data-confirm="Delete this story?">
           <button type="submit" class="btn-action btn-action-delete">
             <i class="bi bi-trash"></i> Delete
           </button>
@@ -321,19 +105,19 @@
       </div>
 
       <div class="action-right">
-        <button class="btn-action btn-action-share" id="detail-like-btn" onclick="toggleDetailLike()" title="좋아요" aria-label="좋아요">
+        <button class="btn-action btn-action-share" id="detail-like-btn" data-detail-action="like" title="좋아요" aria-label="좋아요">
           <i class="bi bi-hand-thumbs-up"></i> <span id="detail-like-count">{{ stats.likes if stats else 0 }}</span>
         </button>
-        <button class="btn-action btn-action-share" id="detail-bookmark-btn" onclick="toggleDetailBookmark()" title="북마크" aria-label="북마크">
+        <button class="btn-action btn-action-share" id="detail-bookmark-btn" data-detail-action="bookmark" title="북마크" aria-label="북마크">
           <i class="bi bi-bookmark"></i>
         </button>
-        <button class="btn-action btn-action-share" onclick="copyLink()" title="링크 복사" aria-label="링크 복사">
+        <button class="btn-action btn-action-share" data-detail-action="copy-link" title="링크 복사" aria-label="링크 복사">
           <i class="bi bi-link-45deg"></i>
         </button>
-        <button class="btn-action btn-action-share" onclick="window.print()" title="인쇄 / PDF 저장" aria-label="인쇄 / PDF 저장">
+        <button class="btn-action btn-action-share" data-detail-action="print" title="인쇄 / PDF 저장" aria-label="인쇄 / PDF 저장">
           <i class="bi bi-printer"></i>
         </button>
-        <button class="btn-action btn-action-share" onclick="shareTwitter()" title="X(Twitter)에 공유" aria-label="X(Twitter)에 공유">
+        <button class="btn-action btn-action-share" data-detail-action="share-x" title="X(Twitter)에 공유" aria-label="X(Twitter)에 공유">
           <i class="bi bi-twitter-x"></i>
         </button>
       </div>
@@ -371,7 +155,7 @@
 </div>
 
 <!-- Scroll-to-top + 읽기 진행률 링 -->
-<button type="button" id="scroll-to-top" class="scroll-to-top no-print" onclick="scrollToTop()" aria-label="맨 위로">
+<button type="button" id="scroll-to-top" class="scroll-to-top no-print" data-detail-action="scroll-top" aria-label="맨 위로">
   <svg class="progress-ring" width="40" height="40" aria-hidden="true">
     <circle class="progress-ring-circle-bg" stroke-width="2" fill="transparent" r="16" cx="20" cy="20"/>
     <circle class="progress-ring-circle" id="scrollProgressRing" stroke-width="2" fill="transparent" r="16" cx="20" cy="20"/>
@@ -385,336 +169,14 @@
 </script>
 {% endif %}
 
-<script>
-// ── Page flip viewer ─────────────────────────────────────
-(function() {
-  const root = document.getElementById('magazine-viewer-root');
-  if (!root) return;
-  const raw = document.getElementById('content-blocks-data');
-  if (!raw) return;
-
-  let data;
-  try { data = JSON.parse(raw.textContent); } catch { return; }
-
-  let pages = [];
-  if (data.v === 3 && Array.isArray(data.pages) && data.pages.length) {
-    pages = data.pages;
-  } else if ((data.v === 2 || data.cw) && Array.isArray(data.blocks)) {
-    pages = [data];
-  } else { return; }
-
-  if (!pages.length) return;
-
-  // Build one slide's inner HTML from page data
-  function buildSlideHTML(page) {
-    const cw = page.cw || 1200, ch = page.ch || 800;
-    // 원본 캔버스(cw×ch px)로 렌더한 뒤 폭에 맞춰 transform 축소 → 글자까지 균일 축소(모바일 잘림 방지)
-    let html = `<div class="mag-fit" data-cw="${cw}" data-ch="${ch}" style="position:relative;width:100%;overflow:hidden;">`;
-    html += `<div class="magazine-layout" style="position:absolute;top:0;left:0;width:${cw}px;height:${ch}px;transform-origin:top left;">`;
-    (page.blocks || []).forEach(b => {
-      const L = (b.x / cw * 100).toFixed(3);
-      const T = (b.y / ch * 100).toFixed(3);
-      const W = (b.w / cw * 100).toFixed(3);
-      const H = (b.h / ch * 100).toFixed(3);
-      const br = b.showBorder ? (b.borderRadius >= 9999 ? '9999px' : `${b.borderRadius ?? 0}px`) : '';
-      const border = b.showBorder ? `border:${b.borderWidth ?? 1}px solid ${b.borderColor ?? '#000000'};border-radius:${br};` : '';
-      const s = `position:absolute;left:${L}%;top:${T}%;width:${W}%;height:${H}%;overflow:hidden;box-sizing:border-box;${border}`;
-      if (b.type === 'image' && b.src) {
-        const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
-        const fc = b.imgFilter && b.imgFilter !== 'none' ? ` class="mag-filter-${b.imgFilter}"` : '';
-        html += `<div style="${s}"><img${fc} src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
-      } else if (b.type === 'spacer') {
-        html += `<div style="${s}"></div>`;
-      } else {
-        html += `<div${b.dropCap ? ' class="mag-dropcap"' : ''} style="${s}">${b.content || ''}</div>`;
-      }
-    });
-    html += '</div></div>';
-    return html;
-  }
-
-  // 모바일 리더: 블록을 (위→아래, 좌→우) 순서로 전체폭 세로 스택 (축소로 글자가 작아지는 문제 해결)
-  function buildReaderHTML() {
-    let html = '';
-    pages.forEach((page, pi) => {
-      const cw = page.cw || 1200;
-      if (pi > 0) html += '<div class="reader-page-sep" aria-hidden="true"></div>';
-      const blocks = (page.blocks || []).slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
-      blocks.forEach(b => {
-        if (b.type === 'image' && b.src) {
-          const fc = b.imgFilter && b.imgFilter !== 'none' ? ` mag-filter-${b.imgFilter}` : '';
-          html += `<figure class="reader-block"><img class="reader-img${fc}" src="${b.src}" loading="lazy" style="width:100%;height:auto;display:block;"></figure>`;
-        } else if (b.type === 'spacer') {
-          html += '<div style="height:1rem;"></div>';
-        } else if (b.content) {
-          // 캔버스 폭 대비 블록 폭으로 상대 글자 크기 추정(가독성 범위로 clamp)
-          const rel = Math.max(0.85, Math.min(1.9, (b.w || cw) / cw * 2.2));
-          html += `<div class="reader-block${b.dropCap ? ' mag-dropcap' : ''}" style="font-size:${rel.toFixed(2)}rem;">${b.content}</div>`;
-        }
-      });
-    });
-    return `<div class="mag-reader-inner">${html}</div>`;
-  }
-
-  // ── Build DOM ──────────────────────────────────────────
-  const viewer = document.createElement('div');
-  viewer.className = 'page-viewer';
-
-  const track = document.createElement('div');
-  track.className = 'page-track';
-
-  const slides = pages.map((page, i) => {
-    const slide = document.createElement('div');
-    slide.className = 'page-slide';
-    slide.innerHTML = buildSlideHTML(page);
-    track.appendChild(slide);
-    return slide;
-  });
-
-  viewer.appendChild(track);
-  root.appendChild(viewer);
-
-  // Nav bar
-  const navBar  = document.createElement('div'); navBar.className = 'page-nav-bar';
-  const prevBtn = document.createElement('button'); prevBtn.className = 'page-nav-btn'; prevBtn.innerHTML = '&#8249;';
-  const counter = document.createElement('div');   counter.className = 'page-counter';
-  const nextBtn = document.createElement('button'); nextBtn.className = 'page-nav-btn'; nextBtn.innerHTML = '&#8250;';
-  navBar.appendChild(prevBtn); navBar.appendChild(counter); navBar.appendChild(nextBtn);
-  root.appendChild(navBar);
-
-  // Dots
-  const dotsBar = document.createElement('div'); dotsBar.className = 'page-dots';
-  const dots = pages.map((_, i) => {
-    const d = document.createElement('button');
-    d.className = 'page-dot' + (i === 0 ? ' active' : '');
-    d.addEventListener('click', () => goTo(i));
-    dotsBar.appendChild(d);
-    return d;
-  });
-  root.appendChild(dotsBar);
-
-  // ── 읽기 모드 (모바일 가독성) ───────────────────────────
-  const reader = document.createElement('div');
-  reader.className = 'mag-reader';
-  reader.innerHTML = buildReaderHTML();
-  root.appendChild(reader);
-
-  const modeToggle = document.createElement('button');
-  modeToggle.type = 'button';
-  modeToggle.className = 'mag-mode-toggle';
-  function syncToggleLabel() {
-    modeToggle.innerHTML = root.classList.contains('reader-on')
-      ? '<i class="bi bi-easel2"></i> 매거진 모드'
-      : '<i class="bi bi-text-paragraph"></i> 읽기 모드';
-  }
-  modeToggle.addEventListener('click', () => {
-    root.classList.toggle('reader-on');
-    syncToggleLabel();
-    if (!root.classList.contains('reader-on')) scaleSlides();
-  });
-  const modeBar = document.createElement('div');
-  modeBar.className = 'mag-mode-bar';
-  modeBar.appendChild(modeToggle);
-  root.insertBefore(modeBar, root.firstChild);
-  if (window.innerWidth < 640) root.classList.add('reader-on');  // 모바일 기본 읽기 모드
-  syncToggleLabel();
-
-  // ── State & transition ────────────────────────────────
-  let current = 0, animating = false;
-  const HALF = 210; // ms for each half of the flip
-
-  // Show only current slide immediately (no animation)
-  function showImmediate(idx) {
-    slides.forEach((s, i) => {
-      s.style.display = i === idx ? 'block' : 'none';
-      s.className = 'page-slide';
-    });
-    dots.forEach((d, i) => d.classList.toggle('active', i === idx));
-    counter.textContent = `${idx + 1} / ${pages.length}`;
-    prevBtn.disabled = idx <= 0;
-    nextBtn.disabled = idx >= pages.length - 1;
-  }
-
-  function goTo(next, dir) {
-    if (animating || next === current) return;
-    if (next < 0 || next >= pages.length) return;
-    if (dir === undefined) dir = next > current ? 1 : -1;
-    animating = true;
-
-    const outSlide = slides[current];
-    const inSlide  = slides[next];
-
-    // Show both for transition
-    slides.forEach(s => s.style.display = 'none');
-    outSlide.style.display = 'block';
-    inSlide.style.display  = 'block';
-
-    // Outgoing: flip away from spine
-    outSlide.className = 'page-slide ' + (dir > 0 ? 'flip-out-left' : 'flip-out-right');
-
-    setTimeout(() => {
-      outSlide.style.display = 'none';
-      // Incoming: flip in from spine
-      inSlide.className = 'page-slide ' + (dir > 0 ? 'flip-in-right' : 'flip-in-left');
-
-      setTimeout(() => {
-        inSlide.className = 'page-slide';
-        current = next;
-        showImmediate(current);
-        animating = false;
-      }, HALF);
-    }, HALF);
-
-    // Update UI immediately
-    dots.forEach((d, i) => d.classList.toggle('active', i === next));
-    counter.textContent = `${next + 1} / ${pages.length}`;
-    prevBtn.disabled = next <= 0;
-    nextBtn.disabled = next >= pages.length - 1;
-  }
-
-  prevBtn.addEventListener('click', () => goTo(current - 1, -1));
-  nextBtn.addEventListener('click', () => goTo(current + 1,  1));
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1,  1);
-    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(current - 1, -1);
-  });
-
-  let tx = 0;
-  viewer.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
-  viewer.addEventListener('touchend', e => {
-    const dx = e.changedTouches[0].clientX - tx;
-    if (Math.abs(dx) > 50) goTo(current + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
-  });
-
-  // 뷰어 폭에 맞춰 각 페이지(원본 캔버스)를 균일 축소. 숨김 슬라이드는 viewer 폭 기준으로 계산.
-  function scaleSlides() {
-    const w = viewer.clientWidth || viewer.offsetWidth || root.clientWidth;
-    if (!w) return;
-    slides.forEach(slide => {
-      const fit = slide.querySelector('.mag-fit');
-      if (!fit) return;
-      const cw = +fit.dataset.cw || 1200, ch = +fit.dataset.ch || 800;
-      const scale = Math.min(1, w / cw);
-      const canvas = fit.querySelector('.magazine-layout');
-      if (canvas) {
-        canvas.style.transform = 'scale(' + scale + ')';
-        canvas.style.left = Math.max(0, (w - cw * scale) / 2) + 'px';   // 화면보다 좁은 캔버스는 가운데 정렬
-      }
-      fit.style.height = (ch * scale) + 'px';
-    });
-  }
-  scaleSlides();
-  let _rz;
-  window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(scaleSlides, 120); });
-
-  showImmediate(0);
-})();
-
-// Share
-function copyLink() {
-  navigator.clipboard.writeText(window.location.href).then(() => {
-    if (window.toast) window.toast.success('링크를 복사했어요');
-  });
-}
-
-function shareTwitter() {
-  const text = {{ (post.title or 'Story')|tojson }};
-  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`);
-}
-
-async function postAction(url) {
-  const response = await fetch(url, {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      alert('로그인이 필요합니다.');
-      return null;
-    }
-    alert('요청 처리에 실패했습니다.');
-    return null;
-  }
-  return response.json();
-}
-
-async function toggleDetailLike() {
-  const result = await postAction('/api/posts/{{ post.id }}/like');
-  if (!result) return;
-  const likeCount = document.getElementById('detail-like-count');
-  const icon = document.querySelector('#detail-like-btn i');
-  if (likeCount) likeCount.textContent = String(result.likes ?? 0);
-  if (icon) icon.className = result.active ? 'bi bi-hand-thumbs-up-fill' : 'bi bi-hand-thumbs-up';
-}
-
-async function toggleDetailBookmark() {
-  const result = await postAction('/api/posts/{{ post.id }}/bookmark');
-  if (!result) return;
-  const icon = document.querySelector('#detail-bookmark-btn i');
-  if (icon) icon.className = result.active ? 'bi bi-bookmark-check-fill' : 'bi bi-bookmark';
-}
-
-function saveRecentPost() {
-  const entry = {
-    id: {{ post.id }},
-    title: {{ (post.title or 'Untitled Story')|tojson }},
-    url: '/board/{{ post.id }}',
-    date: {{ post.created_at.strftime('%m/%d')|tojson }}
-  };
-  let list = [];
-  try {
-    list = JSON.parse(localStorage.getItem('recentPosts') || '[]');
-  } catch (e) {
-    list = [];
-  }
-  list = list.filter(item => item.id !== entry.id);
-  list.unshift(entry);
-  try { localStorage.setItem('recentPosts', JSON.stringify(list.slice(0, 15))); } catch (e) {}
-}
-
-// 맨 위로 버튼 + 진행률 링
-function initScrollProgress() {
-  const scrollBtn = document.getElementById('scroll-to-top');
-  const ring = document.getElementById('scrollProgressRing');
-  if (!scrollBtn || !ring) return;
-
-  const circumference = 2 * Math.PI * 16;
-  ring.style.strokeDasharray = `${circumference} ${circumference}`;
-  ring.style.strokeDashoffset = circumference;
-
-  window.addEventListener('scroll', () => {
-    const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-    const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
-    ring.style.strokeDashoffset = circumference - (scrolled / 100 * circumference);
-    scrollBtn.classList.toggle('show', winScroll > 300);
-  }, { passive: true });
-}
-
-function scrollToTop() {
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  saveRecentPost();
-  initScrollProgress();
-
-  if (window.hljs) {
-    document.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
-  }
-
-  // 제목 중복 제거: 본문 첫 h1이 헤더 제목과 같으면 숨김 (HTML 본문 글)
-  const content = document.querySelector('.magazine-content .markdown-content');
-  if (content) {
-    const firstEl = content.firstElementChild;
-    if (firstEl && firstEl.tagName === 'H1') {
-      firstEl.style.display = 'none';
-    }
-  }
-});
-</script>
+<script type="application/json" id="board-detail-data">{{ {
+  "postId": post.id,
+  "shareTitle": post.title or 'Story',
+  "recentTitle": post.title or 'Untitled Story',
+  "recentDate": post.created_at.strftime('%m/%d')
+}|tojson }}</script>
+<script src="{{ url_for('static', path='js/board_detail.js') }}"></script>
+<script src="{{ url_for('static', path='js/board_detail_magazine.js') }}"></script>
 
 {# 코드블록 헤더(언어·복사) — 뷰어가 블록을 그린 뒤 실행 #}
 {% include "_reading_enhancements.html" %}

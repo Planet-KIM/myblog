@@ -1,0 +1,31 @@
+/**
+ * reading_enhancements.css: auto-generated table of contents on post pages.
+ * Used by templates/_reading_enhancements.html (code-block headers are styled
+ * by writer-journey.css). Relies on theme tokens.
+ */
+
+.post-toc {
+  margin: 0 0 var(--space-2xl);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+}
+.post-toc-title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-sm);
+}
+.post-toc ul { list-style: none; margin: 0; padding: 0; }
+.post-toc li { margin: 0.2rem 0; }
+.post-toc li.lvl-3 { padding-left: var(--space-md); }
+.post-toc a {
+  color: var(--text-main);
+  text-decoration: none;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.post-toc a:hover { color: var(--primary); }

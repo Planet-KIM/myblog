@@ -1,0 +1,40 @@
+/**
+ * author_card.css: "Written by" card under a post — avatar, blog name, bio and
+ * the author's other posts. The avatar border takes the author's accent color
+ * from --author-accent (set inline only when the author picked one).
+ * Used by templates/_author_card.html. Relies on theme tokens.
+ */
+
+.author-card {
+  max-width: var(--reading-max-width);
+  margin: var(--space-2xl) auto 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-lg);
+}
+.author-card .avatar { border-width: 2px; }
+/* 작성자 강조색은 아바타 테두리에만 (없으면 기본 테두리색) */
+.author-card .avatar { border-color: var(--author-accent, var(--border)); }
+.author-card-main { flex: 1; min-width: 220px; }
+.author-card-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.author-card-name:hover { color: var(--primary); }
+.author-card-handle { margin-left: var(--space-xs); font-size: var(--fs-sm); color: var(--text-muted); }
+.author-card-bio { margin: var(--space-xs) 0 var(--space-md); font-size: var(--fs-sm); color: var(--text-main); }
+.author-card-more { min-width: 200px; }
+.author-card-more a {
+  display: block;
+  padding: 0.3rem 0;
+  font-size: var(--fs-sm);
+  color: var(--text-main);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-light);
+}
+.author-card-more a:last-child { border-bottom: 0; }
+.author-card-more a:hover { color: var(--primary); }

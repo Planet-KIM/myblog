@@ -1,11 +1,14 @@
 {# 평문 댓글 섹션. body는 Jinja 자동 이스케이프 + pre-wrap로 XSS 없이 줄바꿈 보존.
-   스타일: writer-journey.css (.reading-section / .comment-*) #}
+   Partial included by both post detail pages.
+   Context: post, comments, current_user.
+   스타일: writer-journey.css (.reading-section / .comment-*); 신고 확인창은
+   data-confirm (static/js/confirm-submit.js, base.html 에서 로드). #}
 <section id="comments" class="reading-section no-print">
   <div class="reading-section-head">
     <h2 class="reading-section-title">댓글 <span class="count">{{ comments|length }}</span></h2>
     {% if current_user and current_user.id != post.user_id %}
     <form method="post" action="/board/{{ post.id }}/report"
-          onsubmit="return confirm('이 글을 신고하시겠어요?');">
+          data-confirm="이 글을 신고하시겠어요?">
       <button type="submit" class="comment-icon-btn"><i class="bi bi-flag"></i> 글 신고</button>
     </form>
     {% endif %}
@@ -25,7 +28,7 @@
       <span class="comment-actions">
         {% if current_user and current_user.id != c.user_id %}
         <form method="post" action="/board/{{ post.id }}/comment/{{ c.id }}/report"
-              onsubmit="return confirm('이 댓글을 신고하시겠어요?');">
+              data-confirm="이 댓글을 신고하시겠어요?">
           <button type="submit" class="comment-icon-btn" aria-label="댓글 신고" title="신고"><i class="bi bi-flag"></i></button>
         </form>
         {% endif %}

@@ -1,88 +1,22 @@
+{#
+  series.html: magazine issue page (/series/<slug>) — cover image with the
+  title overlaid (or a plain header) and a numbered table of contents.
+  Context: label, total, cover_image, author, posts.
+  Assets: static/css/series.css; broken cover/thumbnail images are hidden by
+          data-img-fallback (static/js/image-fallback.js, loaded by base.html).
+#}
 {% extends "base.html" %}
 {% block title %}{{ label }} · 매거진 · Planet KIM{% endblock %}
 
 {% block extra_head %}
-<style>
-  .series-wrap { max-width: var(--reading-max-width); margin: 0 auto; }
-
-  /* 표지 이미지가 있을 때만 사진 위에 제목을 얹는다 (어두운 오버레이는 글자 가독성용) */
-  .issue-cover {
-    position: relative;
-    border-radius: var(--card-radius);
-    overflow: hidden;
-    min-height: 300px;
-    display: flex;
-    align-items: flex-end;
-    margin-bottom: var(--space-xl);
-    background: var(--surface-dark);
-  }
-  .issue-cover .cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .issue-cover .cover-shade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, rgba(20, 15, 10, 0.72) 100%); }
-  .issue-cover .cover-body { position: relative; padding: var(--space-xl); color: #fff; }
-  .issue-cover .eyebrow { color: rgba(255, 255, 255, 0.85); }
-  .issue-cover h1 { color: #fff; font-size: var(--fs-3xl); margin: var(--space-xs) 0 var(--space-sm); }
-  .issue-cover .meta-row,
-  .issue-cover .meta-row a { color: rgba(255, 255, 255, 0.85); }
-  .issue-cover .meta-row > * + *::before { color: rgba(255, 255, 255, 0.5); }
-  .series-wrap .page-header h1 { font-size: var(--fs-3xl); }
-
-  .toc-list { padding: var(--space-xs) var(--space-lg); }
-  .toc-item {
-    display: flex;
-    gap: var(--space-md);
-    align-items: center;
-    padding: var(--space-md) 0;
-    border-top: 1px solid var(--border);
-    text-decoration: none;
-  }
-  .toc-item:first-child { border-top: none; }
-  .toc-num {
-    font-family: var(--font-display);
-    font-weight: 600;
-    color: var(--primary);
-    font-size: var(--fs-lg);
-    min-width: 2ch;
-    text-align: center;
-  }
-  .toc-thumb {
-    width: 84px;
-    height: 60px;
-    border-radius: var(--radius-sm);
-    object-fit: cover;
-    flex-shrink: 0;
-    background: var(--surface-light);
-    border: 1px solid var(--border);
-  }
-  .toc-thumb-ph { display: flex; align-items: center; justify-content: center; color: var(--text-disabled); }
-  .toc-main { flex: 1; min-width: 0; }
-  .toc-title {
-    display: block;
-    font-family: var(--font-display);
-    font-size: var(--fs-md);
-    font-weight: 600;
-    color: var(--text-primary);
-    line-height: var(--lh-snug);
-    margin-bottom: 2px;
-    transition: color var(--transition-fast);
-  }
-  .toc-item:hover .toc-title { color: var(--primary); }
-  .toc-item .meta-row { font-size: var(--fs-xs); }
-  .toc-chevron { color: var(--text-muted); }
-
-  @media (max-width: 576px) {
-    .issue-cover { min-height: 220px; }
-    .issue-cover .cover-body { padding: var(--space-lg); }
-    .toc-list { padding: var(--space-xs) var(--space-md); }
-    .toc-thumb { width: 64px; height: 48px; }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/series.css') }}">
 {% endblock %}
 
 {% block content %}
 <div class="page-content series-wrap">
   {% if cover_image %}
   <header class="issue-cover">
-    <img src="{{ cover_image }}" alt="" class="cover-img" onerror="this.style.display='none';">
+    <img src="{{ cover_image }}" alt="" class="cover-img" data-img-fallback="hide">
     <div class="cover-shade"></div>
     <div class="cover-body">
       <span class="eyebrow">Magazine · {{ total }}편</span>
@@ -108,7 +42,7 @@
     <a href="/board/{{ post.id }}" class="toc-item">
       <span class="toc-num">{{ loop.index }}</span>
       {% if post.thumbnail %}
-      <img src="{{ post.thumbnail }}" alt="" class="toc-thumb" loading="lazy" onerror="this.style.display='none';">
+      <img src="{{ post.thumbnail }}" alt="" class="toc-thumb" loading="lazy" data-img-fallback="hide">
       {% else %}
       <span class="toc-thumb toc-thumb-ph"><i class="bi bi-file-text"></i></span>
       {% endif %}

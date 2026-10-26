@@ -1,45 +1,18 @@
-{# 글 하단 작성자 카드: 소개 + 블로그 방문 + 같은 블로그의 다른 글 (페이지당 1회 include) #}
+{# 글 하단 작성자 카드: 소개 + 블로그 방문 + 같은 블로그의 다른 글 (페이지당 1회 include)
+   Partial included by both post detail pages; renders only when the author has a handle.
+   Context: post (post.user: handle, display_name, blog_title, bio, avatar_url,
+   accent_color), author_other_posts.
+   Assets: static/css/author_card.css (the accent color arrives as --author-accent);
+   a broken avatar is hidden by data-img-fallback (static/js/image-fallback.js). #}
 {% if post.user and post.user.handle %}
-<style>
-  .author-card {
-    max-width: var(--reading-max-width);
-    margin: var(--space-2xl) auto 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--space-lg);
-  }
-  .author-card .avatar { border-width: 2px; }
-  .author-card-main { flex: 1; min-width: 220px; }
-  .author-card-name {
-    font-family: var(--font-display);
-    font-size: var(--fs-lg);
-    font-weight: 600;
-    color: var(--text-primary);
-    text-decoration: none;
-  }
-  .author-card-name:hover { color: var(--primary); }
-  .author-card-handle { margin-left: var(--space-xs); font-size: var(--fs-sm); color: var(--text-muted); }
-  .author-card-bio { margin: var(--space-xs) 0 var(--space-md); font-size: var(--fs-sm); color: var(--text-main); }
-  .author-card-more { min-width: 200px; }
-  .author-card-more a {
-    display: block;
-    padding: 0.3rem 0;
-    font-size: var(--fs-sm);
-    color: var(--text-main);
-    text-decoration: none;
-    border-bottom: 1px solid var(--border-light);
-  }
-  .author-card-more a:last-child { border-bottom: 0; }
-  .author-card-more a:hover { color: var(--primary); }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/author_card.css') }}">
 <section class="page-card author-card no-print">
   {% if post.user.avatar_url %}
-  <img src="{{ post.user.avatar_url }}" alt="" class="avatar avatar-lg" onerror="this.style.display='none';"
-       {% if post.user.accent_color %}style="border-color: {{ post.user.accent_color }};"{% endif %}>
+  <img src="{{ post.user.avatar_url }}" alt="" class="avatar avatar-lg" data-img-fallback="hide"
+       {% if post.user.accent_color %}style="--author-accent: {{ post.user.accent_color }};"{% endif %}>
   {% else %}
   <span class="avatar avatar-lg"
-        {% if post.user.accent_color %}style="border-color: {{ post.user.accent_color }};"{% endif %}>{{ (post.user.display_name or post.user.handle or '?')[0]|upper }}</span>
+        {% if post.user.accent_color %}style="--author-accent: {{ post.user.accent_color }};"{% endif %}>{{ (post.user.display_name or post.user.handle or '?')[0]|upper }}</span>
   {% endif %}
 
   <div class="author-card-main">

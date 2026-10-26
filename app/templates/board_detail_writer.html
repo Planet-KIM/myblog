@@ -1,3 +1,14 @@
+{#
+  board_detail_writer.html: Markdown (Milkdown) post page, /board/<id> — header,
+  rendered body with TOC and code-block headers, tags, action bar (edit/delete
+  for the owner; like, bookmark, copy link, share on X), author card, series
+  banner, related posts, comments and prev/next navigation.
+  Context: post, current_user, stats, prev_post, next_post, comments,
+  author_other_posts, related_posts, series_label, series_slug (+ SEO meta).
+  Assets: static/css/board_detail_writer.css, static/js/board_detail.js (shared
+          with the magazine page), static/js/board_detail_writer.js; partials
+          bring their own (reading_enhancements.*, author_card.css).
+#}
 {% extends "base.html" %}
 
 {% block title %}{{ post.title or 'Story' }}{% endblock %}
@@ -8,24 +19,7 @@
 <!-- Highlight.js — 구문 색은 markdown-rendering.css 가 정의 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-<style>
-  /* 글쓰기 페이지와 동일하게 main을 100% 너비로 — 레이아웃 기준점 통일 */
-  main.container {
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
-  }
-
-  /* 읽기 레이아웃 variants (글쓰기 페이지에서 고른 contentLayout) */
-  .reading-container[data-layout="left"] { margin-left: 0; margin-right: auto; }
-  .reading-container[data-layout="right"] { margin-left: auto; margin-right: 0; }
-  .reading-container[data-layout="full"] { max-width: 100%; }
-
-  @media print {
-    .article-action-bar, .post-navigation, .scroll-to-top { display: none !important; }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/board_detail_writer.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -86,7 +80,7 @@
           <i class="bi bi-pencil"></i> Edit
         </a>
         <form method="post" action="/board/{{ post.id }}/delete"
-              onsubmit="return confirm('이 글을 삭제하시겠습니까?');">
+              data-confirm="이 글을 삭제하시겠습니까?">
           <button type="submit" class="btn-action btn-action-delete">
             <i class="bi bi-trash"></i> Delete
           </button>
@@ -95,16 +89,16 @@
       </div>
 
       <div class="action-right">
-        <button class="btn-action btn-action-share" id="detail-like-btn" onclick="toggleDetailLike()" title="좋아요" aria-label="좋아요">
+        <button class="btn-action btn-action-share" id="detail-like-btn" data-detail-action="like" title="좋아요" aria-label="좋아요">
           <i class="bi bi-hand-thumbs-up"></i> <span id="detail-like-count">{{ stats.likes if stats else 0 }}</span>
         </button>
-        <button class="btn-action btn-action-share" id="detail-bookmark-btn" onclick="toggleDetailBookmark()" title="북마크" aria-label="북마크">
+        <button class="btn-action btn-action-share" id="detail-bookmark-btn" data-detail-action="bookmark" title="북마크" aria-label="북마크">
           <i class="bi bi-bookmark"></i>
         </button>
-        <button class="btn-action btn-action-share" onclick="copyLink()" title="링크 복사" aria-label="링크 복사">
+        <button class="btn-action btn-action-share" data-detail-action="copy-link" title="링크 복사" aria-label="링크 복사">
           <i class="bi bi-link-45deg"></i>
         </button>
-        <button class="btn-action btn-action-share" onclick="shareTwitter()" title="X(Twitter)에 공유" aria-label="X(Twitter)에 공유">
+        <button class="btn-action btn-action-share" data-detail-action="share-x" title="X(Twitter)에 공유" aria-label="X(Twitter)에 공유">
           <i class="bi bi-twitter-x"></i>
         </button>
       </div>
@@ -142,7 +136,7 @@
 </div>
 
 <!-- Scroll-to-top + 읽기 진행률 링 -->
-<button type="button" id="scroll-to-top" class="scroll-to-top no-print" onclick="scrollToTop()" aria-label="맨 위로">
+<button type="button" id="scroll-to-top" class="scroll-to-top no-print" data-detail-action="scroll-top" aria-label="맨 위로">
   <svg class="progress-ring" width="40" height="40" aria-hidden="true">
     <circle class="progress-ring-circle-bg" stroke-width="2" fill="transparent" r="16" cx="20" cy="20"/>
     <circle class="progress-ring-circle" id="scrollProgressRing" stroke-width="2" fill="transparent" r="16" cx="20" cy="20"/>
@@ -150,116 +144,12 @@
   <i class="bi bi-arrow-up-short scroll-icon" aria-hidden="true"></i>
 </button>
 
-<script>
-// Share
-function copyLink() {
-  navigator.clipboard.writeText(window.location.href).then(() => {
-    if (window.toast) window.toast.success('링크를 복사했어요');
-  });
-}
-
-function shareTwitter() {
-  const text = {{ (post.title or 'Untitled')|tojson }};
-  const url = window.location.href;
-  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`);
-}
-
-async function postAction(url) {
-  const response = await fetch(url, {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      alert('로그인이 필요합니다.');
-      return null;
-    }
-    alert('요청 처리에 실패했습니다.');
-    return null;
-  }
-  return response.json();
-}
-
-async function toggleDetailLike() {
-  const result = await postAction('/api/posts/{{ post.id }}/like');
-  if (!result) return;
-  const likeCount = document.getElementById('detail-like-count');
-  const icon = document.querySelector('#detail-like-btn i');
-  if (likeCount) likeCount.textContent = String(result.likes ?? 0);
-  if (icon) icon.className = result.active ? 'bi bi-hand-thumbs-up-fill' : 'bi bi-hand-thumbs-up';
-}
-
-async function toggleDetailBookmark() {
-  const result = await postAction('/api/posts/{{ post.id }}/bookmark');
-  if (!result) return;
-  const icon = document.querySelector('#detail-bookmark-btn i');
-  if (icon) icon.className = result.active ? 'bi bi-bookmark-check-fill' : 'bi bi-bookmark';
-}
-
-function saveRecentPost() {
-  const entry = {
-    id: {{ post.id }},
-    title: {{ (post.title or 'Untitled Story')|tojson }},
-    url: '/board/{{ post.id }}',
-    date: {{ post.created_at.strftime('%m/%d')|tojson }}
-  };
-  let list = [];
-  try {
-    list = JSON.parse(localStorage.getItem('recentPosts') || '[]');
-  } catch (e) {
-    list = [];
-  }
-  list = list.filter(item => item.id !== entry.id);
-  list.unshift(entry);
-  try { localStorage.setItem('recentPosts', JSON.stringify(list.slice(0, 15))); } catch (e) {}
-}
-
-// 맨 위로 버튼 + 진행률 링
-function initScrollProgress() {
-  const scrollBtn = document.getElementById('scroll-to-top');
-  const ring = document.getElementById('scrollProgressRing');
-  if (!scrollBtn || !ring) return;
-
-  const circumference = 2 * Math.PI * 16;
-  ring.style.strokeDasharray = `${circumference} ${circumference}`;
-  ring.style.strokeDashoffset = circumference;
-
-  window.addEventListener('scroll', () => {
-    const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-    const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
-    ring.style.strokeDashoffset = circumference - (scrolled / 100 * circumference);
-    scrollBtn.classList.toggle('show', winScroll > 300);
-  }, { passive: true });
-}
-
-function scrollToTop() {
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  saveRecentPost();
-  initScrollProgress();
-
-  if (window.hljs) {
-    document.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
-  }
-
-  // ── 읽기 레이아웃: 글쓰기 페이지와 동일한 설정 적용 ──
-  let layout = 'center';
-  try { layout = localStorage.getItem('contentLayout') || 'center'; } catch (e) {}
-  const container = document.querySelector('.reading-container');
-  if (container) container.dataset.layout = layout;
-
-  // ── 제목 중복 제거: 본문 첫 번째 h1이 헤더 제목과 같으면 숨김 ──
-  const articleContent = document.querySelector('.article-content');
-  if (articleContent) {
-    const firstEl = articleContent.firstElementChild;
-    if (firstEl && firstEl.tagName === 'H1') {
-      firstEl.style.display = 'none';
-    }
-  }
-});
-</script>
+<script type="application/json" id="board-detail-data">{{ {
+  "postId": post.id,
+  "shareTitle": post.title or 'Untitled',
+  "recentTitle": post.title or 'Untitled Story',
+  "recentDate": post.created_at.strftime('%m/%d')
+}|tojson }}</script>
+<script src="{{ url_for('static', path='js/board_detail.js') }}"></script>
+<script src="{{ url_for('static', path='js/board_detail_writer.js') }}"></script>
 {% endblock %}
