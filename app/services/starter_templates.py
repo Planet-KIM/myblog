@@ -155,7 +155,7 @@ def _two_col():
         _div(M, 335, CONT),
         _t(M, 380, 410, 500, "<p style='font-size:18px;line-height:1.8'>왼쪽 단 본문을 입력하세요.</p>"),
         _t(520, 380, 410, 500, "<p style='font-size:18px;line-height:1.8'>오른쪽 단 본문을 입력하세요.</p>"),
-        _t(M, 910, CONT, 170, "<blockquote style='border-left:4px solid #b4542f;padding-left:18px;margin:0;font-size:30px;font-style:italic;color:#4c4239'>인상적인 한 문장을 인용구로.</blockquote>"),
+        _t(M, 910, CONT, 170, "<blockquote style='border-left:4px solid #b4542f;padding-left:18px;margin:0;font-size:30px;font-style:italic;color:#4c4239'><p style='margin:0'>인상적인 한 문장을 인용구로.</p></blockquote>"),  # 에디터는 인용문 안을 문단으로 감싸므로 처음부터 margin 0 문단으로 둔다
         _t(M, 1110, CONT, 210, "<p style='font-size:18px;line-height:1.8'>마무리 본문.</p>"),
     ])
 

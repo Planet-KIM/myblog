@@ -19,6 +19,8 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
+import { magazineHtmlExtensions, stripPastedBlockStyles } from './plugins/tiptapMagazineHtml.js';
+import { applyPageWidth, pageHeight } from './plugins/pageCanvas.js';
 
 // ── Upload ────────────────────────────────────────────────
 /**
@@ -220,6 +222,9 @@ function renderMapHTML(text) {
 /**
  * Create the TipTap editor used inside text, heading and code blocks.
  *
+ * Inline block styles in the content (starter layouts, imported pages) are kept
+ * as they are; pasted HTML loses them (see plugins/tiptapMagazineHtml.js).
+ *
  * @param {HTMLElement} el - Element to mount the editor in.
  * @param {string} [content] - Initial HTML (defaults to an empty paragraph).
  * @returns {Editor} The new editor instance.
@@ -228,7 +233,8 @@ function createEditor(el, content) {
   return new Editor({
     element: el,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ bold: false }), // WeightedBold (in magazineHtmlExtensions) replaces it
+      ...magazineHtmlExtensions,
       Placeholder.configure({ placeholder: 'Type here...' }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Underline, TextStyle, Color,
@@ -236,6 +242,7 @@ function createEditor(el, content) {
       Highlight.configure({ multicolor: true }),
       Image.configure({ inline: false }),
     ],
+    editorProps: { transformPastedHTML: stripPastedBlockStyles },
     content: content || '<p></p>',
   });
 }
@@ -248,13 +255,14 @@ function createEditor(el, content) {
 function canvasW() { return document.getElementById('block-canvas').offsetWidth || 1; }
 
 /**
- * Grow the canvas so the lowest block has 100px of room below it (min 600px).
+ * Grow the canvas so the lowest block has 100px of room below it (min 600px)
+ * and the whole saved page is visible.
  *
  * @returns {void}
  */
 function updateCanvasHeight() {
   const canvas = document.getElementById('block-canvas');
-  const max = blocks.reduce((m, b) => Math.max(m, b.y + b.h + 100), 600);
+  const max = blocks.reduce((m, b) => Math.max(m, b.y + b.h + 100), Math.max(600, pages[currentPageIdx].openedCh || 0));
   canvas.style.minHeight = max + 'px'; // conventions: allow (height measured from the blocks at runtime)
 }
 
@@ -262,12 +270,15 @@ function updateCanvasHeight() {
 /**
  * Save the current page's editor HTML and canvas size into `pages`.
  *
+ * A page loaded from saved data keeps its saved height unless a block reaches
+ * past it (see pageHeight), so saving a page does not resize it.
+ *
  * @returns {void}
  */
 function syncCurrentPage() {
   blocks.forEach(b => { if (b.editor) b.content = b.editor.getHTML(); });
   const cW = canvasW();
-  const cH = Math.max(blocks.reduce((m, b) => Math.max(m, b.y + b.h), 0) + 40, 400);
+  const cH = pageHeight(blocks, pages[currentPageIdx].openedCh);
   pages[currentPageIdx].cw = cW;
   pages[currentPageIdx].ch = cH;
 }
@@ -298,6 +309,7 @@ function switchPage(idx) {
   clearCanvas();
   currentPageIdx = idx;
   blocks = pages[idx].blocks;
+  applyPageWidth(document.getElementById('block-canvas'), pages[idx]);
   blocks.forEach(b => renderBlock(b));
   updateCanvasHeight();
   updatePageTabs();
@@ -315,6 +327,7 @@ function addPage() {
   pages.push(newPage);
   currentPageIdx = pages.length - 1;
   blocks = pages[currentPageIdx].blocks;
+  applyPageWidth(document.getElementById('block-canvas'), newPage);
   addBlock('heading', { content: '<h1></h1>', h: 80 });
   addBlock('text', { h: 200 });
   updatePageTabs();
@@ -332,6 +345,7 @@ function deletePage(idx) {
   pages.splice(idx, 1);
   currentPageIdx = Math.min(idx, pages.length - 1);
   blocks = pages[currentPageIdx].blocks;
+  applyPageWidth(document.getElementById('block-canvas'), pages[currentPageIdx]);
   blocks.forEach(b => renderBlock(b));
   updateCanvasHeight();
   updatePageTabs();
@@ -2023,29 +2037,32 @@ function buildToolbar() {
  * Load a saved layout into the editor.
  *
  * Accepts the v3 multi-page format, the v2 single-page format and the legacy
- * block array. Horizontal positions and widths are scaled from the saved canvas
- * width to the current one.
+ * block array. Block geometry is kept exactly as saved: the canvas takes each
+ * page's saved width instead (applyPageWidth), so opening and saving a post
+ * leaves its layout unchanged on any screen.
  *
  * @param {*} raw - Parsed content_blocks JSON.
  * @returns {boolean} True when blocks were loaded.
  */
 function loadSavedData(raw) {
-  const currentCW = canvasW();
+  const canvas = document.getElementById('block-canvas');
 
   if (raw && raw.v === 3 && Array.isArray(raw.pages) && raw.pages.length) {
     // v3 multi-page format
     // Replace initial page with saved pages
     pages.splice(0, pages.length);
     raw.pages.forEach((savedPage, pi) => {
-      const scale = savedPage.cw ? currentCW / savedPage.cw : 1;
-      const page = { id: savedPage.id || uid(), blocks: [], cw: savedPage.cw, ch: savedPage.ch };
+      const page = {
+        id: savedPage.id || uid(), blocks: [], cw: savedPage.cw || null, ch: savedPage.ch || null,
+        openedCh: savedPage.ch || null, // floor for the saved height (pageHeight)
+      };
       pages.push(page);
       if (pi === 0) blocks = page.blocks; // point blocks ref to first page
       savedPage.blocks.forEach(b => {
         page.blocks.push({
           id: b.id || uid(), type: b.type,
-          x: Math.round((b.x || 0) * scale), y: b.y || 0,
-          w: Math.round((b.w || 200) * scale), h: b.h || 160,
+          x: b.x || 0, y: b.y || 0,
+          w: b.w || 200, h: b.h || 160,
           content: b.content || '', src: b.src || '',
           imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
           imgFilter: b.imgFilter || 'none', tlText: b.tlText || '', tlDir: b.tlDir || 'v', mapText: b.mapText || '', dropCap: b.dropCap || false,
@@ -2059,6 +2076,7 @@ function loadSavedData(raw) {
     });
     currentPageIdx = 0;
     blocks = pages[0].blocks;
+    applyPageWidth(canvas, pages[0]);
     blocks.forEach(b => renderBlock(b));
     updateCanvasHeight();
     updatePageTabs();
@@ -2066,11 +2084,13 @@ function loadSavedData(raw) {
 
   } else if (raw && raw.v === 2 && Array.isArray(raw.blocks)) {
     // v2 single-page format
-    const scale = raw.cw ? currentCW / raw.cw : 1;
+    pages[0].cw = raw.cw || null;
+    pages[0].openedCh = raw.ch || null;
+    applyPageWidth(canvas, pages[0]);
     raw.blocks.forEach(b => {
       addBlock(b.type, {
-        id: b.id, x: Math.round((b.x || 0) * scale), y: b.y || 0,
-        w: Math.round((b.w || 200) * scale), h: b.h || 160,
+        id: b.id, x: b.x || 0, y: b.y || 0,
+        w: b.w || 200, h: b.h || 160,
         content: b.content || '', src: b.src || '',
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
         showBorder: b.showBorder ?? false,
@@ -2140,13 +2160,18 @@ function snapshotState() {
 function _applySnapshot(json) {
   let data; try { data = JSON.parse(json); } catch { return; }
   clearCanvas();
+  const openedChById = new Map(pages.map(p => [p.id, p.openedCh])); // snapshots don't store it
   pages.splice(0, pages.length);
   (data.pages || []).forEach(sp => {
-    pages.push({ id: sp.id || uid(), cw: sp.cw, ch: sp.ch, blocks: (sp.blocks || []).map(b => ({ ...b, editor: null })) });
+    pages.push({
+      id: sp.id || uid(), cw: sp.cw, ch: sp.ch, openedCh: openedChById.get(sp.id) || null,
+      blocks: (sp.blocks || []).map(b => ({ ...b, editor: null })),
+    });
   });
   if (!pages.length) pages.push({ id: uid(), blocks: [], cw: null, ch: null });
   currentPageIdx = Math.min(data.page || 0, pages.length - 1);
   blocks = pages[currentPageIdx].blocks;
+  applyPageWidth(document.getElementById('block-canvas'), pages[currentPageIdx]);
   blocks.forEach(b => renderBlock(b));
   updateCanvasHeight();
   updatePageTabs();

@@ -86,6 +86,9 @@
 
 #block-canvas {
   position: relative;
+  /* 저장된 페이지는 저장 당시 폭(--page-w ← page.cw, pageCanvas.js)으로 그려 블록 좌표를 그대로 유지. 새 페이지는 칸 전체 폭 */
+  width: var(--page-w, auto);
+  margin-inline: auto;
   min-height: 80vh;
   /* 정렬용 그리드 (기능적 배경) */
   --grid-line: color-mix(in srgb, var(--text-primary) 4%, transparent);

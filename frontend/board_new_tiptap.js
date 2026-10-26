@@ -22,6 +22,8 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
+import { magazineHtmlExtensions, stripPastedBlockStyles } from './plugins/tiptapMagazineHtml.js';
+import { applyPageWidth, pageHeight } from './plugins/pageCanvas.js';
 
 // ── Upload ────────────────────────────────────────────────
 /**
@@ -223,6 +225,9 @@ function renderMapHTML(text) {
 /**
  * Create the TipTap editor used inside text, heading and code blocks.
  *
+ * Inline block styles in the content (starter layouts, imported pages) are kept
+ * as they are; pasted HTML loses them (see plugins/tiptapMagazineHtml.js).
+ *
  * @param {HTMLElement} el - Element to mount the editor in.
  * @param {string} [content] - Initial HTML (defaults to an empty paragraph).
  * @returns {Editor} The new editor instance.
@@ -231,7 +236,8 @@ function createEditor(el, content) {
   return new Editor({
     element: el,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ bold: false }), // WeightedBold (in magazineHtmlExtensions) replaces it
+      ...magazineHtmlExtensions,
       Placeholder.configure({ placeholder: 'Type here...' }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Underline, TextStyle, Color,
@@ -239,6 +245,7 @@ function createEditor(el, content) {
       Highlight.configure({ multicolor: true }),
       Image.configure({ inline: false }),
     ],
+    editorProps: { transformPastedHTML: stripPastedBlockStyles },
     content: content || '<p></p>',
   });
 }
@@ -271,7 +278,7 @@ function updateCanvasHeight() {
 function syncCurrentPage() {
   blocks.forEach(b => { if (b.editor) b.content = b.editor.getHTML(); });
   const cW = canvasW();
-  const cH = Math.max(blocks.reduce((m, b) => Math.max(m, b.y + b.h), 0) + 40, 400);
+  const cH = pageHeight(blocks); // pages of a new post have no saved height yet
   pages[currentPageIdx].cw = cW;
   pages[currentPageIdx].ch = cH;
 }
@@ -302,6 +309,7 @@ function switchPage(idx) {
   clearCanvas();
   currentPageIdx = idx;
   blocks = pages[idx].blocks;
+  applyPageWidth(document.getElementById('block-canvas'), pages[idx]);
   blocks.forEach(b => renderBlock(b));
   updateCanvasHeight();
   updatePageTabs();
@@ -319,6 +327,7 @@ function addPage() {
   pages.push(newPage);
   currentPageIdx = pages.length - 1;
   blocks = pages[currentPageIdx].blocks;
+  applyPageWidth(document.getElementById('block-canvas'), newPage);
   addBlock('heading', { content: '<h1></h1>', h: 80 });
   addBlock('text', { h: 200 });
   updatePageTabs();
@@ -336,6 +345,7 @@ function deletePage(idx) {
   pages.splice(idx, 1);
   currentPageIdx = Math.min(idx, pages.length - 1);
   blocks = pages[currentPageIdx].blocks;
+  applyPageWidth(document.getElementById('block-canvas'), pages[currentPageIdx]);
   blocks.forEach(b => renderBlock(b));
   updateCanvasHeight();
   updatePageTabs();
@@ -1238,7 +1248,7 @@ function collectData() {
   // Generate reading HTML (one .magazine-page per page)
   let html = '<div class="magazine-pages" data-page-count="' + pages.length + '">';
   pagesData.forEach((page, pi) => {
-    const { cW, cH, blocks: pBlocks } = page;
+    const { cw: cW, ch: cH, blocks: pBlocks } = page;
     const ratio = (cH / cW * 100).toFixed(3);
     html += `<div class="magazine-page" data-page="${pi}">`;
     html += `<div class="magazine-layout" style="position:relative;width:100%;padding-bottom:${ratio}%;overflow:hidden;">`;
@@ -2151,6 +2161,7 @@ function _applySnapshot(json) {
   if (!pages.length) pages.push({ id: uid(), blocks: [], cw: null, ch: null });
   currentPageIdx = Math.min(data.page || 0, pages.length - 1);
   blocks = pages[currentPageIdx].blocks;
+  applyPageWidth(document.getElementById('block-canvas'), pages[currentPageIdx]);
   blocks.forEach(b => renderBlock(b));
   updateCanvasHeight();
   updatePageTabs();
