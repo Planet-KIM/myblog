@@ -14,6 +14,9 @@ frontend/node_modules/
 app.db
 app.db-*
 *.sqlite3
+# 맞춤법 모델 학습용 데이터·결과물(수 GB). 서비스는 쓰지 않고, 필요해도 런타임 마운트(.:/app)로 읽는다
+models/
+data/
 # 에디터 번들은 호스트( .:/app )에서 서빙되므로 이미지에 넣지 않아도 됨
 .DS_Store
 .pytest_cache/
