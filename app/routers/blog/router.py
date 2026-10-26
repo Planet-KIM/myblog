@@ -29,6 +29,7 @@ from app.database import get_db
 from app.auth_utils import get_current_user, get_current_user_optional
 from app.services.profile import validate_handle, validate_avatar_url, validate_accent_color
 from app.services.seo import website_jsonld, blog_jsonld
+from app.services.bilingual import pick_language
 from app.services.home_layout import (
     HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
     HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
@@ -240,6 +241,7 @@ def markdown_to_plain(text: str, max_len: int = 180) -> str:
     raw_html = re.sub(r'(?is)<(script|style)[^>]*>.*?</\1>', ' ', raw_html)
     raw_html = re.sub(r'(?is)<pre[^>]*>.*?</pre>', ' ', raw_html)
     raw_html = re.sub(r'(?is)<code[^>]*>.*?</code>', ' ', raw_html)
+    raw_html = pick_language(raw_html)  # 이중 언어 {{ko||en}} 은 한국어만
 
     # 4) 태그 제거 -> 엔티티 복원 -> 잔재 태그 재제거
     plain = re.sub(r'<[^>]+>', ' ', raw_html)

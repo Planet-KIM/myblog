@@ -1,0 +1,44 @@
+/**
+ * bilingual.css: bilingual post text ({{한국어||English}}) and the language
+ * switch on post pages. static/js/bilingual.js wraps each pair as
+ * .bi-pair > .bi-ko + .bi-en (.is-whole when the pair is a whole paragraph,
+ * heading or item) and sets data-content-lang ("ko" | "en" | "both") on <html>.
+ * Used by templates/board_detail_writer.html and board_detail_magazine.html.
+ * Relies on theme tokens (--space-*, --fs-*, --btn-radius, colours).
+ */
+
+/* 기본(한국어): 영어 쪽 숨김. JS가 없거나 언어를 아직 안 정했을 때도 한국어 */
+:root:not([data-content-lang="en"]):not([data-content-lang="both"]) .bi-en { display: none; }
+:root[data-content-lang="en"] .bi-ko { display: none; }
+
+/* 함께: 문단·제목 전체가 한 쌍이면 영어를 아랫줄에 작게, 문장 속 단어 쌍이면 괄호로 */
+:root[data-content-lang="both"] .bi-pair.is-whole > .bi-en {
+  display: block;
+  margin-top: 0.3em;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+:root[data-content-lang="both"] .bi-pair:not(.is-whole) > .bi-en::before { content: "\00a0("; }  /* 줄지 않는 공백 + 괄호 */
+:root[data-content-lang="both"] .bi-pair:not(.is-whole) > .bi-en::after { content: ")"; }
+
+/* 언어 전환: 머리말 아래 세 칸짜리 버튼 묶음 */
+.bilingual-switch {
+  display: inline-flex;
+  margin-top: var(--space-md);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--btn-radius);
+  overflow: hidden;
+}
+.bilingual-switch button {
+  padding: 0.35rem 0.9rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+.bilingual-switch button + button { border-left: 1px solid var(--border-dark); }
+.bilingual-switch button:hover { color: var(--text-primary); background: var(--surface-light); }
+.bilingual-switch button[aria-pressed="true"] { color: var(--primary); background: var(--surface-light); font-weight: 600; }

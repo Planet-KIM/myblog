@@ -2,7 +2,8 @@
  * @file Magazine post page (board_detail_magazine.html): the page-flip viewer
  * built from the post's content blocks (with a linear reading mode for small
  * screens and print, and view options for two-page spreads and full width that
- * are remembered in this browser), the name prompt of the "save as layout
+ * are remembered in this browser; showing bilingual text in both languages
+ * switches to the reading mode), the name prompt of the "save as layout
  * template" form, and hiding a duplicated title in HTML-bodied posts. The
  * action bar, scroll progress and recent-posts history are shared with the
  * Markdown page in board_detail.js.
@@ -162,6 +163,21 @@
     }
     modeToggle.addEventListener('click', () => {
       root.classList.toggle('reader-on');
+      syncToggleLabel();
+      // 매거진 페이지(고정 크기 블록)엔 두 언어가 다 들어가지 않으므로 마지막 한 언어로
+      if (!root.classList.contains('reader-on') && document.documentElement.dataset.contentLang === 'both') {
+        document.dispatchEvent(new CustomEvent('bilingual:set', { detail: { lang: lastSingleLang } }));
+      }
+      applyLayout();
+    });
+
+    // ── 이중 언어 글: '함께'는 읽기 모드에서 (static/js/bilingual.js 이벤트) ──
+    let lastSingleLang = 'ko';
+    document.addEventListener('bilingual:change', e => {
+      const lang = e.detail.lang;
+      if (lang !== 'both') { lastSingleLang = lang; return; }
+      if (root.classList.contains('reader-on')) return;
+      root.classList.add('reader-on');
       syncToggleLabel();
       applyLayout();
     });

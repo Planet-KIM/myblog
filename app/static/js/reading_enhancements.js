@@ -3,6 +3,8 @@
  * progressive enhancement: the body still shows if this fails.
  *   - Table of contents built from the h2/h3 headings of .article-content
  *     (Markdown posts only, when there are at least 3), inserted before it.
+ *     Bilingual headings (already split by bilingual.js) keep both languages,
+ *     so the language switch changes the table of contents too.
  *   - Code-block header (language label + copy button) around every <pre> in
  *     .article-content and .magazine-content.
  * Sets window.__skipCodeCopy so app.js doesn't add its generic copy button too.
@@ -17,6 +19,32 @@
 
   var article = document.querySelector('.article-content');
 
+  /**
+   * Text of a heading without the elements matching a selector (used to read
+   * one language of a bilingual heading: drop .bi-en for Korean, .bi-ko for English).
+   *
+   * @param {Element} h - The heading.
+   * @param {string} drop - Selector of the elements to leave out.
+   * @returns {string} Trimmed text.
+   */
+  function textWithout(h, drop) {
+    var copy = h.cloneNode(true);
+    copy.querySelectorAll(drop).forEach(function (el) { el.remove(); });
+    return (copy.textContent || '').trim();
+  }
+
+  /**
+   * HTML-escape text by letting the browser serialise it.
+   *
+   * @param {string} text - Plain text.
+   * @returns {string} Escaped HTML.
+   */
+  function escapeText(text) {
+    var a = document.createElement('a');
+    a.textContent = text;          // 텍스트로 넣어 XSS 없이 안전
+    return a.innerHTML;
+  }
+
   // ── 목차 (h2/h3) — 제목이 3개 이상일 때만 ──
   if (article) {
     var heads = article.querySelectorAll('h2, h3');
@@ -27,16 +55,20 @@
       toc.setAttribute('aria-label', '목차');
       var items = '';
       heads.forEach(function (h, i) {
-        var text = (h.textContent || '').trim();
+        // 이중 언어 제목(bilingual.js 가 만든 .bi-pair)은 한국어로 앵커를 만들고 두 언어를 함께 담는다
+        var bilingual = h.querySelector('.bi-pair');
+        var text = bilingual ? textWithout(h, '.bi-en') : (h.textContent || '').trim();
         if (!text) return;
         var slug = text.toLowerCase().replace(/[^\w가-힣]+/g, '-').replace(/^-+|-+$/g, '') || ('section-' + i);
         if (used[slug]) slug = slug + '-' + i;
         used[slug] = true;
         if (!h.id) h.id = slug;
         var lvl = h.tagName === 'H3' ? ' class="lvl-3"' : '';
-        var a = document.createElement('a');
-        a.textContent = text;          // 텍스트로 넣어 XSS 없이 안전
-        items += '<li' + lvl + '><a href="#' + h.id + '">' + a.innerHTML + '</a></li>';
+        var label = bilingual
+          ? '<span class="bi-pair"><span class="bi-ko" lang="ko">' + escapeText(text) + '</span><span class="bi-en" lang="en">'
+            + escapeText(textWithout(h, '.bi-ko')) + '</span></span>'
+          : escapeText(text);
+        items += '<li' + lvl + '><a href="#' + h.id + '">' + label + '</a></li>';
       });
       if (items) {
         toc.innerHTML = '<div class="post-toc-title">목차</div><ul>' + items + '</ul>';

@@ -32,6 +32,7 @@ from app.routers.upload.router import relocate_draft_files, normalize_draft_id
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
 from app.services.ratelimit import enforce
 from app.services.seo import post_jsonld, breadcrumb_jsonld, post_meta
+from app.services.bilingual import has_pairs, pick_language
 from app.services.recommendations import get_related_posts
 from app.config import settings
 from app.services.category_counts import (
@@ -206,6 +207,35 @@ def extract_title_from_milkdown_top_line(
     return "Untitled"
 
 
+def derive_title(
+    editor_type: Optional[str],
+    content_html: Optional[str],
+    content: Optional[str],
+    lang: str = "ko",
+) -> str:
+    """Derive a post title from its body in one language.
+
+    Bilingual ``{{ko||en}}`` pairs are reduced to ``lang`` first, so the title
+    never carries the pair markup; then the extractor for the editor type runs.
+
+    Args:
+        editor_type: ``"tiptap"``, ``"milkdown"`` or anything else for Markdown.
+        content_html: HTML body, if any.
+        content: Source body (HTML or Markdown), if any.
+        lang: ``"ko"`` (stored title) or ``"en"`` (English title on the post page).
+
+    Returns:
+        The title as plain text, or ``"Untitled"``.
+    """
+    html_one = pick_language(content_html, lang) if content_html else content_html
+    source_one = pick_language(content, lang) if content else content
+    if editor_type == "tiptap":
+        return extract_title_from_html(html_one or source_one)
+    if editor_type == "milkdown":
+        return extract_title_from_milkdown_top_line(html_one, source_one)
+    return extract_title_from_markdown(source_one)
+
+
 # ------------------------------------------------------------
 # Markdown to plain text preview (마크다운 기호 제거)
 # ------------------------------------------------------------
@@ -228,6 +258,7 @@ def create_preview(
     text = re.sub(r"(?is)<pre[^>]*>.*?</pre>", "\n", text)
     text = re.sub(r"(?is)<code[^>]*>.*?</code>", "\n", text)
     text = re.sub(r"```[\s\S]*?```", "\n", text)
+    text = pick_language(text)  # 이중 언어 {{ko||en}} 은 한국어만
 
     # 블록 경계 보존
     text = re.sub(r"(?i)<br\s*/?>", "\n", text)
@@ -861,13 +892,8 @@ def board_create(
     if not category:
         raise HTTPException(400, "Invalid category")
 
-    # 에디터 타입별 제목 추출 분기
-    if editor_type == "tiptap":
-        title = extract_title_from_html(content_html or content)
-    elif editor_type == "milkdown":
-        title = extract_title_from_milkdown_top_line(content_html, content)
-    else:
-        title = extract_title_from_markdown(content)
+    # 에디터 타입별 제목 추출 (이중 언어는 한국어로)
+    title = derive_title(editor_type, content_html, content)
 
     post = models.BoardPost(
         title=title,
@@ -1057,12 +1083,7 @@ def board_update(
 
     # 에디터 타입에 따라 제목 추출 분기
     effective_editor_type = editor_type or post.editor_type or "milkdown"
-    if effective_editor_type == "tiptap":
-        post.title = extract_title_from_html(content_html or content)
-    elif effective_editor_type == "milkdown":
-        post.title = extract_title_from_milkdown_top_line(content_html, content)
-    else:
-        post.title = extract_title_from_markdown(content)
+    post.title = derive_title(effective_editor_type, content_html, content)
 
     post.content = content
     post.content_html = content_html
@@ -1370,6 +1391,13 @@ def board_detail(
     post.content_html_safe = sanitize_html(post.content_html)
     post.content_blocks_safe = sanitize_content_blocks(post.content_blocks)
 
+    # 이중 언어 글이면 제목의 영어 쪽 (머리말에서 언어 전환용)
+    title_en = None
+    if has_pairs(post.content_html) or has_pairs(post.content):
+        title_en = derive_title(post.editor_type, post.content_html, post.content, "en")
+        if title_en == post.title:
+            title_en = None
+
     # 공유/SEO 메타
     meta_description = create_preview(post.content_html, post.content, 160)
     img_match = (
@@ -1422,6 +1450,7 @@ def board_detail(
         {
             "request": request,
             "post": post,
+            "title_en": title_en,
             "current_user": current_user,
             "stats": stats,
             "prev_post": prev_post,

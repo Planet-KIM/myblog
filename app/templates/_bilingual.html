@@ -1,0 +1,11 @@
+{#
+  _bilingual.html: macros for bilingual posts ({{한국어||English}} in the body).
+  bilingual_title(ko, en): the post title; with an English title it renders the
+    same .bi-pair markup static/js/bilingual.js makes in the body, so the
+    language switch changes the title too.
+  Used by board_detail_writer.html and board_detail_magazine.html, which link
+  static/css/bilingual.css and static/js/bilingual.js.
+#}
+{% macro bilingual_title(ko, en) -%}
+{% if en %}<span class="bi-pair is-whole"><span class="bi-ko" lang="ko">{{ ko }}</span><span class="bi-en" lang="en">{{ en }}</span></span>{% else %}{{ ko }}{% endif %}
+{%- endmacro %}

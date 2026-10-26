@@ -8,10 +8,13 @@
   author_other_posts, related_posts, series_label, series_slug (+ SEO meta).
   Assets: static/css/board_detail_magazine.css, static/js/board_detail.js
           (shared with the Markdown page), static/js/board_detail_magazine.js
-          (viewer, layout-template prompt); partials bring their own
+          (viewer, layout-template prompt), static/css/bilingual.css +
+          static/js/bilingual.js ({{ko||en}} text and the language switch; context
+          title_en); partials bring their own
           (reading_enhancements.*, author_card.css).
 #}
 {% extends "base.html" %}
+{% from "_bilingual.html" import bilingual_title %}
 
 {% block title %}{{ post.title or 'Story' }}{% endblock %}
 
@@ -23,6 +26,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
 <link rel="stylesheet" href="{{ url_for('static', path='css/board_detail_magazine.css') }}?v={{ asset_ver('css/board_detail_magazine.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/bilingual.css') }}?v={{ asset_ver('css/bilingual.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -32,7 +36,7 @@
   <header class="article-header">
     <span class="eyebrow">Magazine{% if post.category %} · <a class="eyebrow" href="/board/?category_id={{ post.category.id }}">{{ post.category.name }}</a>{% endif %}</span>
 
-    <h1 class="article-title">{{ post.title }}</h1>
+    <h1 class="article-title">{{ bilingual_title(post.title, title_en) }}</h1>
 
     <div class="meta-row article-byline">
       <span class="byline-author">
@@ -54,6 +58,7 @@
       <span class="byline-private"><i class="bi bi-lock"></i> 비공개</span>
       {% endif %}
     </div>
+    <div class="bilingual-switch" data-bilingual-switch hidden></div>
   </header>
 </div>
 
@@ -61,9 +66,9 @@
 <article class="magazine-content" id="magazineContent">
   {% if post.content_blocks %}
   <!-- content_blocks is parsed by JS viewer below -->
-  <div id="magazine-viewer-root"></div>
+  <div id="magazine-viewer-root" data-bilingual-root></div>
   {% else %}
-  <div class="reading-column markdown-content">
+  <div class="reading-column markdown-content" data-bilingual-root>
     {{ post.content_html_safe | safe }}
   </div>
   {% endif %}
@@ -177,6 +182,7 @@
 }|tojson }}</script>
 <script src="{{ url_for('static', path='js/board_detail.js') }}"></script>
 <script src="{{ url_for('static', path='js/board_detail_magazine.js') }}?v={{ asset_ver('js/board_detail_magazine.js') }}"></script>
+<script src="{{ url_for('static', path='js/bilingual.js') }}?v={{ asset_ver('js/bilingual.js') }}"></script>
 
 {# 코드블록 헤더(언어·복사) — 뷰어가 블록을 그린 뒤 실행 #}
 {% include "_reading_enhancements.html" %}

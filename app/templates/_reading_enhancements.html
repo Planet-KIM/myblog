@@ -6,4 +6,4 @@
    Assets: static/css/reading_enhancements.css (목차), static/js/reading_enhancements.js
            (runs where it is included, so no defer); 코드블록 스타일은 writer-journey.css(.code-block). #}
 <link rel="stylesheet" href="{{ url_for('static', path='css/reading_enhancements.css') }}">
-<script src="{{ url_for('static', path='js/reading_enhancements.js') }}"></script>
+<script src="{{ url_for('static', path='js/reading_enhancements.js') }}?v={{ asset_ver('js/reading_enhancements.js') }}"></script>
