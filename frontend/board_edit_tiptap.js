@@ -2110,7 +2110,8 @@ function loadSavedData(raw) {
     return true;
 
   } else if (Array.isArray(raw) && raw.length) {
-    // legacy array format
+    // legacy array format (no saved width: the page keeps the width it opens at)
+    applyPageWidth(canvas, pages[0]);
     raw.forEach(b => {
       addBlock(b.type, {
         id: b.id, x: b.x || 0, y: b.y || 0,
@@ -2336,6 +2337,7 @@ function main() {
   if (blocksScript?.textContent?.trim()) {
     try { loaded = loadSavedData(JSON.parse(blocksScript.textContent)); } catch (e) { console.error(e); }
   }
+  if (!loaded) applyPageWidth(canvas, pages[0]); // no saved layout: the page keeps the width it starts at
   if (!loaded) {
     const contentScript = document.getElementById('initial-content');
     if (contentScript?.textContent?.trim()) {

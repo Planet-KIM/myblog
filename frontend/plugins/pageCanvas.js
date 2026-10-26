@@ -34,19 +34,24 @@ export function pageHeight(blocks, openedHeight) {
 }
 
 /**
- * Size the block canvas to a page's saved width.
+ * Size the block canvas to a page's width, fixing the width of a new page.
  *
  * Block positions are stored in px of the page they were laid out on (page.cw),
  * so showing the page at that width keeps every block where it was saved, on
- * any screen. A page that has not been saved yet (no cw) fills the editor column.
+ * any screen. A page without a width yet (new, or saved without one) takes the
+ * editor column's current width and keeps it, so its blocks stay put when the
+ * window is resized later; initPageZoom then fits it to a narrower window.
  *
  * @param {HTMLElement} canvas - The #block-canvas element.
- * @param {{cw: ?number}} page - Page about to be shown.
+ * @param {{cw: ?number}} page - Page about to be shown; `cw` is set when missing.
  * @returns {void}
  */
 export function applyPageWidth(canvas, page) {
-  if (page.cw) canvas.style.setProperty('--page-w', `${page.cw}px`); // conventions: allow (page width from saved layout data)
-  else canvas.style.removeProperty('--page-w'); // conventions: allow (back to the column width)
+  if (!page.cw) {
+    canvas.style.removeProperty('--page-w'); // conventions: allow (measure the column width)
+    page.cw = canvas.offsetWidth || null;
+  }
+  if (page.cw) canvas.style.setProperty('--page-w', `${page.cw}px`); // conventions: allow (page width from layout data)
 }
 
 /**

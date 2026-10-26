@@ -2319,6 +2319,7 @@ function main() {
   if (!canvas) return;
   buildToolbar();
   updatePageTabs();
+  applyPageWidth(canvas, pages[0]); // the first page keeps the width it starts at
   addBlock('heading', { content: '<h1></h1>', h: 80 });
   addBlock('text', { h: 200 });
 
