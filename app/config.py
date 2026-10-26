@@ -1,7 +1,41 @@
+"""Application settings loaded from the environment and ``.env``.
+
+Import the ready-made ``settings`` instance rather than building ``Settings``
+again.
+"""
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Typed configuration for the whole app, read from env vars and ``.env``.
+
+    Every field can be overridden by an environment variable of the same name.
+    ``SECRET_KEY`` has no default, so the app fails to start without it.
+
+    Attributes:
+        PROJECT_NAME: Title of the FastAPI app.
+        DATABASE_URL: SQLAlchemy database URL.
+        SECRET_KEY: Key that signs the session cookie (required).
+        ADMIN_EMAILS: Comma-separated emails promoted to admin on login.
+        SIGNUP_RATE_LIMIT, LOGIN_RATE_LIMIT, COMMENT_RATE_LIMIT: Maximum
+            requests per sliding window for each action.
+        SIGNUP_RATE_WINDOW, LOGIN_RATE_WINDOW, COMMENT_RATE_WINDOW: Length of
+            those windows in seconds.
+        CELERY_BROKER_URL, CELERY_RESULT_BACKEND, REDIS_URL: Redis endpoints
+            for Celery and the app.
+        BOARD_MAX_BODY_SIZE: Largest accepted request body in bytes.
+        SPELLCHECK_*: Concurrency, rate limit, input size, default English
+            model and worker memory cap for the spell checker.
+        NEWSLETTER_*: Sender identity, SMTP connection and token lifetimes
+            for newsletter mail; nothing is sent unless
+            ``NEWSLETTER_ENABLE_SEND`` is true.
+        SITE_BASE_URL: Absolute site URL used where no request exists (the
+            weekly digest).
+        DIGEST_ENABLE: Whether the weekly digest is sent.
+        GITHUB_*: Repository, token and request options for the GitHub
+            Issues dashboard tab.
+    """
+
     PROJECT_NAME: str = "FastAPI Blog & Board"
     DATABASE_URL: str = "sqlite:///./app.db"
     SECRET_KEY: str  # .env에서 읽어옵니다. 값이 없으면 실행 시 에러 발생

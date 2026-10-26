@@ -1,3 +1,9 @@
+"""Password hashing and session-based authentication helpers.
+
+Provides the password hash/verify functions, the password strength rule, and
+the ``get_current_user`` / ``get_current_user_optional`` FastAPI dependencies
+that read ``user_id`` from the session.
+"""
 from typing import Optional
 import re
 
@@ -21,10 +27,27 @@ PASSWORD_REGEX = re.compile(
 
 
 def get_password_hash(password: str) -> str:
+    """Hash a plain-text password with PBKDF2-SHA256.
+
+    Args:
+        password: The password as the user typed it.
+
+    Returns:
+        The salted hash string to store in ``User.password_hash``.
+    """
     return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Check a plain-text password against a stored hash.
+
+    Args:
+        plain_password: The password the user submitted.
+        hashed_password: The stored ``User.password_hash`` value.
+
+    Returns:
+        True if the password matches the hash.
+    """
     return pwd_context.verify(plain_password, hashed_password)
 
 

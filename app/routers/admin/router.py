@@ -1,3 +1,8 @@
+"""Admin pages: moderation dashboard, hide/unhide, report resolution and digest.
+
+Every route requires a logged-in admin. Queries here pass
+``include_hidden=True`` so admins also see moderated (hidden) content.
+"""
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -13,6 +18,14 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 def _require_admin(user: models.User) -> None:
+    """Ensure the user is an admin.
+
+    Args:
+        user: The logged-in user.
+
+    Raises:
+        HTTPException: 403 if ``user.is_admin`` is false.
+    """
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
 
@@ -23,6 +36,24 @@ def admin_dashboard(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Render the admin dashboard.
+
+    Shows the total post count and the 20 newest posts (hidden ones included),
+    plus up to 50 open reports, each with a short summary of its target, whether
+    the target is hidden or deleted, and a link to it. The ``digest`` query
+    parameter, set after a digest send, is shown as a status message.
+
+    Args:
+        request: The incoming request.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        The ``admin_dashboard.html`` page.
+
+    Raises:
+        HTTPException: 401 if not logged in, 403 if not an admin.
+    """
     _require_admin(current_user)
 
     # 관리자: 숨김 포함 전체 집계/목록
@@ -83,6 +114,22 @@ def admin_moderate(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Hide or unhide a post or comment.
+
+    Args:
+        target_type: ``"post"`` for a post; any other value means a comment.
+        target_id: Id of the post or comment.
+        action: ``"hide"`` hides the target; any other value unhides it.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to ``/admin/``.
+
+    Raises:
+        HTTPException: 401 if not logged in, 403 if not an admin, 404 if the
+            target does not exist.
+    """
     _require_admin(current_user)
     model = models.BoardPost if target_type == "post" else models.Comment
     obj = db.query(model).execution_options(include_hidden=True).filter_by(id=target_id).first()
@@ -99,6 +146,20 @@ def admin_resolve_report(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Mark a moderation report as resolved.
+
+    Args:
+        report_id: Id of the report.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to ``/admin/``.
+
+    Raises:
+        HTTPException: 401 if not logged in, 403 if not an admin, 404 if the
+            report does not exist.
+    """
     _require_admin(current_user)
     report = db.query(models.Report).filter_by(id=report_id).first()
     if not report:
@@ -114,6 +175,20 @@ def admin_digest_preview(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Preview the weekly digest email as HTML without sending it.
+
+    Args:
+        request: The incoming request; its base URL is used for post links.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        The digest's HTML body, or a short "no posts to send" page when there
+        is nothing to include.
+
+    Raises:
+        HTTPException: 401 if not logged in, 403 if not an admin.
+    """
     _require_admin(current_user)
     from app.services.digest import build_weekly_digest
     digest = build_weekly_digest(db, str(request.base_url))
@@ -128,6 +203,20 @@ def admin_digest_send(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Send the weekly digest to all confirmed newsletter subscribers now.
+
+    Args:
+        request: The incoming request; its base URL is used for links.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to ``/admin/`` with a ``digest`` query parameter that
+        reports the number of mails sent, or why sending was skipped.
+
+    Raises:
+        HTTPException: 401 if not logged in, 403 if not an admin.
+    """
     _require_admin(current_user)
     from app.services.digest import send_weekly_digest
     result = send_weekly_digest(db, str(request.base_url))

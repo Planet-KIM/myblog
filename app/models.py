@@ -1,3 +1,11 @@
+"""SQLAlchemy ORM models for the blog portal.
+
+Defines users, per-user board categories, posts with tags and stats,
+engagement (bookmarks, likes, follows), newsletter subscribers, uploaded
+files, drafts, comments, moderation reports, notifications and saved
+magazine layout templates. Timestamps default to Korea Standard Time via
+``now_kst``.
+"""
 from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import (
@@ -29,6 +37,21 @@ def now_kst() -> datetime:
 # User 모델
 # ─────────────────────────────
 class User(Base):
+    """A registered account that also owns a personal blog.
+
+    Attributes:
+        email: Unique login email.
+        password_hash: PBKDF2 hash of the password.
+        is_admin: Whether the user can use the admin pages.
+        handle: Unique public blog id used in ``/@handle`` URLs (optional).
+        display_name, blog_title, bio, avatar_url, cover_url, accent_color:
+            Public profile fields shown on the user's blog.
+        posts: Posts written by the user.
+        bookmarks, likes: The user's bookmarks and likes.
+        followed_categories, followed_authors: Categories and authors the
+            user follows.
+    """
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -61,6 +84,7 @@ class User(Base):
     )
 
     def __repr__(self) -> str:
+        """Return a debug representation with id and email."""
         return f"<User id={self.id} email={self.email!r}>"
 
 
@@ -69,6 +93,21 @@ class User(Base):
 # (계층 구조: parent_id 로 부모 카테고리 연결)
 # ─────────────────────────────
 class BoardCategory(Base):
+    """A post category owned by one user, optionally nested under a parent.
+
+    Names are unique per owner, not globally. Deleting a category deletes its
+    child categories.
+
+    Attributes:
+        name: Category name.
+        description: Optional description.
+        user_id: Owning user (nullable for legacy rows).
+        owner: The owning ``User``.
+        parent_id, parent: Parent category, or None for a top-level one.
+        children: Direct sub-categories.
+        posts: Posts filed in this category.
+    """
+
     __tablename__ = "board_categories"
     # 포털: 카테고리는 블로그(사용자)별 소유. 이름 유니크는 소유자 범위 안에서만.
     __table_args__ = (
@@ -109,6 +148,7 @@ class BoardCategory(Base):
     posts = relationship("BoardPost", back_populates="category")
 
     def __repr__(self) -> str:
+        """Return a debug representation with id, name and parent name if any."""
         if self.parent:
             return f"<BoardCategory id={self.id} name={self.name!r} parent={self.parent.name!r}>"
         return f"<BoardCategory id={self.id} name={self.name!r}>"
@@ -118,6 +158,26 @@ class BoardCategory(Base):
 # 게시글 모델
 # ─────────────────────────────
 class BoardPost(Base):
+    """A blog post, written in either the Milkdown or the TipTap editor.
+
+    Attributes:
+        title: Post title.
+        content: Markdown source (or the text form of a block post).
+        content_html: Pre-rendered HTML, if any.
+        editor_type: ``"milkdown"`` (Markdown) or ``"tiptap"`` (block editor).
+        content_blocks: TipTap/magazine block JSON, if any.
+        author: Display name of the author.
+        is_private: Visible only to the author when True.
+        is_hidden: Hidden by moderation; excluded from queries by default.
+        show_title: Whether the title is rendered on the post page.
+        category_id, category: Optional category.
+        user_id, user: The authoring ``User``.
+        created_at, updated_at: Timestamps in KST.
+        tags: Tags attached through ``post_tags``.
+        stats: One-to-one ``PostStats`` row.
+        bookmarks, likes_rel, comments: Engagement rows; deleted with the post.
+    """
+
     __tablename__ = "board_posts"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -183,6 +243,7 @@ class BoardPost(Base):
     )
 
     def __repr__(self) -> str:
+        """Return a debug representation with id and title."""
         return f"<BoardPost id={self.id} title={self.title!r}>"
 
 
@@ -190,6 +251,15 @@ class BoardPost(Base):
 # 태그 모델
 # ─────────────────────────────
 class Tag(Base):
+    """A global tag that posts can share.
+
+    Attributes:
+        name: Display name (unique).
+        slug: URL-safe identifier (unique).
+        count: Cached number of posts using the tag.
+        posts: Posts carrying the tag.
+    """
+
     __tablename__ = "tags"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -202,6 +272,7 @@ class Tag(Base):
     posts = relationship("BoardPost", secondary="post_tags", back_populates="tags")
 
     def __repr__(self) -> str:
+        """Return a debug representation with id and name."""
         return f"<Tag id={self.id} name={self.name!r}>"
 
 
@@ -209,6 +280,8 @@ class Tag(Base):
 # 포스트-태그 연결 테이블
 # ─────────────────────────────
 class PostTag(Base):
+    """Association row linking one post to one tag (table ``post_tags``)."""
+
     __tablename__ = "post_tags"
 
     post_id = Column(Integer, ForeignKey("board_posts.id"), primary_key=True)
@@ -220,6 +293,17 @@ class PostTag(Base):
 # 포스트 통계 모델
 # ─────────────────────────────
 class PostStats(Base):
+    """Per-post counters, one row per post.
+
+    Attributes:
+        post_id: The post these stats belong to (unique).
+        views: Total page views.
+        likes: Cached like count.
+        read_time: Accumulated reading time in seconds.
+        unique_visitors: Number of distinct visitors.
+        last_viewed_at: Time of the most recent view.
+    """
+
     __tablename__ = "post_stats"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -233,6 +317,7 @@ class PostStats(Base):
     post = relationship("BoardPost", back_populates="stats")
 
     def __repr__(self) -> str:
+        """Return a debug representation with post id and view count."""
         return f"<PostStats post_id={self.post_id} views={self.views}>"
 
 
@@ -240,6 +325,8 @@ class PostStats(Base):
 # 포스트 북마크 모델
 # ─────────────────────────────
 class PostBookmark(Base):
+    """A user's bookmark of a post; unique per (user, post)."""
+
     __tablename__ = "post_bookmarks"
     __table_args__ = (UniqueConstraint("user_id", "post_id", name="uq_post_bookmark_user_post"),)
 
@@ -256,6 +343,8 @@ class PostBookmark(Base):
 # 포스트 좋아요 모델
 # ─────────────────────────────
 class PostLike(Base):
+    """A user's like of a post; unique per (user, post)."""
+
     __tablename__ = "post_likes"
     __table_args__ = (UniqueConstraint("user_id", "post_id", name="uq_post_like_user_post"),)
 
@@ -272,6 +361,8 @@ class PostLike(Base):
 # 카테고리 팔로우 모델
 # ─────────────────────────────
 class CategoryFollow(Base):
+    """A user following a category; unique per (user, category)."""
+
     __tablename__ = "category_follows"
     __table_args__ = (UniqueConstraint("user_id", "category_id", name="uq_category_follow_user_category"),)
 
@@ -288,6 +379,13 @@ class CategoryFollow(Base):
 # 작성자 팔로우 모델
 # ─────────────────────────────
 class AuthorFollow(Base):
+    """A user following another user as an author; unique per pair.
+
+    Attributes:
+        user_id, user: The follower.
+        author_user_id, author: The followed author.
+    """
+
     __tablename__ = "author_follows"
     __table_args__ = (UniqueConstraint("user_id", "author_user_id", name="uq_author_follow_user_author"),)
 
@@ -304,6 +402,16 @@ class AuthorFollow(Base):
 # 뉴스레터 구독 모델 (double opt-in)
 # ─────────────────────────────
 class NewsletterSubscriber(Base):
+    """An email address on the newsletter list, confirmed by double opt-in.
+
+    Attributes:
+        email: Subscriber address (unique).
+        status: ``"pending"``, ``"confirmed"`` or ``"unsubscribed"``.
+        verify_token: Token sent in the confirmation mail, if pending.
+        source: Where the subscription came from (for example ``"home"``).
+        created_at, confirmed_at: When the row was created and confirmed.
+    """
+
     __tablename__ = "newsletter_subscribers"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -319,6 +427,24 @@ class NewsletterSubscriber(Base):
 # 업로드 파일 레지스트리
 # ─────────────────────────────
 class UploadedFile(Base):
+    """Registry entry for a file a user uploaded.
+
+    A file is linked to a draft (``draft_id``) until the post is published,
+    then to the post (``post_id``).
+
+    Attributes:
+        user_id, user: The uploader.
+        post_id, post: The post the file belongs to, once published.
+        draft_id: The draft the file belongs to before publishing.
+        file_type: ``image``, ``document``, ``text``, ``code``, ``archive``,
+            ``video``, ``audio`` or ``other``.
+        original_name: File name as uploaded.
+        stored_name: Generated name on disk.
+        file_path: Absolute path on disk.
+        url: Public URL the file is served from.
+        size_bytes, mime_type: Size and MIME type.
+    """
+
     __tablename__ = "uploaded_files"
 
     id            = Column(Integer, primary_key=True, index=True)
@@ -345,6 +471,7 @@ class UploadedFile(Base):
     post  = relationship("BoardPost")
 
     def __repr__(self) -> str:
+        """Return a debug representation with id, file type and original name."""
         return f"<UploadedFile id={self.id} type={self.file_type!r} name={self.original_name!r}>"
 
 
@@ -352,6 +479,17 @@ class UploadedFile(Base):
 # 임시 저장 (Draft) 모델
 # ─────────────────────────────
 class Draft(Base):
+    """An autosaved, unpublished post draft identified by a UUID string.
+
+    Attributes:
+        id: UUID primary key.
+        user_id, user: The draft's owner.
+        title, content: Draft title and body.
+        tags: Tags as a JSON string.
+        category_id: Chosen category, if any.
+        is_private: Chosen visibility.
+    """
+
     __tablename__ = "drafts"
 
     id = Column(String(36), primary_key=True)  # UUID
@@ -371,6 +509,15 @@ class Draft(Base):
 # 댓글 모델 (평문 텍스트)
 # ─────────────────────────────
 class Comment(Base):
+    """A plain-text comment on a post.
+
+    Attributes:
+        post_id, post: The commented post.
+        user_id, user: The commenter.
+        body: Comment text.
+        is_hidden: Hidden by moderation; excluded from queries by default.
+    """
+
     __tablename__ = "comments"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -384,6 +531,7 @@ class Comment(Base):
     user = relationship("User")
 
     def __repr__(self) -> str:
+        """Return a debug representation with id and post id."""
         return f"<Comment id={self.id} post_id={self.post_id}>"
 
 
@@ -391,6 +539,16 @@ class Comment(Base):
 # 신고 (모더레이션)
 # ─────────────────────────────
 class Report(Base):
+    """A user's moderation report against a post or a comment.
+
+    Attributes:
+        reporter_user_id, reporter: The reporting user.
+        target_type: ``"post"`` or ``"comment"``.
+        target_id: Id of the reported post or comment.
+        reason: Optional free-text reason.
+        resolved: Whether an admin has closed the report.
+    """
+
     __tablename__ = "reports"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -404,6 +562,7 @@ class Report(Base):
     reporter = relationship("User")
 
     def __repr__(self) -> str:
+        """Return a debug representation with id and target."""
         return f"<Report id={self.id} {self.target_type}:{self.target_id}>"
 
 
@@ -411,6 +570,16 @@ class Report(Base):
 # 알림 (팔로우 / 댓글)
 # ─────────────────────────────
 class Notification(Base):
+    """An in-app notification for one user.
+
+    Attributes:
+        user_id: The recipient.
+        actor_user_id, actor: The user who triggered it, if any.
+        type: ``"follow"`` or ``"comment"``.
+        post_id, comment_id: The related post and comment, if any.
+        is_read: Whether the recipient has seen it.
+    """
+
     __tablename__ = "notifications"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -425,6 +594,7 @@ class Notification(Base):
     actor = relationship("User", foreign_keys=[actor_user_id])
 
     def __repr__(self) -> str:
+        """Return a debug representation with id, recipient and type."""
         return f"<Notification id={self.id} to={self.user_id} {self.type}>"
 
 
@@ -432,6 +602,14 @@ class Notification(Base):
 # 매거진 레이아웃 템플릿 (사용자가 만든 레이아웃 저장·재사용)
 # ─────────────────────────────
 class LayoutTemplate(Base):
+    """A magazine layout a user saved for reuse.
+
+    Attributes:
+        user_id, user: The owner.
+        name: Template name.
+        content_blocks: The saved layout as block JSON.
+    """
+
     __tablename__ = "layout_templates"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -443,4 +621,5 @@ class LayoutTemplate(Base):
     user = relationship("User")
 
     def __repr__(self) -> str:
+        """Return a debug representation with id and name."""
         return f"<LayoutTemplate id={self.id} {self.name!r}>"

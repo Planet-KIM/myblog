@@ -61,11 +61,23 @@ class _InMemoryRateLimiter:
     """
 
     def __init__(self):
+        """Start with no recorded requests."""
         # {user_key: [timestamp, ...]}
         self._windows: dict = defaultdict(list)
         self._lock = asyncio.Lock()
 
     async def is_allowed(self, key: str, limit: int, window: int) -> bool:
+        """Record a request for ``key`` if it fits in the sliding window.
+
+        Args:
+            key: Rate-limit bucket, for example ``"spellcheck_rl:<user_id>"``.
+            limit: Maximum requests allowed per window.
+            window: Window length in seconds.
+
+        Returns:
+            True if the request is allowed (and recorded); False if ``limit``
+            requests were already made in the last ``window`` seconds.
+        """
         async with self._lock:
             now = time.time()
             timestamps = self._windows[key]
@@ -148,6 +160,19 @@ async def _run_spellcheck(
         ).hexdigest()[:12]
 
         def _dispatch_and_wait():
+            """Send the spell-check task to Celery and block until it returns.
+
+            Runs in the spell-check thread pool. Each attempt waits up to 60 s
+            (120 s for the large ``coedit``/``pko`` models); a failed or timed-out
+            task is revoked and forgotten, and a fresh task is sent, up to
+            ``_SPELLCHECK_TASK_MAX_ATTEMPTS`` attempts in total.
+
+            Returns:
+                The corrected text from the task result.
+
+            Raises:
+                RuntimeError: If every attempt failed or returned a malformed result.
+            """
             # 대형 모델(coedit/pko)은 첫 추론 시 워밍업으로 60~90초 소요 가능
             is_large = en_variant == "coedit" or ko_variant == "pko"
             timeout = 120 if is_large else 60
@@ -237,6 +262,18 @@ async def _run_spellcheck(
 # ─────────────────────────────────────────────
 
 class DraftSaveRequest(BaseModel):
+    """Body of an autosave request; omitted (null) fields are left unchanged.
+
+    Attributes:
+        draft_id: Draft to update; created under this id if the user has no
+            such draft, or under a new UUID when omitted.
+        title: Draft title.
+        content: Draft body.
+        tags: Tags as a JSON string.
+        category_id: Chosen category.
+        is_private: Chosen visibility (always written).
+    """
+
     draft_id: Optional[str] = None
     title: Optional[str] = None
     content: Optional[str] = None
@@ -246,12 +283,22 @@ class DraftSaveRequest(BaseModel):
 
 
 class DraftSaveResponse(BaseModel):
+    """Result of an autosave.
+
+    Attributes:
+        draft_id: Id of the saved draft.
+        saved_at: Time the draft was saved.
+        message: Status message for the editor.
+    """
+
     draft_id: str
     saved_at: datetime
     message: str
 
 
 class TagResponse(BaseModel):
+    """A tag with its usage count."""
+
     id: int
     name: str
     slug: str
@@ -259,17 +306,41 @@ class TagResponse(BaseModel):
 
 
 class StatsUpdateRequest(BaseModel):
+    """Body of a manual stats update for one post.
+
+    Attributes:
+        post_id: The post to update.
+        increment_views: Add one view when true.
+        increment_likes: Add one like when true.
+    """
+
     post_id: int
     increment_views: bool = False
     increment_likes: bool = False
 
 
 class NewsletterSubscribeRequest(BaseModel):
+    """Body of a newsletter signup.
+
+    Attributes:
+        email: Address to subscribe.
+        source: Where the signup form was shown (default ``"home"``).
+    """
+
     email: str
     source: Optional[str] = "home"
 
 
 class ToggleResponse(BaseModel):
+    """Result of a like or bookmark toggle.
+
+    Attributes:
+        post_id: The post.
+        active: Whether the like/bookmark exists after the toggle.
+        likes: The post's like count.
+        bookmarks: The post's bookmark count.
+    """
+
     post_id: int
     active: bool
     likes: int
@@ -277,12 +348,30 @@ class ToggleResponse(BaseModel):
 
 
 class FollowToggleResponse(BaseModel):
+    """Result of a follow toggle.
+
+    Attributes:
+        active: Whether the user follows the target after the toggle.
+        target_type: ``"category"`` or ``"author"``.
+        target_id: Id of the category or author.
+    """
+
     active: bool
     target_type: str
     target_id: int
 
 
 class NewsletterSubscribeResponse(BaseModel):
+    """Result of a newsletter signup.
+
+    Attributes:
+        email: The normalized email address.
+        status: ``"pending"`` or ``"confirmed"``.
+        verify_url: Confirmation link, returned only when the email could not
+            be sent.
+        message: Message to show the user.
+    """
+
     email: str
     status: str
     verify_url: Optional[str] = None
@@ -290,12 +379,25 @@ class NewsletterSubscribeResponse(BaseModel):
 
 
 class NewsletterUnsubscribeResponse(BaseModel):
+    """Result of a newsletter unsubscribe."""
+
     email: str
     status: str
     message: str
 
 
 class SpellCheckRequest(BaseModel):
+    """Body of a spell-check request.
+
+    Attributes:
+        text: Text to correct.
+        lang: ``"ko"``, ``"en"``, or None to detect the language.
+        en_variant: English model, ``"vennify"`` or ``"coedit"``; None uses
+            the configured default.
+        ko_variant: Korean model, ``"et5"`` (fast) or ``"pko"`` (higher
+            quality); None means ``"et5"``.
+    """
+
     text: str
     lang: Optional[str] = None        # "ko" | "en" | None (자동 감지)
     en_variant: Optional[str] = None  # "vennify" | "coedit" | None (기본값 사용)
@@ -303,6 +405,15 @@ class SpellCheckRequest(BaseModel):
 
 
 class SpellCheckResponse(BaseModel):
+    """Result of a spell check.
+
+    Attributes:
+        original: The input text, trimmed.
+        corrected: The corrected text.
+        lang: The requested or detected language.
+        model: Description of the model that was used.
+    """
+
     original: str
     corrected: str
     lang: str
@@ -361,6 +472,16 @@ async def save_draft(
 
 @router.get("/tags/suggest", response_model=List[TagResponse])
 async def suggest_tags(query: str, limit: int = 10, db: Session = Depends(get_db)):
+    """Suggest tags whose name contains the query, most used first.
+
+    Args:
+        query: Substring to match in tag names.
+        limit: Maximum number of tags to return.
+        db: Database session.
+
+    Returns:
+        Matching tags ordered by usage count, descending.
+    """
     tags = db.query(models.Tag).filter(
         models.Tag.name.like(f"%{query}%")
     ).order_by(models.Tag.count.desc()).limit(limit).all()
@@ -369,6 +490,15 @@ async def suggest_tags(query: str, limit: int = 10, db: Session = Depends(get_db
 
 @router.get("/tags/popular", response_model=List[TagResponse])
 async def get_popular_tags(limit: int = 20, db: Session = Depends(get_db)):
+    """List the most used tags.
+
+    Args:
+        limit: Maximum number of tags to return.
+        db: Database session.
+
+    Returns:
+        Tags ordered by usage count, descending.
+    """
     tags = db.query(models.Tag).order_by(models.Tag.count.desc()).limit(limit).all()
     return [TagResponse(id=t.id, name=t.name, slug=t.slug, count=t.count) for t in tags]
 
@@ -383,6 +513,23 @@ async def update_post_stats(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Increment the view and/or like counters of the user's own post.
+
+    Creates the post's stats row if it does not exist yet.
+
+    Args:
+        request: Which post and which counters to increment.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A dict with ``post_id``, the new ``views`` and ``likes`` and a
+        ``message``.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the post does not exist,
+            403 if the post belongs to another user.
+    """
     post = db.query(models.BoardPost).filter(models.BoardPost.id == request.post_id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
@@ -412,6 +559,22 @@ async def toggle_post_like(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Like the post, or remove the like if the user already liked it.
+
+    Keeps the cached like count in the post's stats row in step (never below
+    zero), creating the row if needed.
+
+    Args:
+        post_id: The post to like or unlike.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        The new like state with the post's like and bookmark counts.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the post does not exist.
+    """
     post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
@@ -452,6 +615,19 @@ async def toggle_post_bookmark(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Bookmark the post, or remove the bookmark if it already exists.
+
+    Args:
+        post_id: The post to bookmark or unbookmark.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        The new bookmark state with the post's like and bookmark counts.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the post does not exist.
+    """
     post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
@@ -490,6 +666,21 @@ async def get_post_engagement(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Return a post's like/bookmark counts and the viewer's own state.
+
+    Args:
+        post_id: The post.
+        db: Database session.
+        current_user: The logged-in user, or None for guests.
+
+    Returns:
+        A dict with ``post_id``, ``likes``, ``bookmarks``, and ``liked`` /
+        ``bookmarked`` for the viewer (always false for guests).
+
+    Raises:
+        HTTPException: 404 if the post does not exist, 403 if it is private and
+            the viewer is not its author.
+    """
     post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
@@ -531,6 +722,19 @@ async def toggle_follow_category(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Follow a category, or unfollow it if already followed.
+
+    Args:
+        category_id: The category.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        The new follow state.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the category does not exist.
+    """
     category = db.query(models.BoardCategory).filter(models.BoardCategory.id == category_id).first()
     if not category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
@@ -557,6 +761,22 @@ async def toggle_follow_author(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Follow an author, or unfollow them if already followed.
+
+    A new follow also sends the author a ``"follow"`` notification.
+
+    Args:
+        author_user_id: The user to follow.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        The new follow state.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the author does not exist,
+            400 if users try to follow themselves.
+    """
     author = db.query(models.User).filter(models.User.id == author_user_id).first()
     if not author:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Author not found")
@@ -586,6 +806,15 @@ async def notifications_unread_count(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user_optional),
 ):
+    """Return the viewer's number of unread notifications.
+
+    Args:
+        db: Database session.
+        current_user: The logged-in user, or None for guests.
+
+    Returns:
+        ``{"count": n}``; ``n`` is 0 for guests.
+    """
     if not current_user:
         return {"count": 0}
     count = (
@@ -602,6 +831,25 @@ async def subscribe_newsletter(
     http_request: Request,
     db: Session = Depends(get_db),
 ):
+    """Start a double opt-in newsletter subscription.
+
+    The email is trimmed and lower-cased. An already confirmed address is
+    reported as such and left unchanged. Otherwise the subscriber is set to
+    ``"pending"`` with a fresh verification token, and a confirmation email is
+    sent. When the email cannot be sent (no SMTP or a send error), the
+    confirmation link is returned in the response instead.
+
+    Args:
+        payload: The email address and signup source.
+        http_request: The incoming request, used to build the confirmation URL.
+        db: Database session.
+
+    Returns:
+        The subscription status and a message for the user.
+
+    Raises:
+        HTTPException: 400 if the email is obviously malformed.
+    """
     email = payload.email.strip().lower()
     if "@" not in email or "." not in email.split("@")[-1]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
@@ -665,6 +913,25 @@ async def subscribe_newsletter(
 
 @router.get("/newsletter/verify", name="verify_newsletter")
 async def verify_newsletter(token: str, http_request: Request, db: Session = Depends(get_db)):
+    """Confirm a newsletter subscription from the emailed link.
+
+    On success the subscriber becomes ``"confirmed"``, the token is cleared,
+    and a best-effort "subscription confirmed" email with a signed
+    unsubscribe link is sent.
+
+    Args:
+        token: Verification token from the confirmation link.
+        http_request: The incoming request, used to build the unsubscribe URL.
+        db: Database session.
+
+    Returns:
+        A dict with the ``email``, ``status`` ``"confirmed"`` and a ``message``.
+
+    Raises:
+        HTTPException: 404 if the token is unknown, 400 if the subscription has
+            no issue time, 410 if the token is older than
+            ``NEWSLETTER_VERIFY_TOKEN_TTL_HOURS``.
+    """
     subscriber = (
         db.query(models.NewsletterSubscriber)
         .filter(models.NewsletterSubscriber.verify_token == token)
@@ -712,6 +979,22 @@ async def verify_newsletter(token: str, http_request: Request, db: Session = Dep
 
 @router.get("/newsletter/unsubscribe", response_model=NewsletterUnsubscribeResponse, name="unsubscribe_newsletter")
 async def unsubscribe_newsletter(email: str, token: str, ts: int, db: Session = Depends(get_db)):
+    """Unsubscribe an email address using a signed unsubscribe link.
+
+    Args:
+        email: Subscriber address; trimmed and lower-cased.
+        token: Signature from the unsubscribe link.
+        ts: Time the token was issued (Unix seconds).
+        db: Database session.
+
+    Returns:
+        The address with status ``"unsubscribed"``.
+
+    Raises:
+        HTTPException: 400 if the token is invalid or older than
+            ``NEWSLETTER_UNSUBSCRIBE_TOKEN_TTL_HOURS``, 404 if the address is
+            not subscribed.
+    """
     normalized_email = email.strip().lower()
     unsubscribe_ttl_seconds = max(1, settings.NEWSLETTER_UNSUBSCRIBE_TOKEN_TTL_HOURS) * 3600
     if not verify_unsubscribe_token(
@@ -743,6 +1026,16 @@ async def unsubscribe_newsletter(email: str, token: str, ts: int, db: Session = 
 
 @router.get("/recommendations/home")
 async def get_home_recommendations(db: Session = Depends(get_db)):
+    """Return the home page recommendation data.
+
+    Args:
+        db: Database session.
+
+    Returns:
+        A dict with ``curated`` (hand-picked links), ``trending_topics`` (the
+        six categories with the most posts, as ``category_id``/``name``/
+        ``post_count``) and ``generated_at`` (UTC ISO timestamp).
+    """
     category_stats = (
         db.query(
             models.BoardCategory.id,
@@ -774,6 +1067,17 @@ async def get_home_recommendations(db: Session = Depends(get_db)):
 
 @router.post("/calculate-reading-time")
 async def calculate_reading_time(content: str):
+    """Estimate the reading time of a text.
+
+    Counts characters other than spaces and assumes 350 characters per minute.
+
+    Args:
+        content: The text to measure (a query parameter).
+
+    Returns:
+        A dict with ``char_count``, ``reading_time_minutes`` (at least 1) and a
+        Korean ``message``.
+    """
     char_count = len(content.replace(" ", ""))
     reading_time = max(1, round(char_count / 350))
     return {"char_count": char_count, "reading_time_minutes": reading_time, "message": f"약 {reading_time}분 읽기"}
@@ -785,6 +1089,14 @@ async def calculate_reading_time(content: str):
 
 @router.post("/markdown/preview")
 async def preview_markdown(content: str):
+    """Render Markdown to HTML for a live preview.
+
+    Args:
+        content: Markdown source (a query parameter).
+
+    Returns:
+        A dict with the rendered ``html`` and the generated ``toc`` HTML.
+    """
     import markdown
     md = markdown.Markdown(
         extensions=["fenced_code", "tables", "toc", "nl2br", "sane_lists", "codehilite", "meta"]
@@ -870,6 +1182,16 @@ async def check_spelling(
 # ─────────────────────────────────────────────
 
 def get_or_create_tag(db: Session, tag_name: str) -> models.Tag:
+    """Return the tag with this name, creating and committing it if missing.
+
+    Args:
+        db: Database session.
+        tag_name: Tag name; trimmed and lower-cased, and its slug is the name
+            with spaces replaced by hyphens.
+
+    Returns:
+        The existing or newly created tag.
+    """
     tag_name = tag_name.strip().lower()
     tag_slug = tag_name.replace(" ", "-")
     tag = db.query(models.Tag).filter(models.Tag.name == tag_name).first()

@@ -1,3 +1,15 @@
+"""Portal and personal-blog pages.
+
+Serves the portal home (``/``), the CV page (``/main``), the user dashboard
+(``/me``), profile editing, each user's blog (``/@handle``) and RSS feeds,
+tag, series, search and explore pages, notifications, saved layout
+templates, ``robots.txt``/``sitemap.xml`` and legacy ``/posts`` URLs. It
+also holds the helpers that turn post bodies into card previews.
+
+Visibility rule used throughout: guests see public posts only; a logged-in
+user also sees their own private posts. Hidden (moderated) posts are always
+excluded by the global session filter in ``app.database``.
+"""
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 import re
@@ -297,12 +309,30 @@ def extract_first_image(text: str):
 
 
 def estimate_reading_minutes(text: str) -> int:
+    """Estimate the reading time of a post body.
+
+    Args:
+        text: Markdown or HTML body.
+
+    Returns:
+        Minutes at 350 non-whitespace characters per minute (counted on the
+        plain-text form, at most 10,000 characters), never less than 1.
+    """
     plain = markdown_to_plain(text or "", max_len=10000)
     char_count = len(re.sub(r"\s+", "", plain))
     return max(1, round(char_count / 350))
 
 
 def count_toc_headings(text: str) -> int:
+    """Count the headings that would appear in a table of contents.
+
+    Args:
+        text: Markdown or HTML body.
+
+    Returns:
+        Number of Markdown ATX headings (``#`` to ``######``) plus HTML
+        ``<h1>``-``<h6>`` elements; 0 for empty text.
+    """
     if not text:
         return 0
     markdown_headings = re.findall(r"^\s{0,3}#{1,6}\s+.+$", text, flags=re.MULTILINE)
@@ -311,6 +341,16 @@ def count_toc_headings(text: str) -> int:
 
 
 def detect_post_type(text: str) -> str:
+    """Classify a post body for card styling.
+
+    Args:
+        text: Markdown or HTML body.
+
+    Returns:
+        ``"photo"`` if it contains an image; otherwise ``"link"`` if it contains
+        an http(s) URL and under 900 plain-text characters; otherwise
+        ``"note"`` if under 260 characters; otherwise ``"essay"``.
+    """
     plain = markdown_to_plain(text or "", max_len=8000)
     plain_len = len(plain)
     has_image = extract_first_image(text or "") is not None
@@ -326,6 +366,15 @@ def detect_post_type(text: str) -> str:
 
 
 def extract_key_sentence(text: str) -> str:
+    """Pick a representative sentence from a post body.
+
+    Args:
+        text: Markdown or HTML body.
+
+    Returns:
+        The first sentence of at least 24 characters in the plain text (first
+        3,000 characters), or the first 120 characters if there is none.
+    """
     plain = markdown_to_plain(text or "", max_len=3000)
     sentences = re.split(r"(?<=[\.\!\?。！？])\s+", plain)
     for sentence in sentences:
@@ -336,6 +385,19 @@ def extract_key_sentence(text: str) -> str:
 
 
 def extract_series_label(post: models.BoardPost) -> Optional[str]:
+    """Return the name of the series a post belongs to, if any.
+
+    Looks first for a tag named ``series:<name>`` or ``시리즈:<name>`` (prefix
+    case-insensitive), then for ``[series: <name>]`` / ``[시리즈 - <name>]`` in
+    the title.
+
+    Args:
+        post: The post to inspect.
+
+    Returns:
+        The series name (``"Series"``/``"시리즈"`` when a series tag has an
+        empty name), or None if the post is not part of a series.
+    """
     for tag in (post.tags or []):
         tag_name = (tag.name or "").strip()
         lower = tag_name.lower()
@@ -375,6 +437,18 @@ def read_index(
         selected_category_ids = collect_descendant_category_ids(categories, category_id)
 
     def visible_posts_query(with_options: bool = True):
+        """Build the query of posts the viewer may see, with the page's filters.
+
+        Applies the visibility rule, the ``q`` search (title, body, HTML body or
+        author) and the selected category with its sub-categories.
+
+        Args:
+            with_options: Eager-load category, user, stats and tags when true;
+                pass False for count queries.
+
+        Returns:
+            An unordered SQLAlchemy query of ``BoardPost``.
+        """
         query = db.query(models.BoardPost)
         if with_options:
             query = query.options(
@@ -408,6 +482,15 @@ def read_index(
         return query
 
     def apply_sort(query):
+        """Order a post query by the selected ``sort`` mode.
+
+        Args:
+            query: A ``BoardPost`` query.
+
+        Returns:
+            The query ordered by views (``"popular"``), by likes (``"discussed"``)
+            or by newest first; ties are broken by newest first.
+        """
         if sort_mode == "popular":
             return (
                 query.outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id)
@@ -524,6 +607,16 @@ def read_index(
     ]
 
     def enrich_post(post: models.BoardPost):
+        """Attach the display attributes the home cards need to a post, in place.
+
+        Sets ``preview``, ``thumbnail``, ``reading_minutes``, ``toc_count``,
+        ``series_label``, ``post_type``, ``type_label``, ``like_count``,
+        ``view_count``, ``comment_count`` (always 0), ``discussion_score``,
+        ``is_followed_category``, ``is_followed_author`` and ``card_variant``.
+
+        Args:
+            post: The post to decorate.
+        """
         source = post.content_html or post.content or ""
         preview = markdown_to_plain(source)
         key_sentence = extract_key_sentence(source)
@@ -739,6 +832,32 @@ def my_page(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Render the user's dashboard (``/me``).
+
+    Tabs: ``bookmarks`` (the user's bookmarked posts, filterable by search
+    text and category, sortable by ``recent``, ``oldest`` or ``popular``, and
+    paginated), ``apis`` (catalog of the site's public API endpoints) and
+    ``issues`` (GitHub issues of ``settings.GITHUB_REPO``, fetched only on that
+    tab). Unknown values fall back to the defaults.
+
+    Args:
+        request: The incoming request.
+        tab: ``"bookmarks"``, ``"apis"`` or ``"issues"``.
+        q: Search text for bookmarks.
+        category_id: Category filter for bookmarks (sub-categories included);
+            ignored if not an integer.
+        sort: Bookmark order.
+        page: Bookmark page, clamped to the valid range.
+        size: Bookmarks per page, clamped to 1-50.
+        issue_state: ``"open"``, ``"closed"`` or ``"all"``; defaults to
+            ``settings.GITHUB_ISSUES_DEFAULT_STATE``.
+        issue_page: GitHub issues page.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``me.html`` page, or a 303 redirect to ``/auth/login`` for guests.
+    """
     if not current_user:
         return RedirectResponse("/auth/login", status_code=303)
 
@@ -919,6 +1038,19 @@ def profile_edit_form(
     saved: Optional[str] = None,
     current_user: models.User = Depends(get_current_user),
 ):
+    """Render the profile edit form filled with the user's current values.
+
+    Args:
+        request: The incoming request.
+        saved: When set, show the "profile saved" message.
+        current_user: The logged-in user.
+
+    Returns:
+        The ``profile_edit.html`` page.
+
+    Raises:
+        HTTPException: 401 if not logged in.
+    """
     return templates.TemplateResponse(
         request,
         "profile_edit.html",
@@ -953,12 +1085,46 @@ def profile_edit_save(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Validate and save the user's blog profile.
+
+    The handle must be valid and not used by another user; avatar and cover
+    URLs must be http(s) or site-internal; the accent color must be
+    ``#rrggbb``. Display name, blog title and bio are trimmed and cut to 60,
+    100 and 500 characters, and empty values are stored as None.
+
+    Args:
+        request: The incoming request.
+        handle: Blog handle used in ``/@handle``.
+        display_name: Public display name.
+        blog_title: Blog title.
+        bio: Short introduction.
+        avatar_url: Profile image URL.
+        cover_url: Blog cover image URL.
+        accent_color: Blog accent color.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the user's blog on success, or the form again with
+        an error message and status 400.
+
+    Raises:
+        HTTPException: 401 if not logged in.
+    """
     form = {
         "handle": handle, "display_name": display_name, "blog_title": blog_title,
         "bio": bio, "avatar_url": avatar_url, "cover_url": cover_url, "accent_color": accent_color,
     }
 
     def render_error(message: str):
+        """Re-render the profile form with an error and the submitted values.
+
+        Args:
+            message: Error message to show.
+
+        Returns:
+            The ``profile_edit.html`` page with status 400.
+        """
         return templates.TemplateResponse(
             request,
             "profile_edit.html",
@@ -1016,6 +1182,27 @@ def blog_home(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Render a user's personal blog home (``/@handle``).
+
+    Lists the owner's posts, 10 per page and newest first, optionally limited
+    to one of the owner's categories. The owner also sees their private posts.
+    The header shows follower count, total posts, categories and the owner's
+    series (``series:<name>`` tags on public posts).
+
+    Args:
+        handle: Blog handle; matched case-insensitively.
+        request: The incoming request.
+        page: Page number, clamped to the valid range.
+        category: Id of one of the owner's categories; other ids are ignored.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``blog_home.html`` page with SEO/Open Graph metadata.
+
+    Raises:
+        HTTPException: 404 if no user has this handle.
+    """
     owner = (
         db.query(models.User)
         .filter(models.User.handle == (handle or "").lower())
@@ -1148,6 +1335,21 @@ def tag_feed(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Render the feed of posts with a given tag, 12 per page, newest first.
+
+    Args:
+        slug: Tag slug; matched case-insensitively.
+        request: The incoming request.
+        page: Page number, clamped to the valid range.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``tags_feed.html`` page, with the 20 most used tags for navigation.
+
+    Raises:
+        HTTPException: 404 if the tag does not exist.
+    """
     tag = db.query(models.Tag).filter(models.Tag.slug == (slug or "").lower()).first()
     if not tag:
         raise HTTPException(status_code=404, detail="태그를 찾을 수 없습니다.")
@@ -1216,6 +1418,19 @@ def blog_rss(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    """Serve an RSS 2.0 feed of a blog's 20 newest public posts.
+
+    Args:
+        handle: Blog handle; matched case-insensitively.
+        request: The incoming request, used for absolute links.
+        db: Database session.
+
+    Returns:
+        An ``application/rss+xml`` response.
+
+    Raises:
+        HTTPException: 404 if no user has this handle.
+    """
     from xml.sax.saxutils import escape
 
     owner = db.query(models.User).filter(models.User.handle == (handle or "").lower()).first()
@@ -1266,6 +1481,16 @@ def blog_rss(
 # ─────────────────────────────────────────────
 @router.get("/feed")
 def portal_rss(request: Request, db: Session = Depends(get_db)):
+    """Serve an RSS 2.0 feed of the 40 newest public posts across all blogs.
+
+    Args:
+        request: The incoming request, used for absolute links.
+        db: Database session.
+
+    Returns:
+        An ``application/rss+xml`` response; items carry the author name when
+        the author has a handle.
+    """
     from xml.sax.saxutils import escape
 
     posts = (
@@ -1315,6 +1540,23 @@ def notifications_page(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Render the user's 50 newest notifications and mark them read.
+
+    Each item gets a message and a link (the follower's blog for follows, the
+    post's comments for comments). Unread notifications shown are marked as
+    read once the page is built.
+
+    Args:
+        request: The incoming request.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        The ``notifications.html`` page.
+
+    Raises:
+        HTTPException: 401 if not logged in.
+    """
     notes = (
         db.query(models.Notification)
         .options(joinedload(models.Notification.actor))
@@ -1379,6 +1621,25 @@ def search_page(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Search posts across all blogs, 12 per page, newest first.
+
+    Filters combine: ``q`` matches title or body, ``tag`` is a tag slug and
+    ``author`` a blog handle (an unknown handle matches nothing). With no
+    criteria the page shows no results. Each result gets ``preview_html``: the
+    HTML-escaped preview with matches wrapped in ``<mark>``.
+
+    Args:
+        request: The incoming request.
+        q: Search text.
+        tag: Tag slug; lower-cased.
+        author: Author handle, with or without ``@``; lower-cased.
+        page: Page number, clamped to the valid range.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``search.html`` page.
+    """
     size = 12
     page = max(1, page)
     q = (q or "").strip()
@@ -1471,6 +1732,20 @@ def my_templates(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """List the user's saved magazine layout templates and the starter layouts.
+
+    Args:
+        request: The incoming request.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        The ``my_templates.html`` page; each saved template comes with its page
+        count (1 when the layout JSON has no pages list).
+
+    Raises:
+        HTTPException: 401 if not logged in.
+    """
     tpls = (
         db.query(models.LayoutTemplate)
         .filter(models.LayoutTemplate.user_id == current_user.id)
@@ -1548,6 +1823,21 @@ def delete_my_template(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Delete one of the user's saved layout templates.
+
+    Ids that do not exist or belong to someone else are ignored.
+
+    Args:
+        template_id: Id of the template.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to ``/me/templates``.
+
+    Raises:
+        HTTPException: 401 if not logged in.
+    """
     tpl = db.query(models.LayoutTemplate).filter_by(id=template_id, user_id=current_user.id).first()
     if tpl:
         db.delete(tpl)
@@ -1565,6 +1855,24 @@ def series_page(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Render a series: the visible posts tagged ``series:<slug>``, oldest first.
+
+    Magazine (TipTap) posts without an image get their generated cover as
+    thumbnail; the first thumbnail becomes the series cover and Open Graph
+    image.
+
+    Args:
+        slug: Series name as used in the tag; matched case-insensitively.
+        request: The incoming request.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``series.html`` page.
+
+    Raises:
+        HTTPException: 404 if no such series tag exists.
+    """
     name = ("series:" + (slug or "").strip()).lower()
     tag = db.query(models.Tag).filter(func.lower(models.Tag.name) == name).first()
     if not tag:
@@ -1633,6 +1941,20 @@ def explore(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Render the blog directory and popular tags.
+
+    Lists users with a handle and at least one public post, 24 per page,
+    ordered by number of public posts, plus the 24 most used tags.
+
+    Args:
+        request: The incoming request.
+        page: Page number, clamped to the valid range.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``explore.html`` page.
+    """
     size = 24
     page = max(1, page)
 
@@ -1690,6 +2012,17 @@ def explore(
 # ─────────────────────────────────────────────
 @router.get("/robots.txt")
 def robots_txt(request: Request):
+    """Serve ``robots.txt``.
+
+    Allows crawling except the admin, dashboard, auth and editor paths, and
+    points to the sitemap.
+
+    Args:
+        request: The incoming request, used for the sitemap URL.
+
+    Returns:
+        A ``text/plain`` response.
+    """
     base = str(request.base_url).rstrip("/")
     body = (
         "User-agent: *\n"
@@ -1705,11 +2038,32 @@ def robots_txt(request: Request):
 
 @router.get("/sitemap.xml")
 def sitemap_xml(request: Request, db: Session = Depends(get_db)):
+    """Serve ``sitemap.xml``.
+
+    Lists the home and explore pages, up to 2,000 public posts (with their
+    last update date), every blog home and the feeds of tags in use.
+
+    Args:
+        request: The incoming request, used for absolute URLs.
+        db: Database session.
+
+    Returns:
+        An ``application/xml`` response.
+    """
     from xml.sax.saxutils import escape
 
     base = str(request.base_url).rstrip("/")
 
     def entry(loc: str, lastmod=None) -> str:
+        """Build one sitemap ``<url>`` element.
+
+        Args:
+            loc: Absolute URL of the page; XML-escaped.
+            lastmod: Optional datetime; its date is written as ``<lastmod>``.
+
+        Returns:
+            The ``<url>...</url>`` XML string.
+        """
         s = f"<url><loc>{escape(loc)}</loc>"
         if lastmod is not None:
             s += f"<lastmod>{lastmod.date().isoformat()}</lastmod>"
@@ -1745,6 +2099,7 @@ def sitemap_xml(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/posts/new")
 def legacy_posts_new_redirect():
+    """Redirect the old ``/posts/new`` URL to the editor at ``/board/new`` (307)."""
     return RedirectResponse("/board/new", status_code=307)
 
 
@@ -1755,6 +2110,19 @@ def read_post(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Render a post at the legacy ``/posts/{post_id}`` URL.
+
+    Args:
+        request: The incoming request.
+        post_id: Id of the post.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``post_detail.html`` page; a 302 redirect home if the post does not
+        exist, or a 303 redirect home if it is private and the viewer is not
+        its author.
+    """
     post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
     if not post:
         return RedirectResponse("/", status_code=302)

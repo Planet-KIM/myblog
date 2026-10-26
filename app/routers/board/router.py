@@ -1,3 +1,13 @@
+"""Board routes under ``/board``: writing, reading and managing posts.
+
+Covers the per-user category manager, the new/edit/delete post flow for
+both editors (Milkdown Markdown and TipTap magazine layouts), the post list
+and detail pages, generated Open Graph/cover/starter thumbnails, comments,
+saved magazine layout templates and user reports. Also holds the helpers
+that derive a post title and a plain-text preview from the editor content.
+
+Post bodies are stored as submitted and sanitized only when rendered.
+"""
 from typing import Optional
 import logging
 import re
@@ -53,6 +63,17 @@ templates.env.globals["asset_ver"] = _asset_ver
 # Markdown 첫 줄 제목 추출
 # ------------------------------------------------------------
 def extract_title_from_markdown(content: str) -> str:
+    """Derive a post title from Markdown source.
+
+    Uses the first line that is neither blank nor an image, with leading
+    ``#`` markers and inline Markdown formatting removed.
+
+    Args:
+        content: Markdown source of the post.
+
+    Returns:
+        That line as plain text, cut to 200 characters, or ``"Untitled"``.
+    """
     import re
     import markdown
     import html as html_module
@@ -260,6 +281,23 @@ def category_list(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Render the user's category manager.
+
+    Creates the user's default category first if it is missing. Post counts
+    include posts in sub-categories.
+
+    Args:
+        request: The incoming request.
+        created: When set, show the "category created" message.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        The ``board_categories.html`` page.
+
+    Raises:
+        HTTPException: 401 if not logged in.
+    """
     ensure_default_category(db, current_user)
 
     categories = (
@@ -300,6 +338,26 @@ def category_create(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Create a category in the user's blog, optionally under a parent.
+
+    Args:
+        request: The incoming request.
+        name: Category name; trimmed, required and unique within the user's
+            categories.
+        description: Optional description.
+        parent_id: Id of one of the user's categories, or empty for a
+            top-level category.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to ``/board/categories?created=1`` on success, or the
+        category page again with an error message (status 200) when the name
+        is empty or taken or the parent is invalid.
+
+    Raises:
+        HTTPException: 401 if not logged in.
+    """
 
     ensure_default_category(db, current_user)
 
@@ -399,6 +457,13 @@ def category_create(
 # ★ 카테고리 이동 (Drag & Drop API)
 # ============================================================
 class CategoryMoveRequest(BaseModel):
+    """JSON body for moving a category in the tree.
+
+    Attributes:
+        category_id: The category to move.
+        new_parent_id: The new parent category, or None for top level.
+    """
+
     category_id: int
     new_parent_id: Optional[int] = None
 
@@ -408,6 +473,21 @@ def category_move(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Move one of the user's categories under a new parent (drag and drop).
+
+    Args:
+        req: The category and its new parent.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        ``{"status": "success"}``.
+
+    Raises:
+        HTTPException: 401 if not logged in; 404 if the category or the new
+            parent is not one of the user's categories; 400 if the move would
+            put a category inside itself or one of its descendants.
+    """
     category = db.query(models.BoardCategory).filter(
         models.BoardCategory.id == req.category_id,
         models.BoardCategory.user_id == current_user.id,
@@ -453,6 +533,28 @@ def category_delete(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Delete one of the user's categories.
+
+    Posts in the category must be moved to another of the user's categories
+    via ``reassign_to``. Child categories are attached to the deleted
+    category's parent.
+
+    Args:
+        category_id: The category to delete.
+        reassign_to: Id of the category that receives its posts; required when
+            the category has posts.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        ``{"status": "success", "deleted_id": category_id}``.
+
+    Raises:
+        HTTPException: 401 if not logged in; 404 if the category is not the
+            user's; 400 for the default category, or when the category has
+            posts and ``reassign_to`` is missing, not an integer, not one of
+            the user's categories, or the category itself.
+    """
     category = db.query(models.BoardCategory).filter(
         models.BoardCategory.id == category_id,
         models.BoardCategory.user_id == current_user.id,
@@ -506,6 +608,12 @@ def category_delete(
 # ★ 카테고리 이름 변경
 # ============================================================
 class CategoryRenameRequest(BaseModel):
+    """JSON body for renaming a category.
+
+    Attributes:
+        name: The new name.
+    """
+
     name: str
 
 
@@ -516,6 +624,22 @@ def category_rename(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Rename one of the user's categories.
+
+    Args:
+        category_id: The category to rename.
+        req: The new name; trimmed.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        ``{"status": "success", "id": category_id, "name": <new name>}``.
+
+    Raises:
+        HTTPException: 401 if not logged in; 400 if the name is empty or longer
+            than 100 characters; 404 if the category is not the user's; 409 if
+            the user already has a category with that name.
+    """
     name = req.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
@@ -612,6 +736,23 @@ def board_new(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Show the editor chooser or the new-post editor.
+
+    Args:
+        request: The incoming request.
+        editor: ``"milkdown"`` or ``"tiptap"``; any other value (or none) shows
+            the editor chooser.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        ``board_select_editor.html``, or the chosen editor page
+        (``board_new_clean.html`` for Milkdown, ``board_new_tiptap.html`` for
+        TipTap) with the user's categories, a fresh draft id and popular tags.
+
+    Raises:
+        HTTPException: 401 if not logged in.
+    """
     # 에디터 선택 안 했으면 선택 페이지로
     if editor not in ("milkdown", "tiptap"):
         return templates.TemplateResponse(
@@ -668,6 +809,35 @@ def board_create(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Publish a new post.
+
+    The title is extracted from the content according to the editor type. A
+    stats row is created. When a draft id is given, files uploaded to the
+    draft are moved to the post and the draft is deleted.
+
+    Args:
+        request: The incoming request.
+        content: Markdown (or text) content of the post.
+        content_html: Rendered HTML from the editor.
+        is_private: Make the post visible only to its author.
+        show_title: Show the title on the post page.
+        category_id: One of the user's categories; empty or ``"0"`` means the
+            default category.
+        draft_id: UUID of the autosave draft whose uploads belong to the post.
+        tags: Comma-separated tag names.
+        editor_type: ``"milkdown"`` (default) or ``"tiptap"``.
+        content_blocks: TipTap/magazine block JSON.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the new post.
+
+    Raises:
+        HTTPException: 401 if not logged in; 400 if ``draft_id`` is not a UUID,
+            ``category_id`` is not an integer, or the category is not the
+            user's.
+    """
     # draft_id는 DB 기록 전에 검증 (잘못된 값이면 글 생성 전 400)
     draft_id = normalize_draft_id(draft_id)
 
@@ -752,6 +922,23 @@ def board_edit(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Show the editor for one of the user's posts.
+
+    Args:
+        post_id: The post to edit.
+        request: The incoming request.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        ``board_edit_tiptap.html`` for TipTap posts or ``board_edit.html``
+        otherwise, with sanitized block JSON, the user's categories, the
+        post's tags and popular tags.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the post does not exist,
+            403 if it belongs to another user.
+    """
     normal = ensure_default_category(db, current_user)
 
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
@@ -812,6 +999,38 @@ def board_update(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Save changes to one of the user's posts.
+
+    The title is re-extracted from the content. A category the user does not
+    own falls back to the default category. ``editor_type`` and
+    ``content_blocks`` are only replaced when non-empty values are sent; tags
+    are replaced when the field is sent (an empty value removes all tags).
+    Files uploaded to ``draft_id`` are moved to the post.
+
+    Args:
+        post_id: The post to update.
+        request: The incoming request.
+        content: Markdown (or text) content.
+        content_html: Rendered HTML from the editor.
+        is_private: Make the post visible only to its author.
+        show_title: Show the title on the post page.
+        category_id: Category id; empty or ``"0"`` means the default category.
+        draft_id: UUID of the editing session's upload draft.
+        editor_type: ``"milkdown"`` or ``"tiptap"``; keeps the current type
+            when omitted.
+        content_blocks: TipTap/magazine block JSON.
+        tags: Comma-separated tag names.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the post.
+
+    Raises:
+        HTTPException: 401 if not logged in; 400 if ``draft_id`` is not a UUID
+            or ``category_id`` is not an integer; 404 if the post does not
+            exist; 403 if it belongs to another user.
+    """
     draft_id = normalize_draft_id(draft_id)
 
     normal = ensure_default_category(db, current_user)
@@ -879,6 +1098,22 @@ def board_delete(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Delete one of the user's posts together with its uploaded files.
+
+    Removes the post's upload records and its upload folder on disk.
+
+    Args:
+        post_id: The post to delete.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to ``/board/``.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the post does not exist,
+            403 if it belongs to another user.
+    """
     import shutil
 
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
@@ -920,6 +1155,24 @@ def board_list(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Render the post list across all blogs.
+
+    Args:
+        request: The incoming request.
+        category_id: Category filter (sub-categories included); ignored if not
+            an integer.
+        q: Search text matched against title, body, HTML body and author.
+        scope: ``"all"`` or ``"saved"`` (only the user's bookmarks).
+        sort: ``"recent"``, ``"popular"`` (views) or ``"discussed"`` (likes).
+        page: Page number, clamped to the valid range.
+        size: Posts per page, clamped to 1-50.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``board_list_writer.html`` page, or a 303 redirect to the login
+        page (with ``next``) when a guest asks for ``scope=saved``.
+    """
     # 페이지네이션 파라미터 방어 (size=0 시 ZeroDivision 방지, 과대 size 제한)
     page = max(1, page)
     size = max(1, min(size, 50))
@@ -1054,6 +1307,28 @@ def board_detail(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
+    """Render a post page and count the view.
+
+    Every request increments the post's view count. Admins can also open
+    hidden posts. TipTap posts use the magazine template, others the writer
+    template. The page gets sanitized content, comments, previous/next public
+    posts of the same author, other posts by the author, related posts, the
+    series link and SEO/Open Graph data (falling back to the generated
+    ``og.png`` when the post has no image).
+
+    Args:
+        post_id: The post to show.
+        request: The incoming request.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        ``board_detail_magazine.html`` or ``board_detail_writer.html``.
+
+    Raises:
+        HTTPException: 404 if the post does not exist (or is hidden, for
+            non-admins); 403 if it is private and the viewer is not its author.
+    """
     # 관리자는 숨김 글도 열람 가능 (모더레이션)
     post_q = db.query(models.BoardPost).filter_by(id=post_id)
     if current_user and current_user.is_admin:
@@ -1179,6 +1454,23 @@ _OG_CACHE_DIR = Path("app/static/og_cache")
 
 @router.get("/{post_id}/og.png")
 def board_post_og(post_id: int, db: Session = Depends(get_db)):
+    """Serve the generated Open Graph card (PNG) for a public post.
+
+    The card shows the title, author and first non-series tag. It is cached on
+    disk under a hash of those values and the update time, and older versions
+    are removed.
+
+    Args:
+        post_id: The post.
+        db: Database session.
+
+    Returns:
+        A ``image/png`` response cached publicly for one day.
+
+    Raises:
+        HTTPException: 404 if the post does not exist or is private or hidden;
+            500 if rendering fails.
+    """
     # 공개(숨김 아님) 글만 — 비공개/숨김은 미리보기 노출 금지
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
     if not post or post.is_private:
@@ -1311,6 +1603,26 @@ def board_comment_create(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Add a plain-text comment to a post and notify the post's author.
+
+    The body is trimmed and cut to 2,000 characters; an empty body adds
+    nothing. Authors are not notified of their own comments.
+
+    Args:
+        post_id: The post to comment on.
+        request: The incoming request.
+        body: Comment text.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the post's comments.
+
+    Raises:
+        HTTPException: 401 if not logged in; 429 if the user exceeds the
+            comment rate limit; 404 if the post does not exist; 403 if it is
+            private and the user is not its author.
+    """
     enforce(request, "comment", settings.COMMENT_RATE_LIMIT, settings.COMMENT_RATE_WINDOW,
             subject=str(current_user.id),
             message="댓글을 너무 자주 작성하고 있습니다. 잠시 후 다시 시도해주세요.")
@@ -1340,6 +1652,23 @@ def board_comment_delete(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Delete a comment.
+
+    Allowed for the comment's author, the post's author and admins.
+
+    Args:
+        post_id: The post the comment belongs to.
+        comment_id: The comment to delete.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the post's comments.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the comment does not exist
+            on that post, 403 if the user may not delete it.
+    """
     comment = (
         db.query(models.Comment)
         .filter(models.Comment.id == comment_id, models.Comment.post_id == post_id)
@@ -1371,6 +1700,22 @@ def board_save_template(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Save the layout of one of the user's magazine posts as a reusable template.
+
+    Args:
+        post_id: The post whose ``content_blocks`` are saved.
+        request: The incoming request.
+        name: Template name, cut to 100 characters; defaults to the post title.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the post with ``?saved_template=1``.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the post does not exist,
+            403 if it belongs to another user, 400 if it has no layout.
+    """
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
     if not post:
         raise HTTPException(404, "Post not found")
@@ -1395,6 +1740,21 @@ def board_from_template(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Start a new magazine draft from one of the user's saved templates.
+
+    Args:
+        template_id: The saved layout template.
+        request: The incoming request.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the new draft's editor.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the template is not the
+            user's.
+    """
     tpl = db.query(models.LayoutTemplate).filter_by(id=template_id, user_id=current_user.id).first()
     if not tpl:
         raise HTTPException(404, "템플릿을 찾을 수 없습니다.")
@@ -1408,6 +1768,20 @@ def board_from_starter(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Start a new magazine draft from a built-in starter layout.
+
+    Args:
+        key: Key of the starter layout.
+        request: The incoming request.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the new draft's editor.
+
+    Raises:
+        HTTPException: 401 if not logged in, 404 if the key is unknown.
+    """
     from app.services.starter_templates import get_starter_blocks
     blocks = get_starter_blocks(key)
     if not blocks:
@@ -1416,6 +1790,19 @@ def board_from_starter(
 
 
 def _create_draft_from_blocks(db, current_user, content_blocks):
+    """Create a private, untitled magazine post from layout JSON.
+
+    The post goes into the user's default category and stays private until
+    the user publishes it.
+
+    Args:
+        db: Database session.
+        current_user: The post's owner.
+        content_blocks: Layout block JSON to start from.
+
+    Returns:
+        A 303 redirect to the new post's edit page.
+    """
     normal = ensure_default_category(db, current_user)
     post = models.BoardPost(
         title="(제목 없는 매거진)",
@@ -1438,6 +1825,20 @@ def _create_draft_from_blocks(db, current_user, content_blocks):
 # ★ 신고 (모더레이션 입력)
 # ============================================================
 def _create_report(db, request, current_user, target_type, target_id, reason):
+    """Store a moderation report from the user.
+
+    Args:
+        db: Database session.
+        request: The incoming request (for rate limiting).
+        current_user: The reporting user.
+        target_type: ``"post"`` or ``"comment"``.
+        target_id: Id of the reported post or comment (not checked).
+        reason: Free-text reason; trimmed and cut to 500 characters, empty
+            stored as None.
+
+    Raises:
+        HTTPException: 429 if the user filed more than 20 reports in an hour.
+    """
     enforce(request, "report", 20, 3600, subject=str(current_user.id),
             message="신고가 너무 많습니다. 잠시 후 다시 시도해주세요.")
     db.add(models.Report(
@@ -1457,6 +1858,22 @@ def board_report_post(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Report a post to the moderators.
+
+    Args:
+        post_id: The reported post.
+        request: The incoming request.
+        reason: Optional reason.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect back to the post.
+
+    Raises:
+        HTTPException: 401 if not logged in, 429 if the report rate limit is
+            exceeded.
+    """
     _create_report(db, request, current_user, "post", post_id, reason)
     return RedirectResponse(f"/board/{post_id}", status_code=303)
 
@@ -1470,5 +1887,22 @@ def board_report_comment(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """Report a comment to the moderators.
+
+    Args:
+        post_id: The post the comment belongs to (for the redirect).
+        comment_id: The reported comment.
+        request: The incoming request.
+        reason: Optional reason.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect back to the post's comments.
+
+    Raises:
+        HTTPException: 401 if not logged in, 429 if the report rate limit is
+            exceeded.
+    """
     _create_report(db, request, current_user, "comment", comment_id, reason)
     return RedirectResponse(f"/board/{post_id}#comments", status_code=303)

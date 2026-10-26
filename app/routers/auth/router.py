@@ -1,3 +1,9 @@
+"""Authentication pages: signup, login and logout.
+
+Login state is the ``user_id`` stored in the signed session cookie. Signup
+and login are rate-limited per client IP, and accounts listed in
+``ADMIN_EMAILS`` are promoted to admin when they sign up or log in.
+"""
 from typing import Optional
 
 from fastapi import (
@@ -42,6 +48,11 @@ def safe_next_url(next_url: Optional[str], default: str = "/board/") -> str:
 
 
 def _admin_emails() -> set[str]:
+    """Return the configured admin emails, lower-cased.
+
+    Returns:
+        The set of non-empty addresses from ``settings.ADMIN_EMAILS``.
+    """
     return {e.strip().lower() for e in (settings.ADMIN_EMAILS or "").split(",") if e.strip()}
 
 
@@ -61,6 +72,17 @@ def signup_form(
     next: Optional[str] = None,
     current_user=Depends(get_current_user_optional),
 ):
+    """Show the signup form, or redirect users who are already logged in.
+
+    Args:
+        request: The incoming request.
+        next: Local path to go to after signing up.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``signup.html`` page, or a 303 redirect to the safe ``next`` path
+        (default ``/board/``) when already logged in.
+    """
     # 이미 로그인 되어 있으면 보드로 리다이렉트
     if current_user:
         return RedirectResponse(safe_next_url(next), status_code=303)
@@ -89,6 +111,28 @@ def signup(
     next: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
+    """Create an account, log it in and redirect.
+
+    The email is trimmed and lower-cased. On success the user gets an
+    auto-generated blog handle, is promoted to admin if listed in
+    ``ADMIN_EMAILS``, and is logged in.
+
+    Args:
+        request: The incoming request.
+        email: Email address for the account.
+        password: Chosen password.
+        password_confirm: Password typed a second time.
+        next: Local path to go to after signing up.
+        db: Database session.
+
+    Returns:
+        A 303 redirect to the safe ``next`` path (default ``/board/``), or the
+        ``signup.html`` page with an error and status 400 when the passwords
+        differ, the password breaks the strength rule, or the email is taken.
+
+    Raises:
+        HTTPException: 429 when the signup rate limit is exceeded.
+    """
     enforce(request, "signup", settings.SIGNUP_RATE_LIMIT, settings.SIGNUP_RATE_WINDOW,
             message="가입 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.")
     email = email.strip().lower()
@@ -170,6 +214,17 @@ def login_form(
     next: Optional[str] = None,
     current_user=Depends(get_current_user_optional),
 ):
+    """Show the login form, or redirect users who are already logged in.
+
+    Args:
+        request: The incoming request.
+        next: Local path to go to after logging in.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The ``login.html`` page, or a 303 redirect to the safe ``next`` path
+        (default ``/board/``) when already logged in.
+    """
     if current_user:
         return RedirectResponse(safe_next_url(next), status_code=303)
 
@@ -196,6 +251,23 @@ def login(
     next: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
+    """Check the credentials and log the user in.
+
+    Args:
+        request: The incoming request.
+        email: Email address; trimmed and lower-cased before lookup.
+        password: Password to verify.
+        next: Local path to go to after logging in.
+        db: Database session.
+
+    Returns:
+        A 303 redirect to the safe ``next`` path (default ``/board/``), or the
+        ``login.html`` page with an error and status 400 when the email or
+        password is wrong.
+
+    Raises:
+        HTTPException: 429 when the login rate limit is exceeded.
+    """
     enforce(request, "login", settings.LOGIN_RATE_LIMIT, settings.LOGIN_RATE_WINDOW,
             message="로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.")
     email = email.strip().lower()
@@ -228,5 +300,13 @@ def login(
 # ─────────────────────────────────────
 @router.get("/logout")
 def logout(request: Request):
+    """Log the user out by removing ``user_id`` from the session.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        A 303 redirect to the home page.
+    """
     request.session.pop("user_id", None)
     return RedirectResponse("/", status_code=303)

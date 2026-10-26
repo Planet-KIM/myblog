@@ -1,3 +1,11 @@
+"""FastAPI application entry point.
+
+Builds the ``app`` instance that the ASGI server runs: registers the startup/
+shutdown lifespan, the CORS, session, body-size and security-header
+middleware, the ``/static`` mount, the HTML/JSON error handlers for 401, 403,
+404, 429 and 500, and every feature router (auth, blog, board, admin, upload,
+api). The database schema is managed by Alembic, not created here.
+"""
 import asyncio
 from contextlib import asynccontextmanager
 from urllib.parse import quote
@@ -90,6 +98,20 @@ async def limit_body_size(request: Request, call_next):
 # CSP는 CDN·인라인 스크립트/스타일 사용이 많아 깨질 위험이 커 제외(후속 과제).
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    """Add baseline security headers to every response.
+
+    Sets ``X-Content-Type-Options``, ``X-Frame-Options``, ``Referrer-Policy``
+    and ``Permissions-Policy`` unless the handler already set them, and adds
+    ``Strict-Transport-Security`` only when the request arrived over HTTPS
+    (directly or via a proxy's ``X-Forwarded-Proto``). No CSP is sent.
+
+    Args:
+        request: The incoming request.
+        call_next: The next ASGI handler in the middleware chain.
+
+    Returns:
+        The downstream response with the headers added.
+    """
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
@@ -109,11 +131,29 @@ templates = Jinja2Templates(directory="app/templates")
 
 @app.exception_handler(404)
 async def not_found_exception_handler(request: Request, _exc):
+    """Render the 404 page for any unmatched route or raised 404.
+
+    Args:
+        request: The request that produced the 404.
+        _exc: The exception (unused).
+
+    Returns:
+        The ``404.html`` template response with status 404.
+    """
     return templates.TemplateResponse(request, "404.html", {"request": request}, status_code=404)
 
 
 @app.exception_handler(500)
 async def internal_error_exception_handler(request: Request, _exc):
+    """Render the 500 page when an HTTP 500 error is raised.
+
+    Args:
+        request: The request that failed.
+        _exc: The exception (unused).
+
+    Returns:
+        The ``500.html`` template response with status 500.
+    """
     return templates.TemplateResponse(request, "500.html", {"request": request}, status_code=500)
 
 
