@@ -1,3 +1,9 @@
+"""Bento-grid card sizes for the home page post list.
+
+Chooses one of the predefined ``HOME_BENTO_LAYOUTS`` (each a repeating pattern
+of ``bento-*`` CSS classes) either at random per request or deterministically
+per viewer and day.
+"""
 from __future__ import annotations
 
 from datetime import datetime

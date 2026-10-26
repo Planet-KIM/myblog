@@ -34,6 +34,16 @@ NAMING_CONVENTION = {
 
 
 def upgrade() -> None:
+    """Add blog profile fields to users and make categories per-owner.
+
+    Adds ``users.handle`` (unique index), ``display_name``, ``blog_title``,
+    ``bio`` and ``avatar_url``. Recreates ``board_categories`` with a
+    ``user_id`` foreign key to ``users`` (indexed), replacing the global
+    ``UNIQUE(name)`` with ``UNIQUE(user_id, name)``. Then backfills data:
+    existing categories are assigned to the lowest user id, and each user
+    without a handle gets one derived from their email local-part, made
+    unique with a numeric suffix (``user<id>`` if nothing usable remains).
+    """
     # ── users: 프로필 컬럼 추가 ───────────────────────────
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.add_column(sa.Column('handle', sa.String(length=30), nullable=True))
@@ -94,6 +104,14 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Revert to global category names and drop the user profile columns.
+
+    Recreates ``board_categories`` without ``user_id`` (and its foreign key
+    and index), restoring ``UNIQUE(name)``; this fails if two owners have a
+    category with the same name. Then drops the ``handle`` index and the
+    ``avatar_url``, ``bio``, ``blog_title``, ``display_name`` and ``handle``
+    columns from ``users``. Backfilled values are lost.
+    """
     # board_categories: 복합 유니크 → 전역 name 유니크 복원
     with op.batch_alter_table(
         'board_categories',

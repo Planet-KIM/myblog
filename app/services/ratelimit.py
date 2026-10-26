@@ -19,6 +19,19 @@ _lock = threading.Lock()
 
 
 def _mem_allowed(key: str, limit: int, window: int) -> bool:
+    """Apply the sliding-window check with the in-process store.
+
+    Thread-safe. Timestamps older than ``window`` are dropped; a request that
+    is allowed is recorded, a rejected one is not.
+
+    Args:
+        key: Bucket key, e.g. ``"login:<ip>"``.
+        limit: Maximum requests allowed within the window.
+        window: Window length in seconds.
+
+    Returns:
+        True if the request is allowed, False if the limit is already reached.
+    """
     now = time.time()
     with _lock:
         recent = [t for t in _mem[key] if now - t < window]
@@ -55,6 +68,17 @@ def _allow(key: str, limit: int, window: int) -> bool:
 
 
 def client_ip(request: Request) -> str:
+    """Return the caller's IP address for rate-limit keys.
+
+    Prefers the first address in ``X-Forwarded-For`` (set by the reverse
+    proxy), then the socket peer address.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        The IP address string, or ``"unknown"`` if none is available.
+    """
     xff = request.headers.get("x-forwarded-for")
     if xff:
         return xff.split(",")[0].strip()

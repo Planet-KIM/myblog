@@ -17,10 +17,34 @@ FRAME = "#c7b8a3"           # 사진 기본 테두리(웜 그레이지)
 
 
 def _h(x, y, w, h, html):
+    """Build a heading block at (x, y) with size w x h and the given inner HTML.
+
+    Args:
+        x: Left edge on the 1000x1400 page canvas.
+        y: Top edge on the page canvas.
+        w: Block width.
+        h: Block height.
+        html: Heading markup shown in the block.
+
+    Returns:
+        A ``heading`` block dict in content_blocks format.
+    """
     return {"type": "heading", "x": x, "y": y, "w": w, "h": h, "content": html}
 
 
 def _t(x, y, w, h, html):
+    """Build a rich-text block at (x, y) with size w x h and the given inner HTML.
+
+    Args:
+        x: Left edge on the 1000x1400 page canvas.
+        y: Top edge on the page canvas.
+        w: Block width.
+        h: Block height.
+        html: Body markup shown in the block.
+
+    Returns:
+        A ``text`` block dict in content_blocks format.
+    """
     return {"type": "text", "x": x, "y": y, "w": w, "h": h, "content": html}
 
 
@@ -34,25 +58,60 @@ def _img(x, y, w, h, frame=True):
 
 
 def _div(x, y, w):
+    """Build an 18-unit-high text block holding a 3px terracotta rule, used as a divider.
+
+    Args:
+        x: Left edge on the page canvas.
+        y: Top edge on the page canvas.
+        w: Rule width.
+
+    Returns:
+        A ``text`` block dict.
+    """
     return {"type": "text", "x": x, "y": y, "w": w, "h": 18,
             "content": "<div style='height:3px;background-color:#b4542f;width:100%'></div>"}
 
 
 def _kicker(x, y, w, text):
+    """Build a kicker: a short, spaced-out, upper-case terracotta label above a headline.
+
+    Args:
+        x: Left edge on the page canvas.
+        y: Top edge on the page canvas.
+        w: Block width.
+        text: Label text, inserted as-is into the HTML.
+
+    Returns:
+        A 40-unit-high ``text`` block dict.
+    """
     return _t(x, y, w, 40, f"<p style='letter-spacing:4px;text-transform:uppercase;color:#b4542f;font-size:16px'>{text}</p>")
 
 
 def _cap(x, y, w, text="사진 캡션"):
+    """Build a small muted photo caption block.
+
+    Args:
+        x: Left edge on the page canvas.
+        y: Top edge on the page canvas.
+        w: Block width.
+        text: Caption text, inserted as-is into the HTML (default: a Korean
+            "photo caption" placeholder).
+
+    Returns:
+        A 36-unit-high ``text`` block dict.
+    """
     return _t(x, y, w, 36, f"<p style='font-size:15px;color:#8a7c6d'>{text}</p>")
 
 
 # ── 레이아웃들 ────────────────────────────────────────────
 
 def _blank():
+    """Return an empty page."""
     return _page([])
 
 
 def _cover():
+    """Return a cover page: full-width top photo, masthead, big title, subtitle and issue line."""
     return _page([
         _img(0, 0, CW, 840, frame=False),
         _h(M, 60, CONT, 60, "<h1 style='text-align:center;letter-spacing:10px;font-size:30px;color:#fff'>MAGAZINE</h1>"),
@@ -63,6 +122,7 @@ def _cover():
 
 
 def _contents():
+    """Return a table-of-contents page: five numbered entries plus a highlight photo and caption."""
     return _page([
         _h(M, 90, 520, 90, "<h1 style='font-size:60px;font-weight:800'>Contents</h1>"),
         _div(M, 205, 520),
@@ -77,6 +137,7 @@ def _contents():
 
 
 def _feature():
+    """Return a feature opener: kicker, large headline, standfirst, byline and a big photo."""
     return _page([
         _kicker(M, 90, CONT, "FEATURE"),
         _h(M, 140, CONT, 230, "<h1 style='font-size:72px;font-weight:800;line-height:1.08'>큰 헤드라인을<br>여기에</h1>"),
@@ -87,6 +148,7 @@ def _feature():
 
 
 def _two_col():
+    """Return a two-column article page with headline, lead, divider, pull quote and closing text."""
     return _page([
         _h(M, 90, CONT, 130, "<h1 style='font-size:58px;font-weight:800'>기사 제목</h1>"),
         _t(M, 235, CONT, 80, "<p style='font-size:22px;color:#4c4239'>리드 문장 — 기사의 방향을 한 문장으로.</p>"),
@@ -99,6 +161,7 @@ def _two_col():
 
 
 def _three_col():
+    """Return a classic three-column article page with headline, lead and divider."""
     gap = 30
     w = (CONT - gap * 2) // 3  # 266
     x1, x2, x3 = M, M + w + gap, M + (w + gap) * 2
@@ -113,6 +176,7 @@ def _three_col():
 
 
 def _photo():
+    """Return a photo-essay page: one large photo and two half-width photos, each row captioned."""
     return _page([
         _h(M, 90, CONT, 90, "<h1 style='font-size:50px;font-weight:800'>포토 에세이</h1>"),
         _img(M, 215, CONT, 520),
@@ -124,6 +188,7 @@ def _photo():
 
 
 def _full_bleed():
+    """Return a page filled edge to edge by one unframed photo, with a white title and caption on top."""
     return _page([
         _img(0, 0, CW, CH, frame=False),
         _h(70, 1040, 760, 200, "<h1 style='font-size:76px;font-weight:800;line-height:1.08;color:#fff'>사진 위에<br>제목</h1>"),
@@ -132,6 +197,7 @@ def _full_bleed():
 
 
 def _interview():
+    """Return an interview page: kicker, title, portrait, introduction and two Q&A pairs."""
     return _page([
         _kicker(M, 90, CONT, "INTERVIEW"),
         _h(M, 140, CONT, 120, "<h1 style='font-size:56px;font-weight:800'>인터뷰 제목</h1>"),
@@ -145,6 +211,7 @@ def _interview():
 
 
 def _gallery():
+    """Return a mosaic gallery page of six framed photos with a caption."""
     return _page([
         _h(M, 90, CONT, 80, "<h1 style='font-size:48px;font-weight:800'>갤러리</h1>"),
         _img(70, 200, 560, 360),
@@ -158,6 +225,14 @@ def _gallery():
 
 
 def _page(blocks):
+    """Wrap ``blocks`` in a page dict on the standard 1000x1400 canvas.
+
+    Args:
+        blocks: The page's block dicts.
+
+    Returns:
+        ``{"cw": 1000, "ch": 1400, "blocks": blocks}``.
+    """
     return {"cw": CW, "ch": CH, "blocks": blocks}
 
 
@@ -176,10 +251,25 @@ _PRESETS = [
 
 
 def list_starters():
+    """List the built-in starter layouts for the template picker.
+
+    Returns:
+        One dict per preset, in display order, with ``key``, ``name``,
+        ``description`` and ``icon`` (a Bootstrap Icons class).
+    """
     return [{"key": p["key"], "name": p["name"], "description": p["description"], "icon": p["icon"]} for p in _PRESETS]
 
 
 def get_starter_blocks(key: str):
+    """Build the content_blocks JSON for the starter layout ``key``.
+
+    Args:
+        key: A preset key from :func:`list_starters`, e.g. ``"cover"``.
+
+    Returns:
+        A v3 content_blocks JSON string with a single page (non-ASCII kept
+        as-is), or ``None`` if ``key`` is unknown.
+    """
     for p in _PRESETS:
         if p["key"] == key:
             return json.dumps({"v": 3, "pages": [p["build"]()]}, ensure_ascii=False)

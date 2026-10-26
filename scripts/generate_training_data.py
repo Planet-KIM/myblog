@@ -489,6 +489,11 @@ def split(input_file: str, val_ratio: float = 0.1, seed: int = 42):
 # ── 데이터소스 안내 ───────────────────────────────────────
 
 def sources():
+    """Print a guide to the Korean spell-correction data sources and how to use them.
+
+    Covers the no-registration Hugging Face downloads, AI Hub error/correction
+    pairs, the NIKL Modu corpus, and the recommended command sequence.
+    """
     print("""
 == 한국어 맞춤법 교정 데이터소스 ==
 

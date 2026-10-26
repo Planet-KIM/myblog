@@ -35,6 +35,12 @@ def _use_batch() -> bool:
 
 
 def run_migrations_offline() -> None:
+    """Run migrations in offline mode, emitting SQL instead of executing it.
+
+    Configures the Alembic context with the app's ``DATABASE_URL`` only (no
+    engine or connection), renders literal parameter values, and turns on
+    batch mode for SQLite.
+    """
     context.configure(
         url=settings.DATABASE_URL,
         target_metadata=target_metadata,
@@ -48,6 +54,12 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    """Run migrations in online mode against a live database connection.
+
+    Builds a ``NullPool`` engine from the ``sqlalchemy.*`` options (whose URL
+    was set from the app settings above), then runs all pending migrations in
+    one transaction, with batch mode for SQLite.
+    """
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

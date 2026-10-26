@@ -37,6 +37,16 @@ OLD_PATTERN = re.compile(r"^(\d+)/(\d{4})/(\d{2})/(\d+)/(.+)$")
 
 
 def migrate():
+    """Move post images from the old dated layout to the per-post layout on disk.
+
+    Walks ``UPLOAD_ROOT/{user_id}/{YYYY}/{MM}/{post_id}/`` and moves each file
+    to ``UPLOAD_ROOT/{user_id}/posts/{post_id}/images/``. Files whose
+    destination already exists, ``draft_*`` folders and non-numeric folders
+    are skipped, and old folders left empty are removed. With ``--dry-run``
+    (``DRY_RUN``) nothing is touched and only the planned moves are printed.
+    Per-file errors are printed and counted, not raised. Prints a summary
+    at the end, or an error if the uploads folder does not exist.
+    """
     moved = 0
     skipped = 0
     errors = 0
@@ -161,6 +171,7 @@ def update_db_urls():
             changed = False
 
             def replace_url(m):
+                """Rewrite one matched old upload URL to its new ``/posts/{pid}/images/`` form."""
                 uid, yyyy, mm, pid, fname = m.groups()
                 return f"/static/uploads/{uid}/posts/{pid}/images/{fname}"
 

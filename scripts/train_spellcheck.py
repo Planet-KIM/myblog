@@ -82,6 +82,19 @@ class SpellCheckDataset(Dataset):
     EN_PREFIX = "correct spelling: "
 
     def __init__(self, file_path: str, tokenizer, max_input_len: int, max_target_len: int):
+        """Load all ``(input, output)`` pairs from a JSONL file.
+
+        Args:
+            file_path: JSONL file, one ``{"input", "output"}`` object per line;
+                blank lines are skipped.
+            tokenizer: Hugging Face tokenizer used in ``__getitem__``.
+            max_input_len: Input length in tokens (pad/truncate).
+            max_target_len: Label length in tokens (pad/truncate).
+
+        Raises:
+            KeyError: If a line lacks ``input`` or ``output``.
+            json.JSONDecodeError: If a line is not valid JSON.
+        """
         self.tokenizer = tokenizer
         self.max_input_len = max_input_len
         self.max_target_len = max_target_len
@@ -99,13 +112,27 @@ class SpellCheckDataset(Dataset):
 
     @staticmethod
     def _is_korean(text: str) -> bool:
+        """Return True if ``text`` contains at least one Hangul syllable."""
         import re
         return bool(re.search(r"[\uAC00-\uD7A3]", text))
 
     def __len__(self):
+        """Return the number of samples."""
         return len(self.samples)
 
     def __getitem__(self, idx):
+        """Tokenize sample ``idx`` with the Korean or English task prefix.
+
+        The prefix is chosen by whether the input contains Hangul. Padding in
+        the labels is set to -100 so the loss ignores it.
+
+        Args:
+            idx: Index of the sample.
+
+        Returns:
+            A dict of 1-D tensors: ``input_ids``, ``attention_mask`` and
+            ``labels``.
+        """
         src, tgt = self.samples[idx]
         prefix = self.KO_PREFIX if self._is_korean(src) else self.EN_PREFIX
         input_text = prefix + src
@@ -138,6 +165,20 @@ class SpellCheckDataset(Dataset):
 
 # ── 학습 루프 ─────────────────────────────────────────────
 def train(args):
+    """Fine-tune a T5 correction model and save its checkpoints.
+
+    Runs on CUDA if available, otherwise CPU. Optionally prints the model and
+    freezes the encoder. Trains with AdamW and a linear warm-up schedule,
+    saves ``<output_dir>/epoch-<n>`` after every epoch, ``<output_dir>/best``
+    when validation loss improves (only if a validation file exists) and
+    ``<output_dir>/final`` at the end.
+
+    Args:
+        args: Parsed ``train`` sub-command options: ``train_file``,
+            ``val_file``, ``output_dir``, ``base_model``, ``epochs``,
+            ``batch_size``, ``learning_rate``, ``freeze_encoder`` and
+            ``print_model``.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[Train] 디바이스: {device}")
     print(f"[Train] 베이스 모델: {args.base_model}")

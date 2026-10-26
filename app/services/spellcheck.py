@@ -83,12 +83,26 @@ def _filter_ko_hallucinations(original: str, corrected: str) -> str:
     _BASE = 0xAC00
 
     def chosung(ch: str) -> int:
+        """Return the initial-consonant index (0-18) of a Hangul syllable, or -1 for any other character."""
         code = ord(ch) - _BASE
         if code < 0 or code > 11171:
             return -1          # 한국어 음절 아님
         return code // (21 * 28)
 
     def is_hallucination(ow: str, cw: str) -> bool:
+        """Decide whether a corrected word replaced the original word instead of fixing it.
+
+        Surrounding punctuation is ignored. A length change of more than two
+        characters, or a different initial consonant in any aligned pair of
+        Hangul syllables, counts as a replacement.
+
+        Args:
+            ow: The original word.
+            cw: The model's corrected word at the same position.
+
+        Returns:
+            True if ``cw`` should be discarded in favour of ``ow``.
+        """
         if ow == cw:
             return False
         # 구두점 제거
@@ -280,6 +294,14 @@ class _KoSpellChecker:
     """
 
     def __init__(self, variant: str):
+        """Configure the checker for ``variant`` without loading the model yet.
+
+        Args:
+            variant: A key of ``_KO_VARIANTS`` (``"et5"`` or ``"pko"``).
+
+        Raises:
+            KeyError: If ``variant`` is unknown.
+        """
         cfg = _KO_VARIANTS[variant]
         self._variant = variant
         self._model_id = cfg["model"]
@@ -292,6 +314,14 @@ class _KoSpellChecker:
         self._loaded = False
 
     def _load(self):
+        """Load the tokenizer and T5 model onto the best device, once.
+
+        Thread-safe and idempotent (double-checked lock). The first call may
+        download the model from Hugging Face.
+
+        Raises:
+            RuntimeError: If ``transformers`` (or its dependencies) is not installed.
+        """
         if self._loaded:
             return
         with self._lock:
@@ -358,6 +388,7 @@ class _KoSpellChecker:
 
     @property
     def model_path(self) -> str:
+        """Hugging Face id or local path of this variant's model."""
         return self._model_id
 
 
@@ -379,6 +410,14 @@ class _EnSpellChecker:
     """
 
     def __init__(self, variant: str):
+        """Configure the checker for ``variant`` without loading the model yet.
+
+        Args:
+            variant: A key of ``_EN_VARIANTS`` (``"vennify"`` or ``"coedit"``).
+
+        Raises:
+            KeyError: If ``variant`` is unknown.
+        """
         cfg = _EN_VARIANTS[variant]
         self._variant = variant
         self._model_id = cfg["model"]
@@ -391,6 +430,14 @@ class _EnSpellChecker:
         self._loaded = False
 
     def _load(self):
+        """Load the tokenizer and T5 model onto the best device, once.
+
+        Thread-safe and idempotent (double-checked lock). The first call may
+        download the model from Hugging Face.
+
+        Raises:
+            RuntimeError: If ``transformers`` (or its dependencies) is not installed.
+        """
         if self._loaded:
             return
         with self._lock:
@@ -410,6 +457,17 @@ class _EnSpellChecker:
                 raise RuntimeError("pip install transformers torch 를 실행하세요.")
 
     def _correct_chunk(self, text: str) -> str:
+        """Correct one chunk that fits the model's input window.
+
+        Prepends the variant's task prefix and decodes with 5-beam search.
+        Input beyond 512 tokens is truncated.
+
+        Args:
+            text: The chunk to correct.
+
+        Returns:
+            The corrected chunk.
+        """
         import torch
         prefixed = f"{self._prefix}{text}"
         inputs = self._tokenizer(
@@ -427,6 +485,21 @@ class _EnSpellChecker:
         return self._tokenizer.decode(outputs[0], skip_special_tokens=True)
 
     def correct(self, text: str) -> str:
+        """Correct English text of any length, loading the model on first use.
+
+        The text is split at paragraph and sentence boundaries so each chunk
+        fits the model, and the original separators are restored afterwards.
+
+        Args:
+            text: The text to correct.
+
+        Returns:
+            The corrected text.
+
+        Raises:
+            RuntimeError: If the model cannot be loaded because
+                ``transformers`` is missing.
+        """
         self._load()
         chunks = _split_into_chunks(text, self._tokenizer, max_tokens=self._max_tokens)
         corrected_parts = [self._correct_chunk(chunk) + delim for chunk, delim in chunks]
@@ -434,6 +507,7 @@ class _EnSpellChecker:
 
     @property
     def model_path(self) -> str:
+        """Hugging Face id or local path of this variant's model."""
         return self._model_id
 
 

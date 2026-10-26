@@ -1,3 +1,9 @@
+"""Tree helpers for board categories: post-count roll-up, descendant lookup and ordering.
+
+Categories form a parent/child tree through ``BoardCategory.parent_id``. Every
+helper here tolerates broken data (a parent that no longer exists, or a cycle)
+so that a bad row can never crash a page that lists categories.
+"""
 from __future__ import annotations
 
 from collections import defaultdict
@@ -9,6 +15,19 @@ from app import models
 def _build_children_by_parent(
     categories: Iterable[models.BoardCategory],
 ) -> tuple[dict[int, models.BoardCategory], dict[int | None, list[int]]]:
+    """Index categories by id and group child ids under their parent id.
+
+    A category whose ``parent_id`` is missing or points to an id that is not in
+    ``categories`` is treated as a root and filed under the ``None`` key.
+
+    Args:
+        categories: The categories to index. Consumed once.
+
+    Returns:
+        A ``(by_id, children_by_parent)`` pair: ``by_id`` maps each category id
+        to its category, and ``children_by_parent`` maps a parent id (``None``
+        for roots) to the ids of its children, sorted ascending.
+    """
     category_list = list(categories)
     by_id = {category.id: category for category in category_list}
     children_by_parent: dict[int | None, list[int]] = defaultdict(list)
@@ -44,6 +63,18 @@ def rollup_category_counts(
     memo: dict[int, int] = {}
 
     def dfs(category_id: int, visiting: set[int]) -> int:
+        """Return the post count of ``category_id`` plus all of its descendants.
+
+        Results are memoized in ``memo``. If ``category_id`` is already on the
+        current path (a cycle), only its direct count is returned.
+
+        Args:
+            category_id: The category whose subtree total is wanted.
+            visiting: Ids on the current recursion path; updated in place.
+
+        Returns:
+            The subtree's total post count.
+        """
         if category_id in memo:
             return memo[category_id]
 
@@ -107,6 +138,16 @@ def order_categories_parent_first(
     visiting: set[int] = set()
 
     def walk(category_id: int, depth: int) -> None:
+        """Append ``category_id`` and then its subtree, depth first, to the ordering.
+
+        Records each visited id in ``ordered_ids`` and its depth in
+        ``depth_map``. Ids that are already placed are skipped, and a cycle
+        stops at the repeated id instead of recursing forever.
+
+        Args:
+            category_id: The category to place next.
+            depth: Its nesting depth (0 for a root).
+        """
         if category_id in depth_map:
             return
         if category_id in visiting:

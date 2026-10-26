@@ -1,3 +1,10 @@
+"""Newsletter email delivery and signed unsubscribe tokens.
+
+Sends the double-opt-in verification and confirmation emails over SMTP
+(settings ``NEWSLETTER_*``) and creates/verifies HMAC unsubscribe tokens keyed
+by ``SECRET_KEY``. Sending is a no-op that reports ``SMTP_NOT_CONFIGURED`` when
+SMTP is disabled or incomplete.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -11,6 +18,7 @@ from app.config import settings
 
 
 def _normalized_email(email: str) -> str:
+    """Return ``email`` trimmed and lower-cased (``""`` for ``None``)."""
     return (email or "").strip().lower()
 
 
@@ -36,6 +44,22 @@ def verify_unsubscribe_token(
     issued_at: int,
     max_age_seconds: int | None = None,
 ) -> bool:
+    """Check an unsubscribe token made by :func:`build_unsubscribe_token`.
+
+    The comparison is constant-time and the email is normalized first, so
+    case and surrounding whitespace do not matter.
+
+    Args:
+        email: Subscriber email the token claims to belong to.
+        token: Hex HMAC token from the unsubscribe link.
+        issued_at: Unix timestamp the token was issued at (``ts`` in the link).
+        max_age_seconds: Reject tokens older than this many seconds; ``None``
+            means tokens never expire.
+
+    Returns:
+        True if the token matches and has not expired, False otherwise
+        (including when ``issued_at`` is not positive).
+    """
     normalized = _normalized_email(email)
     if issued_at <= 0:
         return False
@@ -50,6 +74,7 @@ def verify_unsubscribe_token(
 
 
 def _smtp_config_ready() -> bool:
+    """Return True if sending is enabled and an SMTP host and sender address are set."""
     return bool(
         settings.NEWSLETTER_ENABLE_SEND
         and settings.NEWSLETTER_SMTP_HOST.strip()
@@ -58,6 +83,22 @@ def _smtp_config_ready() -> bool:
 
 
 def _send_email(subject: str, to_email: str, text_body: str, html_body: str | None = None) -> tuple[bool, str]:
+    """Send one email through the configured SMTP server.
+
+    Uses implicit SSL or plain SMTP with optional STARTTLS, and logs in only
+    when a username is configured. Errors are caught and reported, never raised.
+
+    Args:
+        subject: Subject line.
+        to_email: Recipient address.
+        text_body: Plain-text body.
+        html_body: Optional HTML alternative body.
+
+    Returns:
+        A ``(ok, info)`` pair: ``(True, "SENT")`` on success,
+        ``(False, "SMTP_NOT_CONFIGURED")`` when SMTP is not set up, or
+        ``(False, "SEND_FAILED:<error>")`` when sending failed.
+    """
     if not _smtp_config_ready():
         return False, "SMTP_NOT_CONFIGURED"
 
@@ -95,6 +136,15 @@ def _send_email(subject: str, to_email: str, text_body: str, html_body: str | No
 
 
 def send_verification_email(to_email: str, verify_url: str) -> tuple[bool, str]:
+    """Email a new subscriber the link that confirms their subscription.
+
+    Args:
+        to_email: Address that asked to subscribe.
+        verify_url: Absolute confirmation URL; HTML-escaped in the HTML body.
+
+    Returns:
+        The ``(ok, info)`` pair from :func:`_send_email`.
+    """
     safe_verify_url = html.escape(verify_url)
     subject = "[Planet KIM's Travel] 이메일 구독 확인"
     text_body = (
@@ -113,6 +163,16 @@ def send_verification_email(to_email: str, verify_url: str) -> tuple[bool, str]:
 
 
 def send_subscription_confirmed_email(to_email: str, unsubscribe_url: str) -> tuple[bool, str]:
+    """Email a subscriber that their subscription is active, with an unsubscribe link.
+
+    Args:
+        to_email: The confirmed subscriber's address.
+        unsubscribe_url: Absolute signed unsubscribe URL; HTML-escaped in the
+            HTML body.
+
+    Returns:
+        The ``(ok, info)`` pair from :func:`_send_email`.
+    """
     safe_unsubscribe_url = html.escape(unsubscribe_url)
     subject = "[Planet KIM's Travel] 구독이 완료되었습니다"
     text_body = (

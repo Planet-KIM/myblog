@@ -1,4 +1,17 @@
 # app/cv_content.py
+"""Content of the About/CV page, in Korean and English.
+
+This is the version the blog router imports (``app.routers.blog.router``).
+
+Plain data only (no functions): ``cv_profile`` (name, contacts, Korean/English
+role and intro), ``education``, ``experience`` (lab position; bullets may use
+inline Markdown such as ``**bold**``), ``industry`` (jobs per language),
+``skill_palette`` (skill kind -> chip background colour), ``skills`` (chips
+grouped by area, each with a ``kind`` key into ``skill_palette``) and
+``projects`` (list of dicts with ``start_year``/``end_year`` for sorting and
+``*_ko``/``*_en`` text), plus ``research_interest`` (the toggled
+"Research Interest" section: a title and subtitled bullet groups).
+"""
 
 # -----------------------
 # 기본 프로필/경력/학력

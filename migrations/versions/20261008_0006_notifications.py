@@ -19,6 +19,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """Create the ``notifications`` table.
+
+    Each row targets a recipient ``user_id`` and optionally records the actor,
+    post (deleted with the post via ``ON DELETE CASCADE``) and comment, plus a
+    ``type`` and an ``is_read`` flag (default false). Indexed by id,
+    ``user_id`` and ``is_read``.
+    """
     op.create_table(
         'notifications',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -41,6 +48,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop the ``notifications`` table and its indexes."""
     with op.batch_alter_table('notifications', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_notifications_is_read'))
         batch_op.drop_index(batch_op.f('ix_notifications_user_id'))

@@ -18,6 +18,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """Create the ``layout_templates`` table for users' saved magazine layouts.
+
+    Each row stores an owner ``user_id``, a ``name`` and the layout's
+    ``content_blocks`` JSON. Indexed by id and ``user_id``.
+    """
     op.create_table(
         'layout_templates',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -34,6 +39,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop the ``layout_templates`` table and its indexes."""
     with op.batch_alter_table('layout_templates', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_layout_templates_user_id'))
         batch_op.drop_index(batch_op.f('ix_layout_templates_id'))

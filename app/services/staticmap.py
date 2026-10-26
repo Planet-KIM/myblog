@@ -66,6 +66,17 @@ def _lonlat_to_px(lat, lon, z):
 
 @lru_cache(maxsize=1024)
 def _fetch_tile(z, x, y):
+    """Download one OSM raster tile, cached in memory (up to 1024 tiles).
+
+    Args:
+        z: Zoom level.
+        x: Tile column at that zoom.
+        y: Tile row at that zoom.
+
+    Returns:
+        The tile's PNG bytes, or ``None`` if the coordinates are outside the
+        world or the request failed.
+    """
     n = 2 ** z
     if x < 0 or y < 0 or x >= n or y >= n:
         return None
@@ -78,6 +89,18 @@ def _fetch_tile(z, x, y):
 
 
 def _choose_zoom(pts, w, h):
+    """Pick the highest zoom (16 down to 2) at which all points fit in the image.
+
+    A 40 px margin is kept on every side.
+
+    Args:
+        pts: ``(lat, lng)`` pairs to show.
+        w: Image width in pixels.
+        h: Image height in pixels.
+
+    Returns:
+        The zoom level: 14 for zero or one point, otherwise 2-16.
+    """
     if len(pts) <= 1:
         return 14
     min_lat = min(p[0] for p in pts); max_lat = max(p[0] for p in pts)
@@ -91,6 +114,24 @@ def _choose_zoom(pts, w, h):
 
 
 def render_map_png(text: str, width: int = 640, height: int = 420) -> bytes:
+    """Render a static map PNG with numbered pins for the places in ``text``.
+
+    Uses the first 30 places (see :func:`parse_places`); places without
+    coordinates are geocoded and skipped if that fails. Pins are joined in
+    order by a route line, a legend lists up to six places, and the required
+    OpenStreetMap attribution is drawn in the top-right corner. Missing tiles
+    leave a plain background instead of failing. Makes network requests to
+    OSM tile and Nominatim servers.
+
+    Args:
+        text: Place list, one ``label@lat,lng`` or ``label`` per line.
+        width: Image width in pixels.
+        height: Image height in pixels.
+
+    Returns:
+        PNG bytes. If no place could be located, a placeholder image asking
+        for places is returned instead.
+    """
     places = parse_places(text)[:30]   # 타일 요청량 제한
     # 좌표 없는 곳 지오코딩
     pts = []

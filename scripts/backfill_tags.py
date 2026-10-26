@@ -33,6 +33,20 @@ MAX_TAGS_PER_POST = 5
 
 
 def candidate_tags(post, category_name: str | None) -> list[str]:
+    """Infer tags for a post from its category and the hashtags in its body.
+
+    The category name (lower-cased) comes first unless it is a generic name
+    from ``GENERIC_CATEGORIES``. Then come ``#hashtags`` found in ``content``
+    and ``content_html``, skipping ones that look like hex colour codes or are
+    all digits. Duplicates are dropped.
+
+    Args:
+        post: The ``BoardPost`` to inspect.
+        category_name: Name of the post's category, or ``None``.
+
+    Returns:
+        Up to ``MAX_TAGS_PER_POST`` lower-cased tag names, possibly empty.
+    """
     tags: list[str] = []
     # 1) 의미 있는 카테고리명
     if category_name:
@@ -51,6 +65,15 @@ def candidate_tags(post, category_name: str | None) -> list[str]:
 
 
 def main() -> int:
+    """Preview or apply tag backfilling for every untagged public post.
+
+    Without ``--apply`` on the command line nothing is written; with it, tags
+    are saved through ``process_post_tags`` (which commits). Posts that
+    already have tags are skipped. Prints counts and up to 12 sample posts.
+
+    Returns:
+        The process exit code, always 0.
+    """
     apply = "--apply" in sys.argv[1:]
     db = SessionLocal()
     posts = (

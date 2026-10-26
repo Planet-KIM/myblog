@@ -25,16 +25,30 @@ _DAY = re.compile(r"(?i)^(day\b.*|\d+\s*일\s*차.*|\d+\s*일째.*)$")
 
 
 def parse_timeline(text: str) -> list[dict]:
+    """Parse itinerary text into days of events, using the rules in the module docstring.
+
+    Events that appear before any header go into an untitled first day.
+
+    Args:
+        text: The itinerary text; ``None`` is treated as empty.
+
+    Returns:
+        A list of ``{"title": str, "events": [{"label": str, "time": str}]}``
+        dicts in input order (``time`` is ``""`` for untimed events). Days with
+        neither a title nor events are dropped.
+    """
     days: list[dict] = []
     cur: dict | None = None
 
     def ensure_day():
+        """Start an untitled day if no day has been started yet."""
         nonlocal cur
         if cur is None:
             cur = {"title": "", "events": []}
             days.append(cur)
 
     def new_day(title):
+        """Start a new day titled ``title`` and make it the current one."""
         nonlocal cur
         cur = {"title": title, "events": []}
         days.append(cur)

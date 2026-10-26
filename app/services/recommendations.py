@@ -1,3 +1,8 @@
+"""Portal recommendations: blogs to discover, related posts and curated links.
+
+Ranking is done with plain SQL aggregates (post counts, shared tags, recency);
+there is no personalised model.
+"""
 from __future__ import annotations
 
 from typing import Any

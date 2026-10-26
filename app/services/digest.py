@@ -11,11 +11,35 @@ from urllib.parse import urlencode
 
 
 def _cutoff_kst(days: int):
+    """Return the naive KST datetime that lies ``days`` days before now.
+
+    Args:
+        days: How many days to go back.
+
+    Returns:
+        A timezone-naive ``datetime`` in KST, comparable with the naive
+        ``created_at`` values stored on posts.
+    """
     from app.models import now_kst
     return now_kst().replace(tzinfo=None) - timedelta(days=days)
 
 
 def top_weekly_posts(db, days: int = 7, limit: int = 5):
+    """Pick the most popular public posts created in the last ``days`` days.
+
+    Posts are ranked by ``likes * 3 + views`` (missing stats count as 0), with
+    newer posts first on ties. If no public post was created in that window,
+    the newest public posts overall are returned instead.
+
+    Args:
+        db: SQLAlchemy session.
+        days: Size of the look-back window in days.
+        limit: Maximum number of posts to return.
+
+    Returns:
+        A list of up to ``limit`` ``BoardPost`` rows; empty only when there are
+        no public posts at all.
+    """
     from sqlalchemy import func
     from app import models
 
@@ -38,6 +62,24 @@ def top_weekly_posts(db, days: int = 7, limit: int = 5):
 
 
 def build_weekly_digest(db, base_url: str, days: int = 7, limit: int = 5):
+    """Build the subject and plain-text/HTML bodies of the weekly digest email.
+
+    Only reads the database; nothing is sent. Each post gets a link, its
+    author (display name or ``@handle``) and a 120-character plain-text preview.
+    The HTML uses inline styles because email clients require them.
+
+    Args:
+        db: SQLAlchemy session.
+        base_url: Public site root used to build absolute post links; a
+            trailing slash is ignored.
+        days: Look-back window passed to :func:`top_weekly_posts`.
+        limit: Maximum number of posts in the digest.
+
+    Returns:
+        ``None`` if there are no posts, otherwise a dict with keys
+        ``subject`` (str), ``text`` (str), ``html`` (str) and ``posts`` (the
+        ``BoardPost`` rows used).
+    """
     from app.routers.blog.router import markdown_to_plain
 
     posts = top_weekly_posts(db, days=days, limit=limit)
@@ -76,6 +118,22 @@ def build_weekly_digest(db, base_url: str, days: int = 7, limit: int = 5):
 
 
 def send_weekly_digest(db, base_url: str):
+    """Email the weekly digest to every confirmed newsletter subscriber.
+
+    Each message gets a personal unsubscribe link appended to both bodies.
+    Does nothing when SMTP is not configured or there are no posts. A failed
+    send to one subscriber does not stop the others.
+
+    Args:
+        db: SQLAlchemy session.
+        base_url: Public site root used for post and unsubscribe links.
+
+    Returns:
+        A summary dict: ``{"sent": 0, "skipped": True, "reason":
+        "SMTP_NOT_CONFIGURED"}`` without SMTP, ``{"sent": 0, "reason":
+        "NO_POSTS"}`` without posts, otherwise ``{"sent": <successful sends>,
+        "subscribers": <confirmed subscribers>}``.
+    """
     from app import models
     from app.services import newsletter
 

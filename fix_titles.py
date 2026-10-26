@@ -1,3 +1,10 @@
+"""One-off maintenance script: re-derive the titles of Milkdown posts.
+
+Recomputes every ``milkdown`` post's title from the first meaningful line of
+its content (same rule the board router uses when saving) and stores it when
+it differs. Run from anywhere with ``python fix_titles.py``; it uses the app's
+configured database.
+"""
 import os
 import sys
 
@@ -10,6 +17,12 @@ from app.routers.board.router import extract_title_from_milkdown_top_line
 
 
 def main():
+    """Update stale Milkdown post titles and print each change.
+
+    Prints ``[id] old -> new`` for every changed post and a final
+    ``done: scanned=N, changed=M`` summary. Commits only if something
+    changed; the session is always closed.
+    """
     db = SessionLocal()
     try:
         milkdown_posts = db.query(BoardPost).filter(BoardPost.editor_type == "milkdown").all()

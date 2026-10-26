@@ -1,4 +1,17 @@
 # app/cv_content.py
+"""Alternate draft of the CV content with a machine-learning / AI-systems emphasis.
+
+Not imported by the app; kept for reference. It mirrors the structure of
+``app/cv_content.py`` (the live version) without ``research_interest``.
+
+Plain data only (no functions): ``cv_profile`` (name, contacts, Korean/English
+role and intro), ``education``, ``experience`` (lab position; bullets may use
+inline Markdown such as ``**bold**``), ``industry`` (jobs per language),
+``skill_palette`` (skill kind -> chip background colour), ``skills`` (chips
+grouped by area, each with a ``kind`` key into ``skill_palette``) and
+``projects`` (list of dicts with ``start_year``/``end_year`` for sorting and
+``*_ko``/``*_en`` text).
+"""
 
 # -----------------------
 # 기본 프로필/경력/학력

@@ -1,3 +1,9 @@
+"""Read-only GitHub Issues client for the site's issues dashboard.
+
+Calls the GitHub REST API with the standard library only and turns the response
+into card-ready dicts. Failures never raise; they come back as an ``error``
+message in the result so the page can still render.
+"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -24,6 +30,15 @@ def _format_github_time(value: str) -> str:
 
 
 def _extract_error_message(body: str) -> str:
+    """Pull a human-readable message out of a GitHub error response body.
+
+    Args:
+        body: Raw response body, usually JSON like ``{"message": "..."}``.
+
+    Returns:
+        The non-empty ``message`` field if present, otherwise the stripped
+        body, or a generic Korean "unknown error" text if the body is empty.
+    """
     try:
         parsed = json.loads(body)
     except json.JSONDecodeError:

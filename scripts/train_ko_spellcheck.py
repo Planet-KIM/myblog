@@ -49,6 +49,15 @@ from typing import Dict, List
 # ── 인자 파싱 ─────────────────────────────────────────────
 
 def parse_args():
+    """Define and parse the command-line options for training or evaluation.
+
+    Returns:
+        The parsed ``argparse.Namespace``.
+
+    Raises:
+        SystemExit: On invalid arguments or when the required ``--data_path``
+            is missing (raised by ``argparse``).
+    """
     p = argparse.ArgumentParser(description="한국어 맞춤법 교정 T5 Fine-tuning")
     p.add_argument("--base_model",  default="paust/pko-t5-large",
                    help="HuggingFace 모델 ID 또는 로컬 경로 (기본: paust/pko-t5-large)")
@@ -90,6 +99,12 @@ def load_pairs(path: str) -> List[Dict]:
     pairs = []
 
     def _extract(obj):
+        """Return ``(noisy, clean)`` from a record, accepting several common key names.
+
+        ``noisy`` comes from ``noisy``/``input``/``wrong``/``original`` and
+        ``clean`` from ``clean``/``output``/``correct``/``corrected``; either
+        is ``None`` when no key is present.
+        """
         noisy = obj.get("noisy") or obj.get("input") or obj.get("wrong") or obj.get("original")
         clean = obj.get("clean") or obj.get("output") or obj.get("correct") or obj.get("corrected")
         return noisy, clean
@@ -141,8 +156,27 @@ def load_pairs(path: str) -> List[Dict]:
 # ── 데이터셋 클래스 ───────────────────────────────────────
 
 class CorrectionDataset:
+    """Map-style dataset that tokenizes (noisy, clean) pairs for T5 fine-tuning.
+
+    Attributes:
+        pairs: The ``{"noisy", "clean"}`` dicts.
+        tokenizer: Hugging Face tokenizer used for inputs and labels.
+        prefix: Task prefix prepended to every noisy input.
+        max_input: Input length in tokens (pad/truncate).
+        max_target: Label length in tokens (pad/truncate).
+    """
+
     def __init__(self, pairs: List[Dict], tokenizer, prefix: str,
                  max_input: int, max_target: int):
+        """Store the pairs and tokenization settings; nothing is tokenized yet.
+
+        Args:
+            pairs: The ``{"noisy", "clean"}`` dicts.
+            tokenizer: Hugging Face tokenizer.
+            prefix: Task prefix, e.g. ``"맞춤법 교정: "``.
+            max_input: Input length in tokens.
+            max_target: Label length in tokens.
+        """
         self.pairs = pairs
         self.tokenizer = tokenizer
         self.prefix = prefix
@@ -150,9 +184,23 @@ class CorrectionDataset:
         self.max_target = max_target
 
     def __len__(self):
+        """Return the number of pairs."""
         return len(self.pairs)
 
     def __getitem__(self, idx):
+        """Tokenize pair ``idx``.
+
+        The input is ``prefix + noisy`` and the label is ``clean``, both padded
+        or truncated to their maximum lengths. Padding in the labels is set
+        to -100 so the loss ignores it.
+
+        Args:
+            idx: Index of the pair.
+
+        Returns:
+            A dict of 1-D tensors: ``input_ids``, ``attention_mask`` and
+            ``labels``.
+        """
         noisy = self.pairs[idx]["noisy"]
         clean = self.pairs[idx]["clean"]
 
@@ -234,6 +282,15 @@ def evaluate(model, tokenizer, pairs: List[Dict], prefix: str,
 # ── 메인 학습 루프 ────────────────────────────────────────
 
 def main():
+    """Fine-tune a T5 spell-correction model, or only evaluate one with ``--eval_only``.
+
+    Picks CUDA, then MPS, then CPU. In training mode it loads the base model,
+    splits off 10% of the data for validation unless ``--val_path`` is given,
+    trains with ``Seq2SeqTrainer`` (keeping the best checkpoint by
+    validation loss), saves the model and tokenizer to ``--output_dir``,
+    evaluates on the validation pairs and prints how to use the model in the
+    server.
+    """
     args = parse_args()
 
     import torch

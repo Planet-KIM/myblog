@@ -146,6 +146,7 @@ def sanitize_content_blocks(raw: str | None) -> str:
         return ""
 
     def walk_page(page) -> None:
+        """Sanitize, in place, every dict block in ``page["blocks"]``; ignore non-dict pages."""
         if not isinstance(page, dict):
             return
         for block in page.get("blocks", []) or []:

@@ -136,6 +136,20 @@ def _corrupt_char_level(text: str) -> str:
 
 
 def _corrupt(text: str) -> str:
+    """Inject realistic Korean spelling mistakes into a correct sentence.
+
+    Randomly applies, at most once per pattern, common word confusions
+    (20% each), final-consonant errors (5%) and spacing errors in either
+    direction (8%). If none of these fired, falls back to swapping one
+    commonly confused vowel. Uses the global ``random`` state.
+
+    Args:
+        text: A correct sentence.
+
+    Returns:
+        The corrupted sentence; equal to ``text`` only if it contains nothing
+        that can be corrupted.
+    """
     t = text
     for correct, wrongs in WORD_CONFUSIONS.items():
         if correct in t and random.random() < 0.2:
@@ -156,6 +170,11 @@ def _corrupt(text: str) -> str:
 
 
 def _valid(clean: str, noisy: str) -> bool:
+    """Return True if (clean, noisy) is a usable training pair.
+
+    The pair is usable when the two differ and ``clean`` is 8-150 characters
+    long (stripped) and contains at least one Hangul syllable.
+    """
     return (
         clean != noisy
         and 8 <= len(clean.strip()) <= 150
@@ -341,6 +360,19 @@ def _detect_device(preference: str) -> "torch.device":
 # ── Step 1: 블로그 DB 추출 ────────────────────────────────
 
 def step1_extract_blog(max_lines: int = 5000) -> List[str]:
+    """Step 1: extract clean Korean sentences from the blog's SQLite database.
+
+    Reads ``content_html`` of up to 500 posts from ``app.db``, strips the HTML
+    and keeps lines of 8-150 characters that contain Hangul. Missing
+    packages, a missing database file or a read error are reported and
+    yield an empty list instead of failing.
+
+    Args:
+        max_lines: Maximum number of sentences to return.
+
+    Returns:
+        Up to ``max_lines`` sentences, possibly empty.
+    """
     print("\n[1/5] 블로그 DB에서 텍스트 추출 중...")
     try:
         from sqlalchemy import create_engine, text
@@ -382,6 +414,20 @@ def step1_extract_blog(max_lines: int = 5000) -> List[str]:
 # ── Step 2: 외부 텍스트 다운로드 (실패 시 내장 문장) ─────
 
 def step2_download_wiki(max_lines: int = 20000) -> List[str]:
+    """Step 2: stream Korean sentences from Hugging Face datasets.
+
+    Tries Korean Wikipedia, then CC-100, in streaming mode and keeps lines of
+    8-150 characters that contain Hangul. Falls back to the built-in sentence
+    list when ``max_lines`` is 0, ``datasets`` is not installed, or every
+    source fails.
+
+    Args:
+        max_lines: Maximum number of sentences to collect; 0 means use the
+            built-in sentences only.
+
+    Returns:
+        The collected sentences, or the built-in sentences as a fallback.
+    """
     print("\n[2/5] 한국어 텍스트 다운로드 중 (HuggingFace)...")
 
     if max_lines == 0:
@@ -439,6 +485,22 @@ def step3_generate_pairs(
     n_samples: int,
     seed: int = 42,
 ) -> List[Dict]:
+    """Step 3: build synthetic (noisy -> clean) training pairs.
+
+    Picks random sentences, corrupts them with :func:`_corrupt` and keeps
+    pairs that pass :func:`_valid`. ``n_samples`` is capped at 50 pairs per
+    available sentence, and generation stops after ``30 * n_samples``
+    attempts. Reseeds the global ``random`` module and prints three examples.
+
+    Args:
+        lines: Clean source sentences.
+        n_samples: Number of pairs wanted.
+        seed: Random seed for reproducible output.
+
+    Returns:
+        A list of ``{"input": noisy, "output": clean}`` dicts; may be shorter
+        than requested.
+    """
     # 문장 수 대비 샘플 수 자동 조정 (문장당 최대 50쌍)
     max_reasonable = len(lines) * 50
     if n_samples > max_reasonable:
@@ -477,6 +539,21 @@ def step4_save_and_split(
     val_ratio: float = 0.1,
     seed: int = 42,
 ) -> Tuple[Path, Path]:
+    """Step 4: shuffle the pairs and write train/validation JSONL files.
+
+    Shuffles ``pairs`` in place, puts ``max(5, len * val_ratio)`` pairs in the
+    validation set and the rest in the training set, and writes them to
+    ``data/spellcheck_train.jsonl`` and ``data/spellcheck_val.jsonl``
+    (overwriting existing files).
+
+    Args:
+        pairs: The ``{"input", "output"}`` pairs; reordered in place.
+        val_ratio: Fraction of pairs used for validation.
+        seed: Random seed for the shuffle.
+
+    Returns:
+        The ``(train_path, val_path)`` pair.
+    """
     print("\n[4/5] 데이터 저장 및 train/val 분리 중...")
     random.seed(seed)
     random.shuffle(pairs)
@@ -510,6 +587,25 @@ def step5_train(
     learning_rate: float,
     device_name: str = "auto",
 ):
+    """Step 5: fine-tune ``BASE_MODEL`` on the generated pairs and save checkpoints.
+
+    Trains a T5 model with AdamW and a linear warm-up schedule, printing
+    loss, token accuracy and ETA every 100 steps. After each epoch it reports
+    validation loss and exact-match accuracy on up to 100 validation
+    samples, saves ``models/blog-spellcheck/epoch-<n>``, and overwrites
+    ``models/blog-spellcheck/best`` whenever validation loss improves.
+
+    Args:
+        train_path: Training JSONL file.
+        val_path: Validation JSONL file.
+        epochs: Number of training epochs.
+        batch_size: Batch size for training and validation.
+        learning_rate: Peak AdamW learning rate.
+        device_name: ``"auto"``, ``"cpu"``, ``"mps"`` or ``"cuda"``.
+
+    Raises:
+        SystemExit: If ``torch`` or ``transformers`` is not installed.
+    """
     print(f"\n[5/5] Fine-tuning 시작: {BASE_MODEL}")
     print(f"  출력 경로: {MODEL_DIR}")
 
@@ -530,12 +626,32 @@ def step5_train(
     print(f"  파라미터: {total_params:,}개")
 
     class SC_Dataset(Dataset):
+        """Torch dataset over a JSONL file of ``{"input", "output"}`` correction pairs.
+
+        Attributes:
+            samples: The decoded pairs, one dict per non-empty line.
+        """
         def __init__(self, path):
+            """Load every non-empty line of the JSONL file at ``path`` into ``samples``."""
             self.samples = [json.loads(l) for l in Path(path).read_text("utf-8").splitlines() if l.strip()]
 
-        def __len__(self): return len(self.samples)
+        def __len__(self):
+            """Return the number of pairs."""
+            return len(self.samples)
 
         def __getitem__(self, idx):
+            """Tokenize pair ``idx`` for seq2seq training.
+
+            Input and target are padded/truncated to 128 tokens, and padding
+            in the labels is replaced by -100 so the loss ignores it.
+
+            Args:
+                idx: Index of the pair.
+
+            Returns:
+                A dict of 1-D tensors: ``input_ids``, ``attention_mask`` and
+                ``labels``.
+            """
             s = self.samples[idx]
             enc = tokenizer(s["input"],  max_length=128, padding="max_length", truncation=True, return_tensors="pt")
             dec = tokenizer(s["output"], max_length=128, padding="max_length", truncation=True, return_tensors="pt")
@@ -678,6 +794,15 @@ def step5_train(
 # ── 메인 ─────────────────────────────────────────────────
 
 def main():
+    """Parse the command line and run the whole pipeline (steps 1-5).
+
+    With ``--skip_download`` and existing train/validation files, data
+    generation is skipped and those files are reused.
+
+    Raises:
+        SystemExit: If no source text or no valid training pair is available,
+            or if training dependencies are missing.
+    """
     parser = argparse.ArgumentParser(description="블로그 맞춤법 교정 모델 학습 파이프라인")
     parser.add_argument("--samples",       type=int,   default=8000,  help="생성할 학습 샘플 수 (기본 8000)")
     parser.add_argument("--wiki_lines",    type=int,   default=20000, help="외부 텍스트 최대 문장 수 (0=내장만 사용)")

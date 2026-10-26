@@ -77,6 +77,7 @@ def _clean(text: str) -> str:
 
 
 def _text_w(draw: ImageDraw.ImageDraw, text: str, font) -> float:
+    """Return the rendered width of ``text`` in pixels when drawn with ``font``."""
     return draw.textlength(text, font=font)
 
 
@@ -90,6 +91,7 @@ def _wrap(draw, text: str, font, max_w: float, max_lines: int) -> list[str]:
     cur = ""
 
     def push(line: str):
+        """Commit ``line`` as the next finished output line."""
         lines.append(line)
 
     for word in words:
@@ -164,6 +166,16 @@ def _planet_mark(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int):
 
 
 def _initial_avatar(draw, cx, cy, r, letter: str, color):
+    """Draw a filled circle with ``letter`` centred in it in cream, like an avatar.
+
+    Args:
+        draw: Drawing context of the target image.
+        cx: Circle centre x in pixels.
+        cy: Circle centre y in pixels.
+        r: Circle radius in pixels; the letter is sized at ``1.1 * r``.
+        letter: The character to show, usually the author's initial.
+        color: RGB fill colour of the circle.
+    """
     draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=color)
     f = _font(int(r * 1.1))
     bbox = draw.textbbox((0, 0), letter, font=f)
@@ -396,6 +408,7 @@ _IMG_BG = (234, 228, 221)    # 이미지 플레이스홀더 배경
 
 
 def _plain(s: str) -> str:
+    """Strip HTML tags and entities from ``s`` and collapse whitespace to single spaces."""
     if not s:
         return ""
     s = _re.sub(r"<[^>]+>", " ", s)
@@ -404,6 +417,15 @@ def _plain(s: str) -> str:
 
 
 def _hex_rgb(h: str, fallback=(0, 0, 0)):
+    """Parse a CSS hex colour (``#rgb`` or ``#rrggbb``, ``#`` optional) into RGB.
+
+    Args:
+        h: The colour string; may be ``None``.
+        fallback: Value returned when ``h`` cannot be parsed.
+
+    Returns:
+        An ``(r, g, b)`` tuple of ints, or ``fallback`` for invalid input.
+    """
     try:
         h = (h or "").lstrip("#")
         if len(h) == 3:
@@ -428,6 +450,19 @@ def _local_image_path(src: str) -> Optional[Path]:
 
 
 def _first_page(content_blocks) -> Optional[dict]:
+    """Return the first page of a magazine layout in any stored format.
+
+    Accepts the v3 multi-page format (``{"v": 3, "pages": [...]}``), the older
+    single-page dict (``{"blocks": [...], "cw": .., "ch": ..}``) and a bare
+    list of blocks. Older formats default to a 1200x800 canvas.
+
+    Args:
+        content_blocks: The layout as a JSON string or already-decoded value.
+
+    Returns:
+        A page dict with at least ``blocks`` (v3 pages are returned as stored),
+        or ``None`` if the input is invalid JSON, empty or unrecognised.
+    """
     try:
         data = _json.loads(content_blocks) if isinstance(content_blocks, str) else content_blocks
     except (ValueError, TypeError):
@@ -515,6 +550,17 @@ def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:
 
 
 def _draw_img_ph(draw, x, y, x2, y2):
+    """Draw an image placeholder (a tinted box with a sun-and-mountains icon).
+
+    The icon is skipped when the box is smaller than 24 px in either direction.
+
+    Args:
+        draw: Drawing context of the thumbnail.
+        x: Left edge in pixels.
+        y: Top edge in pixels.
+        x2: Right edge in pixels (exclusive).
+        y2: Bottom edge in pixels (exclusive).
+    """
     draw.rectangle([x, y, x2 - 1, y2 - 1], fill=_IMG_BG)
     # 간단한 '산+해' 아이콘으로 이미지임을 표시
     w, h = x2 - x, y2 - y
@@ -527,6 +573,19 @@ def _draw_img_ph(draw, x, y, x2, y2):
 
 
 def _draw_heading(draw, x, y, w, h, text):
+    """Draw a heading block's text, vertically centred, in up to two lines.
+
+    The font size follows the block height (52%, clamped to 11-40 px). If the
+    text is empty after cleaning, a dark bar stands in for it.
+
+    Args:
+        draw: Drawing context of the thumbnail.
+        x: Block left edge in pixels.
+        y: Block top edge in pixels.
+        w: Block width in pixels; also the wrap width.
+        h: Block height in pixels.
+        text: Plain heading text.
+    """
     size = max(11, min(int(h * 0.52), 40))
     font = _font(size)
     text = _clean(text) or ""
@@ -541,6 +600,19 @@ def _draw_heading(draw, x, y, w, h, text):
 
 
 def _draw_text_lines(draw, x, y, w, h, dark=False):
+    """Suggest a text block with horizontal bars standing in for lines of text.
+
+    Body text gets up to 12 light bars, the last one shorter. With ``dark``
+    the block is drawn as a code block: a dark box with up to 8 green bars.
+
+    Args:
+        draw: Drawing context of the thumbnail.
+        x: Block left edge in pixels.
+        y: Block top edge in pixels.
+        w: Block width in pixels.
+        h: Block height in pixels.
+        dark: Draw the code-block style instead of body text.
+    """
     if dark:  # 코드 블록
         draw.rectangle([x, y, x + w - 1, y + h - 1], fill=(44, 40, 38))
         col, pad = (120, 150, 130), int(max(6, w * 0.04))
