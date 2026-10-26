@@ -23,7 +23,7 @@ import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
 import { magazineHtmlExtensions, stripPastedBlockStyles } from './plugins/tiptapMagazineHtml.js';
-import { applyPageWidth, pageHeight } from './plugins/pageCanvas.js';
+import { applyPageWidth, pageHeight, canvasScale, initPageZoom } from './plugins/pageCanvas.js';
 
 // ── Upload ────────────────────────────────────────────────
 /**
@@ -909,7 +909,8 @@ function startDrag(e, block) {
   const el = document.querySelector(`[data-bid="${block.id}"]`);
   if (!el) return;
   const rect = el.getBoundingClientRect();
-  dragInfo = { id: block.id, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+  const scale = canvasScale(document.getElementById('block-canvas')); // screen px per page px
+  dragInfo = { id: block.id, offsetX: (e.clientX - rect.left) / scale, offsetY: (e.clientY - rect.top) / scale, scale };
   el.classList.add('dragging');
   document.addEventListener('mousemove', onDrag);
   document.addEventListener('mouseup', endDrag);
@@ -1087,8 +1088,8 @@ function onDrag(e) {
   const block = blocks.find(b => b.id === dragInfo.id); if (!block) return;
   const canvas = document.getElementById('block-canvas');
   const cRect = canvas.getBoundingClientRect();
-  let nx = Math.max(0, e.clientX - cRect.left - dragInfo.offsetX);
-  let ny = Math.max(0, e.clientY - cRect.top - dragInfo.offsetY + canvas.scrollTop);
+  let nx = Math.max(0, (e.clientX - cRect.left) / dragInfo.scale - dragInfo.offsetX);
+  let ny = Math.max(0, (e.clientY - cRect.top) / dragInfo.scale - dragInfo.offsetY + canvas.scrollTop);
   if (!e.altKey) {
     const others = blocks.filter(b => b.id !== block.id);
     const s = computeSnap({ x: nx, y: ny, w: block.w, h: block.h }, others, canvasW(), SNAP_PX, gridOn ? _gridXs : []);
@@ -1124,7 +1125,10 @@ function endDrag() {
  */
 function startResize(e, block, edge) {
   e.preventDefault(); e.stopPropagation();
-  resizeInfo = { id: block.id, edge, startX: e.clientX, startY: e.clientY, startW: block.w, startH: block.h };
+  resizeInfo = {
+    id: block.id, edge, startX: e.clientX, startY: e.clientY, startW: block.w, startH: block.h,
+    scale: canvasScale(document.getElementById('block-canvas')), // screen px per page px
+  };
   document.addEventListener('mousemove', onResize);
   document.addEventListener('mouseup', endResize);
 }
@@ -1137,7 +1141,7 @@ function startResize(e, block, edge) {
 function onResize(e) {
   if (!resizeInfo) return;
   const block = blocks.find(b => b.id === resizeInfo.id); if (!block) return;
-  const dx = e.clientX - resizeInfo.startX, dy = e.clientY - resizeInfo.startY;
+  const dx = (e.clientX - resizeInfo.startX) / resizeInfo.scale, dy = (e.clientY - resizeInfo.startY) / resizeInfo.scale;
   let w = block.w, h = block.h;
   if (resizeInfo.edge === 'e' || resizeInfo.edge === 'se') w = Math.max(80, resizeInfo.startW + dx);
   if (resizeInfo.edge === 's' || resizeInfo.edge === 'se') h = Math.max(40, resizeInfo.startH + dy);
@@ -1175,7 +1179,10 @@ function endResize() {
 function startPan(e, block) {
   e.preventDefault();
   document.querySelector(`[data-bid="${block.id}"] .fb-body-image`)?.classList.add('panning');
-  panInfo = { id: block.id, startX: e.clientX, startY: e.clientY, startOX: block.imgOffsetX ?? 50, startOY: block.imgOffsetY ?? 50 };
+  panInfo = {
+    id: block.id, startX: e.clientX, startY: e.clientY, startOX: block.imgOffsetX ?? 50, startOY: block.imgOffsetY ?? 50,
+    scale: canvasScale(document.getElementById('block-canvas')), // screen px per page px
+  };
   document.addEventListener('mousemove', onPan);
   document.addEventListener('mouseup', endPan);
 }
@@ -1188,8 +1195,8 @@ function startPan(e, block) {
 function onPan(e) {
   if (!panInfo) return;
   const block = blocks.find(b => b.id === panInfo.id); if (!block) return;
-  block.imgOffsetX = Math.max(0, Math.min(100, panInfo.startOX - (e.clientX - panInfo.startX) / block.w * 100));
-  block.imgOffsetY = Math.max(0, Math.min(100, panInfo.startOY - (e.clientY - panInfo.startY) / block.h * 100));
+  block.imgOffsetX = Math.max(0, Math.min(100, panInfo.startOX - (e.clientX - panInfo.startX) / panInfo.scale / block.w * 100));
+  block.imgOffsetY = Math.max(0, Math.min(100, panInfo.startOY - (e.clientY - panInfo.startY) / panInfo.scale / block.h * 100));
   const img = document.querySelector(`[data-bid="${block.id}"] .fb-img`);
   if (img) img.style.objectPosition = `${block.imgOffsetX}% ${block.imgOffsetY}%`; // conventions: allow (photo focal point while panning)
 }
@@ -2303,7 +2310,7 @@ function _inTextEditor() {
 /**
  * Entry point: build the toolbar and page tabs, start with an empty heading and
  * text block, then wire history, keyboard shortcuts (undo/redo, Delete, Ctrl+Shift+S),
- * image paste, the preview button and the publish form.
+ * image paste, the preview button, the page zoom toggle and the publish form.
  *
  * @returns {void}
  */
@@ -2315,6 +2322,7 @@ function main() {
   addBlock('heading', { content: '<h1></h1>', h: 80 });
   addBlock('text', { h: 200 });
 
+  initPageZoom(canvas, canvas.parentElement, document.querySelector('[data-page-zoom-toggle]'));
   initHistory();
   document.addEventListener('mouseup', scheduleCommit);
 

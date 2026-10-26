@@ -98,6 +98,16 @@
   background-size: 40px 40px;
 }
 
+/* 칸보다 넓은 페이지는 칸 폭에 맞춰 축소해서 그린다 (pageCanvas.js initPageZoom).
+   좌표는 그대로 두고, 차지하는 자리만 축소된 크기로 줄인다 */
+#block-canvas.is-zoomed {
+  transform: scale(var(--page-zoom));
+  transform-origin: 0 0;
+  margin-left: 0;
+  margin-right: calc(var(--page-w) * (var(--page-zoom) - 1));
+  margin-bottom: calc(var(--canvas-h) * (var(--page-zoom) - 1));
+}
+
 /* ── Free Block (.fb) ─────────────────────────────────── */
 .fb {
   position: absolute;
@@ -545,6 +555,19 @@
 .tiptap-bottom-bar .tiptap-btn-secondary:hover {
   background: var(--surface-light);
   border-color: var(--text-muted);
+}
+
+/* 페이지 확대/축소 토글: 하단 바 오른쪽 끝, 숫자 폭 고정 (pageCanvas.js initPageZoom) */
+.tiptap-bottom-bar .tiptap-zoom-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-variant-numeric: tabular-nums;
+}
+.tiptap-bottom-bar .tiptap-zoom-btn[aria-pressed="false"] {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .tiptap-color-picker {

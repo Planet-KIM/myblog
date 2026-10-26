@@ -4,7 +4,8 @@
            tags_value (str), popular_tags (list[Tag], for _tag_suggestions.html).
   Assets: css/tiptap-editor.css, css/editor_fullscreen.css, css/tiptap_editor_page.css,
           js/editor_draft_id.js (window.DRAFT_ID), js/tiptap_word_count.js,
-          editor/board_new_tiptap.js (the editor bundle; builds the toolbar buttons, canvas and tabs).
+          editor/board_new_tiptap.js (the editor bundle; builds the toolbar buttons, canvas and tabs,
+          and drives the [data-page-zoom-toggle] button in the bottom bar).
 -#}
 {% extends "base.html" %}
 
@@ -73,6 +74,7 @@
       <button type="submit" class="tiptap-btn tiptap-btn-primary">Publish</button>
       <button type="button" class="tiptap-btn tiptap-btn-secondary tiptap-btn-preview">Preview</button>
       <a href="/board/" class="tiptap-btn tiptap-btn-secondary">Cancel</a>
+      <button type="button" class="tiptap-btn tiptap-btn-secondary tiptap-zoom-btn" data-page-zoom-toggle hidden aria-label="페이지 확대/축소"><i class="bi bi-aspect-ratio" aria-hidden="true"></i><span data-page-zoom-label>100%</span></button>
     </div>
   </form>
 </div>
