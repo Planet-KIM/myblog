@@ -1,15 +1,17 @@
+{#
+  search.html: full-text search across every public blog (/search) — query
+  form, active tag/author filter chips, result cards and pagination.
+  Context: q (str), tag (str|None), author (str|None), has_criteria (bool),
+  posts (list[BoardPost]), total (int), current_page (int), total_pages (int).
+  Assets: static/css/post_card.css (cards from _card.html), static/css/search.css
+#}
 {% extends "base.html" %}
 {% from "_card.html" import post_card %}
 {% block title %}{% if q %}'{{ q }}' 검색{% else %}검색{% endif %} · Planet KIM{% endblock %}
 
 {% block extra_head %}
-<style>
-  .search-form { display: flex; gap: var(--space-sm); max-width: 640px; margin-top: var(--space-lg); }
-  .search-form .search-input-wrap { flex: 1; }
-  .search-form .form-control { padding-top: 0.65rem; padding-bottom: 0.65rem; }
-  .search-filters { margin-top: var(--space-md); }
-  .search-count { margin: var(--space-md) 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/post_card.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/search.css') }}">
 {% endblock %}
 
 {% block content %}

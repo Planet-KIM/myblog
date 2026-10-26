@@ -1,0 +1,11 @@
+/**
+ * post_card.css: post card macro (templates/_card.html) used by the portal
+ * lists — blog home, tag feed and search. The card itself is styled by the
+ * shared .travel-card rules in components.css; this file only holds what the
+ * macro needs on top of them.
+ * Relies on theme tokens (--border) and --pc-accent, which the macro sets
+ * inline on the author avatar from the author's accent color.
+ */
+
+/* Author avatar: ring in the author's accent color, the default border otherwise. */
+.pc-author .avatar { border-color: var(--pc-accent, var(--border)); }

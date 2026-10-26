@@ -1,12 +1,18 @@
+{#
+  tags_feed.html: public posts with one tag (/tags/<slug>) — popular-tag chips,
+  post cards and pagination.
+  Context: tag (Tag), popular_tags (list[Tag]), posts (list[BoardPost]),
+  total_posts (int), current_page (int), total_pages (int).
+  Assets: static/css/post_card.css (cards from _card.html), static/css/tags_feed.css
+#}
 {% extends "base.html" %}
 {% from "_card.html" import post_card %}
 
 {% block title %}#{{ tag.name }}{% endblock %}
 
 {% block extra_head %}
-<style>
-  .tag-related { margin-bottom: var(--space-xl); }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/post_card.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/tags_feed.css') }}">
 {% endblock %}
 
 {% block content %}

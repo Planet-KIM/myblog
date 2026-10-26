@@ -245,6 +245,8 @@
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
+/* Dot color: the category's palette color, set by categories.js as --cat-dot-color. */
+.cat-color-dot { background: var(--cat-dot-color); }
 
 .cat-icon { color: var(--text-muted); font-size: var(--fs-base); flex-shrink: 0; }
 .cat-name { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
@@ -473,6 +475,8 @@
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
+/* Its color, set as --cat-dot-color in the markup categories.js renders. */
+.ts-color-dot { background: var(--cat-dot-color); }
 
 @media (max-width: 575.98px) {
   .cat-stat-pills { gap: var(--space-lg); }

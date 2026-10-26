@@ -1,20 +1,47 @@
-/* ============================================
-   Board Categories — Tree Logic
-   Libraries: Chart.js, Fuse.js, Tom Select, SortableJS
-   ============================================ */
+/**
+ * @file Board Categories — Tree Logic (templates/board_categories.html).
+ *
+ * On DOMContentLoaded: reads the categories from the hidden .cat-data-item
+ * elements, then builds the stat pills and charts (Chart.js), the tree search
+ * (Fuse.js with an includes() fallback), the parent picker (Tom Select), the
+ * drag-and-drop tree (SortableJS), inline rename, the delete modal and the
+ * right-click menu.
+ * Libraries: Chart.js, Fuse.js, Tom Select, SortableJS (loaded before this file).
+ * Per-category colors come from theme tokens read once at load (COLORS).
+ */
 
 document.addEventListener('DOMContentLoaded', function () {
 
   // ── Color palette — theme.css 브랜드 토큰에서 파생 (테마 일관성) ──
   const rootCss = getComputedStyle(document.documentElement);
+  /**
+   * Read a theme token from :root.
+   *
+   * @param {string} name - Custom property name, e.g. '--primary'.
+   * @param {string} fallback - Value used when the token is empty.
+   * @returns {string} The token value, or the fallback.
+   */
   const tok = (name, fallback) => rootCss.getPropertyValue(name).trim() || fallback;
   const COLORS = [
     tok('--primary', '#b4542f'), tok('--accent', '#2a82c4'), tok('--secondary', '#3f8f5c'),
     tok('--warning', '#c4820e'), tok('--cat-tech', '#7a5bbf'), tok('--cat-life', '#c0567f'),
     tok('--primary-dark', '#8f3f20'), tok('--accent-dark', '#1d6098'), tok('--secondary-dark', '#2f7047'),
   ];
+  /**
+   * Pick a category's palette color (stable per id).
+   *
+   * @param {number} id - Category id.
+   * @returns {string} A color from COLORS.
+   */
   const getColor = (id) => COLORS[id % COLORS.length];
   // '#rrggbb' + 알파 2자리 (토큰이 hex가 아니면 그대로)
+  /**
+   * Append a two-digit hex alpha to a '#rrggbb' color.
+   *
+   * @param {string} c - Color; returned unchanged unless it is '#rrggbb'.
+   * @param {string} aa - Alpha as two hex digits, e.g. 'cc'.
+   * @returns {string} '#rrggbbaa', or c as given.
+   */
   const withAlpha = (c, aa) => (/^#[0-9a-f]{6}$/i.test(c) ? c + aa : c);
 
   // ── 1) Parse hidden data ─────────────────────────
@@ -55,10 +82,22 @@ document.addEventListener('DOMContentLoaded', function () {
   let ctxNode       = null;
 
   // ── 3) Chart.js — horizontal bar chart ───────────
+  /**
+   * Fill the stat pills and draw the overview chart (root categories with
+   * their subtree post counts), or an empty-state note when there are no posts.
+   *
+   * @returns {void}
+   */
   (function initChart() {
     if (!window.Chart) return;
 
     // Recursively sum post counts for a node + all descendants
+    /**
+     * Sum the posts of a category and all of its descendants.
+     *
+     * @param {Object} node - Tree node ({postCount, children}).
+     * @returns {number} Total post count of the subtree.
+     */
     function aggCount(node) {
       return node.postCount + node.children.reduce((s, c) => s + aggCount(c), 0);
     }
@@ -92,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Dynamic height based on root category count
     const chartH = Math.min(280, Math.max(80, rootItems.length * 42));
-    container.style.height = chartH + 'px';
+    container.style.height = chartH + 'px'; // conventions: allow (chart height computed at runtime from the category count)
 
     const clrBorder = tok('--border', '#e8dfd2');
     const clrMuted  = tok('--text-muted', '#7d6f60');
@@ -142,11 +181,24 @@ document.addEventListener('DOMContentLoaded', function () {
   })();
 
   // ── 4) Search — Fuse.js fuzzy + simple-includes fallback ──
+  /**
+   * Filter the tree as the user types: matches stay visible together with
+   * their ancestors (expanded) and all their descendants.
+   *
+   * @returns {void}
+   */
   (function initSearch() {
     const input = document.getElementById('categorySearch');
     if (!input) return;
 
     // Recursively collect all descendant IDs
+    /**
+     * Add the ids of every descendant of a category to a set.
+     *
+     * @param {number} nodeId - Category whose subtree is collected.
+     * @param {Set<number>} acc - Set that receives the ids (mutated).
+     * @returns {void}
+     */
     function collectDescendants(nodeId, acc) {
       const node = nodesById[nodeId];
       if (!node) return;
@@ -157,6 +209,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Fuse.js를 쓸 수 있으면 퍼지 검색, 아니면 includes 폴백
+    /**
+     * Find the categories whose name matches a query.
+     *
+     * @param {string} query - Non-empty search text.
+     * @returns {Set<number>} Ids of the matching categories.
+     */
     function getMatchIds(query) {
       if (typeof Fuse !== 'undefined') { // eslint-disable-line no-undef
         try {
@@ -182,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const allLi = document.querySelectorAll('.cat-tree-node');
 
       if (!query) {
-        allLi.forEach((el) => (el.style.display = ''));
+        allLi.forEach((el) => (el.hidden = false));
         return;
       }
 
@@ -203,17 +261,23 @@ document.addEventListener('DOMContentLoaded', function () {
       allLi.forEach((el) => {
         const nodeId = parseInt(el.dataset.id, 10);
         if (visibleIds.has(nodeId)) {
-          el.style.display = '';
+          el.hidden = false;
           const ul = document.getElementById(`children-${nodeId}`);
           if (ul) ul.classList.remove('collapsed');
         } else {
-          el.style.display = 'none';
+          el.hidden = true;
         }
       });
     });
   })();
 
   // ── 5) Tom Select — enhanced parent dropdown ─────
+  /**
+   * Upgrade the parent <select> to Tom Select, with each category's color dot.
+   * The dot color is passed as --cat-dot-color (see .ts-color-dot).
+   *
+   * @returns {void}
+   */
   (function initTomSelect() {
     if (!window.TomSelect || !parentSelect) return;
 
@@ -222,12 +286,12 @@ document.addEventListener('DOMContentLoaded', function () {
       render: {
         option: function (data, escape) {
           const nId  = parseInt(data.value);
-          const dot  = nId ? `<span class="ts-color-dot" style="background:${getColor(nId)}"></span>` : '';
+          const dot  = nId ? `<span class="ts-color-dot" style="--cat-dot-color:${getColor(nId)}"></span>` : '';
           return `<div class="d-flex align-items-center gap-2">${dot}<span>${escape(data.text)}</span></div>`;
         },
         item: function (data, escape) {
           const nId  = parseInt(data.value);
-          const dot  = nId ? `<span class="ts-color-dot" style="background:${getColor(nId)}"></span>` : '';
+          const dot  = nId ? `<span class="ts-color-dot" style="--cat-dot-color:${getColor(nId)}"></span>` : '';
           return `<div class="d-flex align-items-center gap-2">${dot}<span>${escape(data.text)}</span></div>`;
         },
       },
@@ -237,6 +301,12 @@ document.addEventListener('DOMContentLoaded', function () {
   // ── 6) Chart.js — Breakdown (개별 카테고리 직접 포스트 수) ──
   let breakdownChartInited = false;
 
+  /**
+   * Draw the breakdown chart (every category in tree order with its direct
+   * post count) the first time its tab is shown; later calls do nothing.
+   *
+   * @returns {void}
+   */
   function initBreakdownChart() {
     if (breakdownChartInited || !window.Chart) return;
     breakdownChartInited = true;
@@ -246,6 +316,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 트리 순서로 모든 카테고리 나열 (루트 → 자식)
     const items = [];
+    /**
+     * Append a node and, depth-first, its children to items.
+     *
+     * @param {Object} node - Tree node.
+     * @param {number} depth - 0 for roots; children are prefixed with '↳ '.
+     * @returns {void}
+     */
     function walk(node, depth) {
       items.push({
         label: (depth > 0 ? '↳ ' : '') + node.name,
@@ -265,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const chartH = Math.min(320, Math.max(80, items.length * 40));
-    container.style.height = chartH + 'px';
+    container.style.height = chartH + 'px'; // conventions: allow (chart height computed at runtime from the category count)
 
     const clrBorder = tok('--border', '#e8dfd2');
     const clrMuted  = tok('--text-muted', '#7d6f60');
@@ -322,6 +399,14 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ── 7) SortableJS — per-<ul> drag & drop ─────────
+  /**
+   * Make a tree level draggable. Dropping a category into another level asks
+   * for confirmation, then moves it (or reloads to undo the drop);
+   * reordering within the same level is visual only.
+   *
+   * @param {HTMLUListElement} ul - The root list or a children list.
+   * @returns {void}
+   */
   function initSortable(ul) {
     if (!window.Sortable) return;
     Sortable.create(ul, {
@@ -356,6 +441,14 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ── 8) API helpers ───────────────────────────────
+  /**
+   * Move a category under a new parent on the server, then reload the page.
+   * Shows the loading overlay meanwhile and a toast with the result.
+   *
+   * @param {number} id - Category to move.
+   * @param {number|null} newParentId - New parent id, or null for top level.
+   * @returns {Promise<void>} Resolves once the request is handled.
+   */
   async function moveCategory(id, newParentId) {
     window.loading.show('카테고리를 옮기는 중…');
     try {
@@ -373,6 +466,14 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch { window.loading.hide(); window.toast.error('네트워크 오류가 발생했습니다.'); }
   }
 
+  /**
+   * Delete a category on the server, then reload the page.
+   * Shows the loading overlay meanwhile and a toast with the result.
+   *
+   * @param {number} id - Category to delete.
+   * @param {string|null} reassignTo - Category id that receives its posts, if any.
+   * @returns {Promise<void>} Resolves once the request is handled.
+   */
   async function deleteCategory(id, reassignTo) {
     window.loading.show('카테고리를 삭제하는 중…');
     const body = new FormData();
@@ -389,6 +490,15 @@ document.addEventListener('DOMContentLoaded', function () {
     } catch { window.loading.hide(); window.toast.error('네트워크 오류가 발생했습니다.'); }
   }
 
+  /**
+   * Rename a category on the server and update its label and node.
+   * Restores the old label and shows an error toast on failure.
+   *
+   * @param {number} id - Category to rename.
+   * @param {string} newName - Requested name.
+   * @param {HTMLSpanElement} nameSpan - The tree label showing the name.
+   * @returns {Promise<void>} Resolves once the request is handled.
+   */
   async function renameCategory(id, newName, nameSpan) {
     const oldName = nameSpan.textContent;
     try {
@@ -409,6 +519,12 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ── 8) Context menu ──────────────────────────────
+  /**
+   * Pick a category as the parent in the create form.
+   *
+   * @param {Object} node - Tree node to select.
+   * @returns {void}
+   */
   function selectAsParent(node) {
     if (tomSelect) tomSelect.setValue(String(node.id));
     else if (parentSelect) parentSelect.value = String(node.id);
@@ -452,6 +568,14 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ── 10) Render a single tree node ────────────────
+  /**
+   * Build the <li> for a category and, recursively, its children: grip,
+   * collapse toggle, color dot, name, post count, date, rename/delete buttons,
+   * right-click menu and a sortable children list.
+   *
+   * @param {Object} node - Tree node ({id, name, created, postCount, children}).
+   * @returns {HTMLLIElement} The rendered node.
+   */
   function renderNode(node) {
     const li = document.createElement('li');
     li.className  = 'cat-tree-node';
@@ -473,8 +597,9 @@ document.addEventListener('DOMContentLoaded', function () {
         ctxNode = node;
         const x = Math.min(e.clientX, window.innerWidth  - 185);
         const y = Math.min(e.clientY, window.innerHeight - 130);
+        // conventions: allow (menu position follows the pointer, known only at runtime)
         ctxMenu.style.left = x + 'px';
-        ctxMenu.style.top  = y + 'px';
+        ctxMenu.style.top  = y + 'px'; // conventions: allow (menu position follows the pointer)
         ctxMenu.classList.add('visible');
       });
     }
@@ -500,7 +625,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const dot = document.createElement('span');
     dot.className       = 'cat-color-dot';
-    dot.style.background = color;
+    dot.style.setProperty('--cat-dot-color', color);
     label.appendChild(dot);
 
     const icon = document.createElement('i');
@@ -555,6 +680,11 @@ document.addEventListener('DOMContentLoaded', function () {
       input.focus();
       input.select();
 
+      /**
+       * Put the label back and save the new name if it changed.
+       *
+       * @returns {Promise<void>} Resolves once the rename (if any) is handled.
+       */
       const commit = async () => {
         const newName = input.value.trim();
         input.replaceWith(nameSpan);

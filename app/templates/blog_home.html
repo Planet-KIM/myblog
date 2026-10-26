@@ -1,3 +1,14 @@
+{#
+  blog_home.html: a user's public blog home (/@handle) — cover, identity row
+  with follow/RSS/edit actions, category filter, series chips, post cards and
+  pagination.
+  Context: owner (User), is_owner (bool), current_user (User|None),
+  is_following (bool), total_posts (int), follower_count (int),
+  categories (list), active_category (int|None), owner_series (list),
+  posts (list[BoardPost]), current_page (int), total_pages (int).
+  Assets: static/css/blog_home.css, static/css/post_card.css,
+          static/js/blog_home.js (follow button)
+#}
 {% extends "base.html" %}
 {% from "_card.html" import post_card %}
 
@@ -5,71 +16,8 @@
 
 {% block extra_head %}
 <link rel="alternate" type="application/rss+xml" title="{{ owner.blog_title or owner.display_name or ('@' ~ owner.handle) }} RSS" href="/@{{ owner.handle }}/rss">
-<style>
-  /* 블로그(프로필) 머리말: 커버 → 아바타·이름·메타 → 카테고리 칩 */
-  .blog-header {
-    --blog-accent: var(--primary);
-    margin: 0 0 var(--space-lg);
-  }
-  .blog-cover {
-    height: 168px;
-    border-radius: var(--card-radius);
-    background: color-mix(in srgb, var(--blog-accent) 12%, var(--surface-light));
-  }
-  .blog-cover.has-image {
-    height: 220px;
-    background-size: cover;
-    background-position: center;
-  }
-  .blog-identity {
-    display: flex;
-    gap: var(--space-lg);
-    align-items: flex-start;
-    padding: var(--space-md) var(--space-lg) var(--space-lg);
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-  }
-  .blog-avatar.avatar {
-    margin-top: calc(-1 * (var(--space-md) + 48px));
-    border: 4px solid var(--bg-body);
-    background-color: var(--surface-dark);
-  }
-  .blog-identity-main { flex: 1; min-width: 220px; }
-  .blog-name {
-    font-size: var(--fs-2xl);
-    margin: 0 0 var(--space-xs);
-    letter-spacing: -0.02em;
-  }
-  .blog-name + .meta-row strong { color: var(--text-primary); font-weight: 600; }
-  .blog-bio {
-    color: var(--text-main);
-    margin: var(--space-sm) 0 0;
-    max-width: 60ch;
-    line-height: var(--lh-body);
-  }
-  .blog-actions { display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap; }
-  .blog-actions .btn-icon { padding: 0.5rem 0.7rem; }
-  .btn-travel.is-following {
-    background: transparent;
-    border-color: var(--border-dark);
-    color: var(--text-primary);
-  }
-  .btn-travel.is-following:hover { background: var(--surface-light); }
-
-  .blog-filter { margin-bottom: var(--space-xl); }
-
-  .blog-series { margin-bottom: var(--space-xl); }
-  .blog-series .chip i { color: var(--primary); }
-
-  @media (max-width: 576px) {
-    .blog-cover { height: 120px; }
-    .blog-cover.has-image { height: 160px; }
-    .blog-identity { padding-inline: var(--space-sm); gap: var(--space-md); }
-    .blog-avatar.avatar { --size: 72px; margin-top: calc(-1 * (var(--space-md) + 36px)); }
-    .blog-name { font-size: var(--fs-xl); }
-    .blog-actions { width: 100%; }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/blog_home.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/post_card.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -77,11 +25,11 @@
   <!-- Blog header -->
   <header class="blog-header"{% if owner.accent_color %} style="--blog-accent: {{ owner.accent_color }};"{% endif %}>
     <div class="blog-cover{% if owner.cover_url %} has-image{% endif %}"
-         {% if owner.cover_url %}style="background-image:url('{{ owner.cover_url }}');"{% endif %}></div>
+         {% if owner.cover_url %}style="--blog-cover-image: url('{{ owner.cover_url }}');"{% endif %}></div>
     <div class="blog-identity">
       {% if owner.avatar_url %}
       <img src="{{ owner.avatar_url }}" alt="{{ owner.display_name or owner.handle }} 프로필" class="avatar avatar-xl blog-avatar"
-           onerror="this.style.display='none';">
+           data-img-fallback="hide">
       {% else %}
       <div class="avatar avatar-xl blog-avatar" aria-hidden="true">{{ (owner.display_name or owner.handle or '?')[0]|upper }}</div>
       {% endif %}
@@ -172,23 +120,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-  (function () {
-    var btn = document.querySelector('.js-blog-follow');
-    if (!btn) return;
-    btn.addEventListener('click', async function () {
-      var id = btn.getAttribute('data-author-id');
-      try {
-        var res = await fetch('/api/follow/author/' + id, { method: 'POST', credentials: 'same-origin' });
-        if (!res.ok) throw new Error('failed');
-        var data = await res.json();
-        btn.textContent = data.active ? '팔로잉' : '팔로우';
-        btn.classList.toggle('is-following', !!data.active);
-        btn.setAttribute('aria-pressed', data.active ? 'true' : 'false');
-      } catch (e) {
-        if (window.toast) { window.toast.warning('요청 처리에 실패했습니다.'); } else { alert('요청 실패'); }
-      }
-    });
-  })();
-</script>
+<script src="{{ url_for('static', path='js/blog_home.js') }}"></script>
 {% endblock %}

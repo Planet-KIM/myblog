@@ -1,3 +1,8 @@
+{#
+  429.html: "too many requests" error page.
+  Context: detail (str|None): rate-limit message; a default is shown when empty.
+  Assets: none (shared .error-page styles in components.css)
+#}
 {% extends "base.html" %}
 
 {% block title %}요청이 너무 많습니다{% endblock %}

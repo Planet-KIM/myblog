@@ -1,0 +1,42 @@
+/**
+ * admin_dashboard.css: admin dashboard (/admin/) — stat tile, digest panel,
+ * report and recent-post lists.
+ * Used by templates/admin_dashboard.html. Relies on theme tokens.
+ */
+
+.admin-wrap { max-width: 960px; margin: 0 auto; }
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xl);
+}
+.admin-stat,
+.admin-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--space-lg);
+}
+.admin-stat-label { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+.admin-stat-value {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.1;
+  margin: var(--space-xs) 0;
+}
+.admin-stat-note { font-size: var(--fs-xs); color: var(--text-muted); margin: 0; }
+.admin-panel { display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-md); }
+.admin-panel strong { color: var(--text-primary); }
+.admin-panel .hint { font-size: var(--fs-sm); color: var(--text-muted); }
+.admin-panel .result { font-size: var(--fs-sm); color: var(--primary); margin-top: var(--space-xs); }
+.admin-section { margin-bottom: var(--space-2xl); }
+.admin-section h2 { font-size: var(--fs-lg); margin-bottom: var(--space-md); }
+.admin-section h2 .count { color: var(--text-muted); font-family: var(--font-sans); font-size: var(--fs-base); font-weight: 500; }
+.admin-list .list-group-item { padding: var(--space-md) var(--space-lg); }
+.admin-list .list-group-item a { color: var(--text-primary); font-weight: 500; text-decoration: none; }
+.admin-list .list-group-item a:hover { color: var(--primary); }
+.admin-list .meta { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; }
+.admin-list form { margin: 0; }

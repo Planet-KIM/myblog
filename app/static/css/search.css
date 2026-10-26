@@ -1,0 +1,11 @@
+/**
+ * search.css: search page (/search) — query form, active filter chips and
+ * the result count. Result cards come from post_card.css / components.css.
+ * Used by templates/search.html. Relies on theme tokens (--space-*, --fs-*).
+ */
+
+.search-form { display: flex; gap: var(--space-sm); max-width: 640px; margin-top: var(--space-lg); }
+.search-form .search-input-wrap { flex: 1; }
+.search-form .form-control { padding-top: 0.65rem; padding-bottom: 0.65rem; }
+.search-filters { margin-top: var(--space-md); }
+.search-count { margin: var(--space-md) 0 0; font-size: var(--fs-sm); color: var(--text-muted); }

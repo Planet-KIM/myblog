@@ -1,3 +1,12 @@
+{#
+  main.html: About / CV page (/main) — Korean and English CV versions with a
+  KO/EN switch, Skills/Research switch, page theme button, print-to-PDF
+  button and the recent-posts sidebar.
+  Context: cv (profile/education/experience/industry/skills/projects/
+  research_interest dict), recent_posts (list[BoardPost]), current_year (int),
+  published (bool).
+  Assets: static/css/main-cv.css, static/js/main-cv.js
+#}
 {% extends "base.html" %}
 
 {% block title %}About · Planet KIM{% endblock %}
@@ -23,7 +32,7 @@
       <button id="btn-theme" type="button" class="btn-ghost cv-tool-btn">
         다크 모드
       </button>
-      <button type="button" class="btn-ghost cv-tool-btn" onclick="window.print()">
+      <button type="button" class="btn-ghost cv-tool-btn" data-cv-print>
         <i class="bi bi-download" aria-hidden="true"></i>PDF로 저장
       </button>
     </div>
@@ -422,121 +431,6 @@
 </div>
 
 <!-- LANG & THEME TOGGLE SCRIPT -->
-<script>
-  (function () {
-    const koBtn = document.getElementById("btn-lang-ko");
-    const enBtn = document.getElementById("btn-lang-en");
-    const koCv = document.getElementById("cv-lang-ko");
-    const enCv = document.getElementById("cv-lang-en");
-    const themeBtn = document.getElementById("btn-theme");
-    const root = document.documentElement;
-
-    function setLang(lang) {
-      if (!koBtn || !enBtn || !koCv || !enCv) return;
-      const isKo = lang === "ko";
-
-      koCv.classList.toggle("d-none", !isKo);
-      enCv.classList.toggle("d-none", isKo);
-
-      koBtn.classList.toggle("active", isKo);
-      enBtn.classList.toggle("active", !isKo);
-
-      try {
-        localStorage.setItem("cv-lang", lang);
-      } catch (e) {}
-    }
-
-    function syncGlobalThemeIcon(theme) {
-      const navThemeToggle = document.querySelector(".theme-toggle");
-      if (!navThemeToggle) return;
-      navThemeToggle.innerHTML =
-        theme === "dark"
-          ? '<i class="bi bi-sun"></i>'
-          : '<i class="bi bi-moon"></i>';
-    }
-
-    function setTheme(theme) {
-      const normalized = theme === "dark" ? "dark" : "light";
-      const isDark = normalized === "dark";
-      root.setAttribute("data-theme", normalized);
-      document.body.setAttribute("data-bs-theme", normalized);
-      if (themeBtn) {
-        themeBtn.textContent = isDark ? "라이트 모드" : "다크 모드";
-        themeBtn.setAttribute("aria-label", `Switch to ${isDark ? "light" : "dark"} mode`);
-      }
-      syncGlobalThemeIcon(normalized);
-      try {
-        localStorage.setItem("theme", normalized);
-        localStorage.setItem("cv-theme", normalized);
-      } catch (e) {}
-    }
-
-    let savedLang = null;
-    let savedTheme = null;
-    try {
-      savedLang = localStorage.getItem("cv-lang");
-      savedTheme =
-        localStorage.getItem("theme") ||
-        localStorage.getItem("cv-theme") ||
-        document.body.getAttribute("data-bs-theme") ||
-        root.getAttribute("data-bs-theme") ||
-        root.getAttribute("data-theme");
-    } catch (e) {}
-
-    setLang(savedLang === "en" ? "en" : "ko");
-    setTheme(savedTheme === "dark" ? "dark" : "light");
-
-    if (koBtn) {
-      koBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        setLang("ko");
-      });
-    }
-    if (enBtn) {
-      enBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        setLang("en");
-      });
-    }
-    if (themeBtn) {
-      themeBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-        setTheme(next);
-      });
-    }
-  })();
-
-    document.addEventListener("DOMContentLoaded", function () {
-      const btnSkills = document.getElementById("btn-skills-mode");
-      const btnResearch = document.getElementById("btn-research-mode");
-      const skillView = document.getElementById("skills-view");
-      const researchView = document.getElementById("research-view");
-      const titleSpan = document.getElementById("skill-section-title-text");
-
-      function setSkillMode(mode) {
-        if (!skillView || !researchView) return;
-        const isSkills = mode === "skills";
-        
-        skillView.classList.toggle("d-none", !isSkills);
-        researchView.classList.toggle("d-none", isSkills);
-        
-        if (btnSkills) btnSkills.classList.toggle("active", isSkills);
-        if (btnResearch) btnResearch.classList.toggle("active", !isSkills);
-        
-        if (titleSpan) {
-          titleSpan.textContent = isSkills ? "기술 스택" : "연구 관심사";
-        }
-      }
-
-      if (btnSkills) {
-        btnSkills.addEventListener("click", () => setSkillMode("skills"));
-      }
-      if (btnResearch) {
-        btnResearch.addEventListener("click", () => setSkillMode("research"));
-      }
-    });
-
-</script>
+<script src="{{ url_for('static', path='js/main-cv.js') }}"></script>
 
 {% endblock %}

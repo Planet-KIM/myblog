@@ -1,3 +1,12 @@
+{#
+  board_categories.html: category management (/board/categories) — stats and
+  charts, the create form, and the drag-and-drop category tree with rename,
+  delete (modal) and a right-click menu.
+  Context: categories (list[BoardCategory]), post_count_map (dict id -> count),
+  error (str|None), success (str|None).
+  Assets: static/css/categories.css, static/js/categories-flash.js,
+          static/js/categories.js (+ Fuse.js, Tom Select, SortableJS, Chart.js)
+#}
 {% extends "base.html" %}
 
 {% block title %}카테고리 관리 · Planet KIM{% endblock %}
@@ -21,11 +30,7 @@
 {% endif %}
 
 {% if success %}
-<script>
-  window.addEventListener('DOMContentLoaded', function () {
-    if (window.toast) window.toast.success('{{ success }}');
-  });
-</script>
+<script src="{{ url_for('static', path='js/categories-flash.js') }}" data-message="{{ success }}"></script>
 {% endif %}
 
 <!-- Chart data (parsed by categories.js) -->

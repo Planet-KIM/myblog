@@ -1,0 +1,73 @@
+/**
+ * blog_home.css: a user's blog home (/@handle) — cover, identity row
+ * (avatar, name, meta, bio, actions), category filter and series chips.
+ * --blog-accent (owner's accent color) and --blog-cover-image (owner's cover
+ * image) are set inline on the header/cover from server data.
+ * Used by templates/blog_home.html. Relies on theme tokens.
+ */
+
+/* 블로그(프로필) 머리말: 커버 → 아바타·이름·메타 → 카테고리 칩 */
+.blog-header {
+  --blog-accent: var(--primary);
+  margin: 0 0 var(--space-lg);
+}
+.blog-cover {
+  height: 168px;
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--blog-accent) 12%, var(--surface-light));
+}
+.blog-cover.has-image {
+  height: 220px;
+  background-size: cover;
+  background-position: center;
+}
+/* Cover image from the owner's cover_url, passed in by the template as --blog-cover-image. */
+.blog-cover.has-image { background-image: var(--blog-cover-image); }
+.blog-identity {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: flex-start;
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.blog-avatar.avatar {
+  margin-top: calc(-1 * (var(--space-md) + 48px));
+  border: 4px solid var(--bg-body);
+  background-color: var(--surface-dark);
+}
+.blog-identity-main { flex: 1; min-width: 220px; }
+.blog-name {
+  font-size: var(--fs-2xl);
+  margin: 0 0 var(--space-xs);
+  letter-spacing: -0.02em;
+}
+.blog-name + .meta-row strong { color: var(--text-primary); font-weight: 600; }
+.blog-bio {
+  color: var(--text-main);
+  margin: var(--space-sm) 0 0;
+  max-width: 60ch;
+  line-height: var(--lh-body);
+}
+.blog-actions { display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap; }
+.blog-actions .btn-icon { padding: 0.5rem 0.7rem; }
+.btn-travel.is-following {
+  background: transparent;
+  border-color: var(--border-dark);
+  color: var(--text-primary);
+}
+.btn-travel.is-following:hover { background: var(--surface-light); }
+
+.blog-filter { margin-bottom: var(--space-xl); }
+
+.blog-series { margin-bottom: var(--space-xl); }
+.blog-series .chip i { color: var(--primary); }
+
+@media (max-width: 576px) {
+  .blog-cover { height: 120px; }
+  .blog-cover.has-image { height: 160px; }
+  .blog-identity { padding-inline: var(--space-sm); gap: var(--space-md); }
+  .blog-avatar.avatar { --size: 72px; margin-top: calc(-1 * (var(--space-md) + 36px)); }
+  .blog-name { font-size: var(--fs-xl); }
+  .blog-actions { width: 100%; }
+}

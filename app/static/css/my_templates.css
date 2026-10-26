@@ -1,0 +1,77 @@
+/**
+ * my_templates.css: magazine template picker (/me/templates) — starter
+ * layout cards and the user's saved layout cards with their actions.
+ * Used by templates/my_templates.html. Relies on theme tokens.
+ */
+
+.tpl-header { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-lg); flex-wrap: wrap; }
+.tpl-section { margin-bottom: var(--space-2xl); }
+.hub-subtitle { font-size: var(--fs-lg); margin: 0 0 var(--space-xs); }
+.hub-note { color: var(--text-muted); font-size: var(--fs-sm); margin: 0 0 var(--space-md); }
+
+/* 스타터 레이아웃 카드 (form 안의 버튼 전체가 클릭 영역) */
+.starter-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+.starter-card:hover,
+.starter-card:focus-visible { border-color: var(--primary); }
+.tpl-thumb {
+  display: block;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+}
+.tpl-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+.starter-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0 var(--space-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+}
+.starter-name i { color: var(--primary); }
+.starter-desc { padding: 0 var(--space-xs) var(--space-xs); font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.4; }
+
+/* 내 레이아웃 */
+.tpl-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  height: 100%;
+  padding: var(--space-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+}
+.tpl-card .tpl-thumb { max-height: 300px; }
+.tpl-name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tpl-meta { min-width: 0; }
+.tpl-card .meta-row { font-size: var(--fs-xs); }
+.tpl-actions { display: flex; gap: var(--space-sm); margin-top: auto; }
+.tpl-actions form { margin: 0; }
+.tpl-actions form:first-child { flex: 1; }
+.tpl-actions .btn-travel { width: 100%; }

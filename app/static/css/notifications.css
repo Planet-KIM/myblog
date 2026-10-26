@@ -1,0 +1,36 @@
+/**
+ * notifications.css: notifications page (/notifications) — list of
+ * notification rows with avatar, message, time and the unread dot.
+ * Used by templates/notifications.html. Relies on theme tokens.
+ */
+
+.notif-wrap { max-width: var(--reading-max-width); margin: 0 auto; }
+.notif-list { padding: 0; overflow: hidden; }
+.notif-item {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--border);
+  text-decoration: none;
+  transition: background-color var(--transition-fast);
+}
+.notif-item:first-child { border-top: 0; }
+.notif-item:hover { background: var(--surface-light); }
+.notif-item.is-unread { background: var(--primary-soft); }
+.notif-body { min-width: 0; flex: 1; }
+.notif-msg {
+  display: block;
+  color: var(--text-main);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.notif-msg i { color: var(--primary); margin-right: var(--space-xs); }
+.notif-time { font-size: var(--fs-xs); color: var(--text-muted); }
+.notif-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  flex-shrink: 0;
+}

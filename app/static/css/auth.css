@@ -1,0 +1,28 @@
+/**
+ * auth.css: sign-in and sign-up pages — narrow centered card, heading,
+ * full-width submit button and the "switch to the other form" line.
+ * Used by templates/login.html and templates/signup.html.
+ * Relies on theme tokens (--space-*, --fs-*, --text-muted).
+ */
+
+.auth-wrap {
+  max-width: 420px;
+  margin: var(--space-3xl) auto var(--space-2xl);
+}
+.auth-wrap .page-card { padding: var(--space-xl); }
+.auth-head { margin-bottom: var(--space-lg); }
+.auth-head h1 { font-size: var(--fs-xl); margin: var(--space-xs) 0 var(--space-xs); }
+.auth-head p { color: var(--text-muted); font-size: var(--fs-sm); margin: 0; }
+.auth-wrap .form-text { color: var(--text-muted); font-size: var(--fs-xs); }
+.auth-submit { width: 100%; padding: 0.65rem 1.1rem; font-size: var(--fs-base); }
+.auth-alt {
+  margin: var(--space-lg) 0 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.auth-alt a { font-weight: 600; }
+@media (max-width: 575.98px) {
+  .auth-wrap { margin-top: var(--space-xl); }
+  .auth-wrap .page-card { padding: var(--space-lg); }
+}

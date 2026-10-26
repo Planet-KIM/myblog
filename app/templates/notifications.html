@@ -1,38 +1,13 @@
+{#
+  notifications.html: the signed-in user's notifications (/notifications) —
+  new followers and comments on their posts, unread ones highlighted.
+  Context: items (list of {n: Notification, actor: User|None, msg, link}).
+  Assets: static/css/notifications.css (image fallbacks come from base.html)
+#}
 {% extends "base.html" %}
 {% block title %}알림{% endblock %}
 {% block extra_head %}
-<style>
-  .notif-wrap { max-width: var(--reading-max-width); margin: 0 auto; }
-  .notif-list { padding: 0; overflow: hidden; }
-  .notif-item {
-    display: flex;
-    gap: var(--space-md);
-    align-items: center;
-    padding: var(--space-md) var(--space-lg);
-    border-top: 1px solid var(--border);
-    text-decoration: none;
-    transition: background-color var(--transition-fast);
-  }
-  .notif-item:first-child { border-top: 0; }
-  .notif-item:hover { background: var(--surface-light); }
-  .notif-item.is-unread { background: var(--primary-soft); }
-  .notif-body { min-width: 0; flex: 1; }
-  .notif-msg {
-    display: block;
-    color: var(--text-main);
-    font-size: var(--fs-sm);
-    line-height: 1.5;
-  }
-  .notif-msg i { color: var(--primary); margin-right: var(--space-xs); }
-  .notif-time { font-size: var(--fs-xs); color: var(--text-muted); }
-  .notif-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: var(--radius-full);
-    background: var(--primary);
-    flex-shrink: 0;
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/notifications.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -47,7 +22,7 @@
     {% for it in items %}
     <a href="{{ it.link }}" class="notif-item{% if not it.n.is_read %} is-unread{% endif %}">
       {% if it.actor and it.actor.avatar_url %}
-      <img src="{{ it.actor.avatar_url }}" alt="" class="avatar" onerror="this.style.display='none';">
+      <img src="{{ it.actor.avatar_url }}" alt="" class="avatar" data-img-fallback="hide">
       {% else %}
       <span class="avatar" aria-hidden="true">{{ ((it.actor.display_name or it.actor.handle or '?')[0]|upper) if it.actor else '?' }}</span>
       {% endif %}

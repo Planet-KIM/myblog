@@ -1,0 +1,191 @@
+/**
+ * me.css: personal dashboard (/me) — tabs, bookmark toolbar and cards,
+ * approved-API catalog, GitHub issue cards and the pagers.
+ * Used by templates/me.html (behavior in static/js/me.js). Relies on theme tokens.
+ */
+
+.me-header { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-lg); flex-wrap: wrap; }
+.me-header h1 { margin-bottom: var(--space-sm); }
+.me-tabs .segmented-item { white-space: nowrap; }
+.me-note { color: var(--text-muted); font-size: var(--fs-sm); margin: 0 0 var(--space-md); }
+
+/* 북마크 */
+.bookmark-toolbar {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: 1.3fr 0.9fr 0.9fr auto;
+  margin-bottom: var(--space-md);
+}
+.bookmark-toolbar .form-control,
+.bookmark-toolbar .form-select { font-size: var(--fs-sm); }
+.bookmark-count { color: var(--text-muted); font-size: var(--fs-sm); margin-bottom: var(--space-md); }
+.bookmark-count strong { color: var(--text-primary); }
+.bookmark-list { display: grid; gap: var(--space-md); }
+.bookmark-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+.bookmark-card:hover { border-color: var(--border-dark); }
+.bookmark-card.no-thumb .bookmark-card-inner { grid-template-columns: 1fr; }
+.bookmark-card-inner { display: grid; grid-template-columns: 200px 1fr; min-height: 140px; }
+.bookmark-thumb {
+  width: 100%;
+  height: 100%;
+  min-height: 140px;
+  object-fit: cover;
+  border-right: 1px solid var(--border);
+  background: var(--surface-light);
+}
+.bookmark-body { padding: var(--space-md) var(--space-lg); display: flex; flex-direction: column; gap: var(--space-sm); min-width: 0; }
+.bookmark-title { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-snug); }
+.bookmark-title a { color: var(--text-primary); text-decoration: none; transition: color var(--transition-fast); }
+.bookmark-title a:hover { color: var(--primary); }
+.bookmark-preview {
+  font-size: var(--fs-sm);
+  color: var(--text-main);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bookmark-meta { font-size: var(--fs-xs); }
+.bookmark-actions { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); }
+.bookmark-actions a { color: var(--primary); font-size: var(--fs-sm); font-weight: 600; text-decoration: none; }
+.bookmark-actions a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.btn-unbookmark { padding: 0.35rem 0.75rem; font-size: var(--fs-xs); }
+
+.bookmark-empty,
+.api-empty {
+  border: 1px dashed var(--border-dark);
+  border-radius: var(--card-radius);
+  padding: var(--space-xl) var(--space-md);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+/* GitHub 이슈 */
+.issues-controls { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; margin-bottom: var(--space-md); }
+.issues-meta { color: var(--text-muted); font-size: var(--fs-xs); margin-left: var(--space-xs); }
+.issues-list { display: grid; gap: var(--space-sm); }
+.issue-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--space-md) var(--space-lg);
+}
+.issue-card.is-clickable { cursor: pointer; transition: border-color var(--transition-fast); }
+.issue-card.is-clickable:hover { border-color: var(--border-dark); }
+.issue-header { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-sm); }
+.issue-title { margin: 0; font-size: var(--fs-md); line-height: var(--lh-snug); }
+.issue-title a { color: var(--text-primary); text-decoration: none; }
+.issue-title a:hover { color: var(--primary); }
+.issue-state {
+  --tone: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.5rem;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--tone) 11%, transparent);
+  color: color-mix(in srgb, var(--tone) 72%, var(--text-primary));
+}
+.issue-state.open { --tone: var(--secondary); }
+.issue-state.closed { --tone: var(--danger); }
+.issue-sub { margin-top: var(--space-sm); font-size: var(--fs-xs); }
+.issue-preview {
+  margin: var(--space-sm) 0 0;
+  color: var(--text-main);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.issue-preview.is-empty { color: var(--text-muted); }
+.issue-labels { margin-top: var(--space-sm); display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+.issue-label {
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.45rem;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.issues-error {
+  margin-bottom: var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--danger);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--fs-sm);
+  background: color-mix(in srgb, var(--danger) 7%, transparent);
+}
+
+/* 승인 API */
+.api-list { display: grid; gap: var(--space-md); }
+.api-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: var(--space-lg);
+}
+.api-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); flex-wrap: wrap; }
+.api-name { margin: 0; font-size: var(--fs-md); }
+.api-path { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); }
+.api-badges { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+.api-purpose { color: var(--text-main); font-size: var(--fs-sm); margin-bottom: var(--space-sm); }
+.api-sample-label { color: var(--text-muted); font-size: var(--fs-xs); font-weight: 600; margin: var(--space-sm) 0 var(--space-xs); }
+.api-sample-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-light);
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-main);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.api-copy-btn { margin-top: var(--space-xs); padding: 0.2rem 0.6rem; font-size: var(--fs-xs); }
+
+/* 페이지 이동 */
+.pager-wrap { margin-top: var(--space-lg); display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+.pager-info { color: var(--text-muted); font-size: var(--fs-sm); }
+.pager-links { display: flex; gap: var(--space-sm); }
+.pager-links a,
+.pager-links span {
+  border: 1px solid var(--border-dark);
+  border-radius: var(--btn-radius);
+  padding: 0.35rem 0.8rem;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: background-color var(--transition-fast);
+}
+.pager-links span { color: var(--text-disabled); border-color: var(--border); }
+.pager-links a:hover { background: var(--surface-light); }
+
+#me-bookmark-panel.is-loading { opacity: 0.6; pointer-events: none; transition: opacity var(--transition-fast); }
+
+@media (max-width: 860px) {
+  .bookmark-toolbar { grid-template-columns: 1fr; }
+  .bookmark-card-inner { grid-template-columns: 1fr; }
+  .bookmark-thumb { border-right: none; border-bottom: 1px solid var(--border); max-height: 180px; }
+}
+@media (max-width: 640px) {
+  .me-tabs, .me-tabs .segmented-control { width: 100%; }
+  .me-tabs .segmented-item { flex: 1; padding-inline: var(--space-sm); }
+  .bookmark-body { padding: var(--space-md); }
+  .bookmark-actions { flex-direction: column; align-items: stretch; }
+  .btn-unbookmark { width: 100%; }
+  .pager-wrap { flex-direction: column; align-items: stretch; }
+  .pager-links { width: 100%; justify-content: space-between; }
+  .pager-links a,
+  .pager-links span { width: 49%; text-align: center; }
+}

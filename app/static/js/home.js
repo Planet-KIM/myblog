@@ -28,6 +28,15 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   /* ── Engagement actions (like/bookmark/follow) ───────────── */
+  /**
+   * POST to an engagement API and return its JSON body.
+   *
+   * @param {string} url - Endpoint to call.
+   * @param {Object} [body] - Optional payload, sent as JSON.
+   * @returns {Promise<Object>} Parsed response.
+   * @throws {Error} With a user-facing message when the response is not OK
+   *   ("로그인이 필요합니다." for 401/403).
+   */
   async function postAction(url, body) {
     const response = await fetch(url, {
       method: 'POST',
@@ -44,6 +53,13 @@ document.addEventListener('DOMContentLoaded', function () {
     return response.json();
   }
 
+  /**
+   * Show a message with the global toast helper, or alert() before it exists.
+   *
+   * @param {string} message - Text to show.
+   * @param {string} [type='info'] - Toast method: 'success', 'error', 'warning' or 'info'.
+   * @returns {void}
+   */
   function toast(message, type = 'info') {
     if (window.toast && typeof window.toast[type] === 'function') {
       window.toast[type](message);

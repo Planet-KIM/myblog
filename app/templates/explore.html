@@ -1,50 +1,16 @@
+{#
+  explore.html: explore hub (/explore) — popular tags and a paginated grid of
+  public blogs (avatar, name, handle, post count, bio).
+  Context: popular_tags (list), blogs (list of {user, post_count}),
+  total_blogs (int), current_page (int), total_pages (int).
+  Assets: static/css/explore.css (image fallbacks come from base.html)
+#}
 {% extends "base.html" %}
 
 {% block title %}둘러보기 · Planet KIM{% endblock %}
 
 {% block extra_head %}
-<style>
-  .hub-section { margin-bottom: var(--space-2xl); }
-
-  .blog-card {
-    display: flex;
-    gap: var(--space-md);
-    align-items: center;
-    height: 100%;
-    padding: var(--space-lg);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--card-radius);
-    text-decoration: none;
-    transition: border-color var(--transition-fast);
-  }
-  .blog-card:hover { border-color: var(--border-dark); }
-  .blog-card-body { min-width: 0; }
-  .blog-card-name {
-    display: block;
-    font-family: var(--font-display);
-    font-size: var(--fs-md);
-    font-weight: 600;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: color var(--transition-fast);
-  }
-  .blog-card:hover .blog-card-name { color: var(--primary); }
-  .blog-card .meta-row { font-size: var(--fs-xs); }
-  .blog-card-bio {
-    display: block;
-    font-size: var(--fs-sm);
-    color: var(--text-main);
-    margin-top: var(--space-xs);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  /* 사용자 강조색은 아바타 테두리에만 */
-  .blog-card .avatar { border-color: var(--blog-accent, var(--border)); }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/explore.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -75,7 +41,7 @@
         <a href="/@{{ b.user.handle }}" class="blog-card"
            {% if b.user.accent_color %}style="--blog-accent: {{ b.user.accent_color }};"{% endif %}>
           {% if b.user.avatar_url %}
-          <img src="{{ b.user.avatar_url }}" alt="" class="avatar avatar-lg" onerror="this.style.display='none';">
+          <img src="{{ b.user.avatar_url }}" alt="" class="avatar avatar-lg" data-img-fallback="hide">
           {% else %}
           <span class="avatar avatar-lg" aria-hidden="true">{{ (b.user.display_name or b.user.handle or '?')[0]|upper }}</span>
           {% endif %}

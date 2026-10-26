@@ -1,0 +1,28 @@
+/**
+ * profile_edit.css: profile edit page (/me/profile) — form sections, input
+ * group addon and the accent color hex field + color picker.
+ * Used by templates/profile_edit.html. Relies on theme tokens.
+ */
+
+.profile-wrap { max-width: var(--reading-max-width); margin: 0 auto; }
+.profile-wrap .page-header a { color: var(--primary); }
+.form-section-title {
+  font-size: var(--fs-md);
+  margin: var(--space-xl) 0 var(--space-md);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+}
+.form-section-title:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.form-text { color: var(--text-muted); font-size: var(--fs-xs); }
+.input-group-text { background: var(--surface-light); border-color: var(--border-dark); color: var(--text-muted); }
+.accent-hex { max-width: 160px; }
+.accent-picker {
+  width: 44px;
+  height: 40px;
+  padding: 2px;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--input-radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+.form-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-xl); }

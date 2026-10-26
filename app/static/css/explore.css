@@ -1,0 +1,47 @@
+/**
+ * explore.css: explore page (/explore) — hub sections and the blog cards
+ * (avatar, name, meta, bio). A card's --blog-accent (set inline from the
+ * owner's accent color) tints only the avatar border.
+ * Used by templates/explore.html. Relies on theme tokens.
+ */
+
+.hub-section { margin-bottom: var(--space-2xl); }
+
+.blog-card {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+  height: 100%;
+  padding: var(--space-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  text-decoration: none;
+  transition: border-color var(--transition-fast);
+}
+.blog-card:hover { border-color: var(--border-dark); }
+.blog-card-body { min-width: 0; }
+.blog-card-name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--transition-fast);
+}
+.blog-card:hover .blog-card-name { color: var(--primary); }
+.blog-card .meta-row { font-size: var(--fs-xs); }
+.blog-card-bio {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--text-main);
+  margin-top: var(--space-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 사용자 강조색은 아바타 테두리에만 */
+.blog-card .avatar { border-color: var(--blog-accent, var(--border)); }

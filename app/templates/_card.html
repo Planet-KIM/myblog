@@ -1,3 +1,16 @@
+{#
+  _card.html: post card macro shared by the portal lists (blog home, tag feed,
+  search).
+  Macro: post_card(post, show_author=true) renders one Bootstrap grid column
+  with a whole-card link, optional thumbnail, optional author row (avatar ringed
+  in the author's accent color), category/private badges, title, preview and
+  meta (date, views, reading time).
+    post: BoardPost with the list extras the routes attach (thumbnail,
+          preview/preview_html, view_count, reading_minutes, user, category).
+    show_author: render the author row (false on the author's own blog home).
+  Assets: static/css/post_card.css (link it from every page that imports this
+  macro); image fallbacks via data-img-fallback (image-fallback.js, base.html).
+#}
 {# 포털 리스트(블로그 홈·태그 피드·검색) 공용 포스트 카드.
    여러 페이지에서 루프로 호출되므로 <style> 없이 공용 클래스(components.css)와
    Bootstrap 유틸리티만 쓴다. 홈(bento)·아카이브(story-card)는 전용 디자인. #}
@@ -9,7 +22,7 @@
         {% if post.thumbnail %}
         <div class="card-img-wrap ratio ratio-21x9 border-bottom">
           <img src="{{ post.thumbnail }}" class="card-img object-fit-cover rounded-0" alt="" loading="lazy"
-               onerror="this.parentElement.style.display='none';">
+               data-img-fallback="hide-parent">
         </div>
         {% endif %}
         <div class="card-body">
@@ -17,11 +30,11 @@
           {% set _an = post.user.display_name or post.user.blog_title %}
           <a href="/@{{ post.user.handle }}" class="pc-author d-inline-flex align-items-center gap-2 mb-3 text-decoration-none mw-100 z-3">
             {% if post.user.avatar_url %}
-            <img src="{{ post.user.avatar_url }}" alt="" class="avatar avatar-sm" onerror="this.style.display='none';"
-                 {% if post.user.accent_color %}style="border-color: {{ post.user.accent_color }};"{% endif %}>
+            <img src="{{ post.user.avatar_url }}" alt="" class="avatar avatar-sm" data-img-fallback="hide"
+                 {% if post.user.accent_color %}style="--pc-accent: {{ post.user.accent_color }};"{% endif %}>
             {% else %}
             <span class="avatar avatar-sm"
-                  {% if post.user.accent_color %}style="border-color: {{ post.user.accent_color }};"{% endif %}>{{ (post.user.display_name or post.user.handle)[0]|upper }}</span>
+                  {% if post.user.accent_color %}style="--pc-accent: {{ post.user.accent_color }};"{% endif %}>{{ (post.user.display_name or post.user.handle)[0]|upper }}</span>
             {% endif %}
             <span class="fw-semibold small text-body-emphasis text-truncate">{{ _an or ('@' ~ post.user.handle) }}</span>
             {% if _an %}<span class="small text-muted text-nowrap">@{{ post.user.handle }}</span>{% endif %}

@@ -1,32 +1,16 @@
+{#
+  profile_edit.html: profile edit form (/me/profile) — handle, display name,
+  blog title, bio, avatar/cover URLs and the accent color (hex field kept in
+  sync with a color picker).
+  Context: form (dict of the field values), error (str|None), success (str|None).
+  Assets: static/css/profile_edit.css, static/js/profile_edit.js
+#}
 {% extends "base.html" %}
 
 {% block title %}프로필 편집{% endblock %}
 
 {% block extra_head %}
-<style>
-  .profile-wrap { max-width: var(--reading-max-width); margin: 0 auto; }
-  .profile-wrap .page-header a { color: var(--primary); }
-  .form-section-title {
-    font-size: var(--fs-md);
-    margin: var(--space-xl) 0 var(--space-md);
-    padding-top: var(--space-lg);
-    border-top: 1px solid var(--border);
-  }
-  .form-section-title:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
-  .form-text { color: var(--text-muted); font-size: var(--fs-xs); }
-  .input-group-text { background: var(--surface-light); border-color: var(--border-dark); color: var(--text-muted); }
-  .accent-hex { max-width: 160px; }
-  .accent-picker {
-    width: 44px;
-    height: 40px;
-    padding: 2px;
-    border: 1px solid var(--border-dark);
-    border-radius: var(--input-radius);
-    background: var(--surface);
-    cursor: pointer;
-  }
-  .form-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-xl); }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/profile_edit.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -106,7 +90,7 @@
                  pattern="#[0-9a-fA-F]{6}">
           <input type="color" id="accent_picker" class="accent-picker" value="{{ form.accent_color or '#b4542f' }}"
                  aria-label="강조색 선택"
-                 oninput="document.getElementById('accent_color').value=this.value">
+                 data-sync-target="accent_color">
         </div>
         <div class="form-text">블로그 커버 배경 등에 쓰입니다. 비우면 기본 테마색.</div>
       </div>
@@ -118,4 +102,8 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', path='js/profile_edit.js') }}"></script>
 {% endblock %}

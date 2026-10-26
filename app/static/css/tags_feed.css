@@ -1,0 +1,6 @@
+/**
+ * tags_feed.css: tag feed page (/tags/<slug>) — spacing under the related-tag
+ * chip row. Used by templates/tags_feed.html. Relies on theme tokens (--space-*).
+ */
+
+.tag-related { margin-bottom: var(--space-xl); }

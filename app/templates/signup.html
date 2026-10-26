@@ -1,31 +1,15 @@
+{#
+  signup.html: sign-up page (/auth/signup) — email, password and password
+  confirmation form that posts to /auth/signup, keeping the ?next= target.
+  Context: error (str|None), email (str|None), next (str|None).
+  Assets: static/css/auth.css (shared with login.html)
+#}
 {% extends "base.html" %}
 
 {% block title %}회원가입 · Planet KIM{% endblock %}
 
 {% block extra_head %}
-<style>
-  .auth-wrap {
-    max-width: 420px;
-    margin: var(--space-3xl) auto var(--space-2xl);
-  }
-  .auth-wrap .page-card { padding: var(--space-xl); }
-  .auth-head { margin-bottom: var(--space-lg); }
-  .auth-head h1 { font-size: var(--fs-xl); margin: var(--space-xs) 0 var(--space-xs); }
-  .auth-head p { color: var(--text-muted); font-size: var(--fs-sm); margin: 0; }
-  .auth-wrap .form-text { color: var(--text-muted); font-size: var(--fs-xs); }
-  .auth-submit { width: 100%; padding: 0.65rem 1.1rem; font-size: var(--fs-base); }
-  .auth-alt {
-    margin: var(--space-lg) 0 0;
-    text-align: center;
-    font-size: var(--fs-sm);
-    color: var(--text-muted);
-  }
-  .auth-alt a { font-weight: 600; }
-  @media (max-width: 575.98px) {
-    .auth-wrap { margin-top: var(--space-xl); }
-    .auth-wrap .page-card { padding: var(--space-lg); }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/auth.css') }}">
 {% endblock %}
 
 {% block content %}
