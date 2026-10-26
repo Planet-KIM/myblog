@@ -1,8 +1,18 @@
-// frontend/board_view.js
+/**
+ * @file frontend/board_view.js — Read-only Crepe (Milkdown) viewer for a
+ * Markdown post: renders the Markdown in #initial-content into #viewer-root.
+ * Built by Vite into static/editor/board_view.js.
+ */
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
 import { Crepe } from '@milkdown/crepe';
 
+/**
+ * Entry point: render the post's Markdown read-only (no toolbars or editing;
+ * layout and image sizes as saved).
+ *
+ * @returns {Promise<void>} Resolves once the viewer is ready.
+ */
 async function main() {
   const root = document.getElementById('viewer-root');
   if (!root) return;

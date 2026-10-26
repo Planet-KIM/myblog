@@ -650,3 +650,108 @@
   font-size: 3.1em; line-height: 0.76; font-weight: 700;
   color: var(--primary); padding: 0.02em 0.12em 0 0;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Editor chrome built by the TipTap editor scripts
+   (frontend/board_new_tiptap.js, frontend/board_edit_tiptap.js).
+   These looks used to be written as inline styles from JS; the declarations
+   are copied verbatim so nothing changes on screen. Values only known at
+   runtime (block geometry, z-order, user-picked border colours, photo
+   focal point, guide/grid line positions) are still set inline by the JS.
+   Show/hide uses the [hidden] attribute (Bootstrap: display:none!important).
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Block header: flexible gap between the type label and the buttons. */
+.fb-hdr-spacer { flex: 1; }
+
+/* Block header: text-colour button (a label wrapping an invisible colour input). */
+.fb-tc-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; }
+.fb-tc-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* Block header: wide text button ("맞춤법"). */
+.fb-btn-wide { width: auto; padding: 0 6px; }
+
+/* Timeline/map source textarea; shown as a block while it is being edited. */
+.fb-tl-src-block { display: block; }
+
+/* Overlays on the canvas: snap guides on top, column grid below the blocks. */
+.fb-snap-layer { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 9998; }
+.fb-grid-layer { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 1; }
+
+/* Text block split by the spell-check side panel: editor left, panel right. */
+.fb-body-split { display: flex; flex-direction: row; }
+.fb-editor-split { width: 50%; height: 100%; overflow: auto; border-right: 1px solid #e5e7eb; box-sizing: border-box; }
+
+/* Toolbar: wide text button ("맞춤법") and undo/redo with nothing to undo/redo. */
+.tiptap-toolbar-btn-wide { width: auto; padding: 0 8px; }
+.tiptap-toolbar-btn-dim { opacity: 0.4; }
+
+/* Autosave restore bar above the canvas: "복원" / "버리기". */
+.fb-restore-bar { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 10px 14px; background: #fff7ed; border: 1px solid #f0c9a8; border-radius: 10px; font-size: 0.86rem; color: #7c4a2d; }
+.fb-restore-yes { border: none; background: #b4542f; color: #fff; padding: 6px 14px; border-radius: 7px; cursor: pointer; font-weight: 600; }
+.fb-restore-no { border: 1px solid #d8c4b4; background: #fff; color: #7c4a2d; padding: 6px 12px; border-radius: 7px; cursor: pointer; }
+
+/* Spell-check dialog, new-post editor (sc-modal-*): overlay and centred card. */
+.sc-modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.45); backdrop-filter: blur(2px); z-index: 9998; }
+.sc-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #ffffff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.15),0 4px 16px rgba(0,0,0,0.08); z-index: 9999; width: min(560px,92vw); font-family: inherit; overflow: hidden; }
+.sc-modal-hdr { padding: 20px 24px 0; display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.sc-modal-x { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 1rem; padding: 4px; border-radius: 6px; line-height: 1; }
+.sc-modal-section { padding: 0 24px; margin-bottom: 16px; }
+.sc-modal-label { font-size: 0.72rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+.sc-modal-label-model { margin-bottom: 8px; }
+.sc-modal-models { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sc-modal-model { padding: 10px 12px; border-radius: 10px; cursor: pointer; border: 1.5px solid #e2e8f0; background: #fff; color: #475569; text-align: left; transition: all 0.15s; }
+.sc-modal-model-active { border: 2px solid #6366f1; background: linear-gradient(135deg,#6366f1,#8b5cf6); color: #fff; }
+.sc-modal-text { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; font-size: 0.875rem; color: #334155; max-height: 110px; overflow: auto; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+/* Result box: shared box + one state class at a time (initial/loading/same/diff/error). */
+.sc-modal-result { border-radius: 10px; padding: 12px 14px; font-size: 0.875rem; overflow: auto; line-height: 1.6; }
+.sc-modal-result-initial { max-height: 110px; white-space: pre-wrap; word-break: break-all; }
+.sc-modal-result-loading { max-height: 110px; background: #f8fafc; border: 1px solid #e2e8f0; }
+.sc-modal-result-same { max-height: 110px; white-space: pre-wrap; word-break: break-all; background: #f8fafc; border: 1px solid #e2e8f0; color: #94a3b8; }
+.sc-modal-result-diff { max-height: 150px; white-space: pre-wrap; word-break: break-all; background: #f8fafc; border: 1px solid #e2e8f0; }
+.sc-modal-result-error { max-height: 150px; white-space: pre-wrap; word-break: break-all; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.sc-modal-footer { padding: 14px 24px 20px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #f1f5f9; margin-top: 4px; }
+.sc-modal-cancel { padding: 8px 18px; border: 1.5px solid #e2e8f0; border-radius: 8px; cursor: pointer; background: #fff; font-size: 0.875rem; color: #475569; font-weight: 500; }
+.sc-modal-run { padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer; background: linear-gradient(135deg,#6366f1,#8b5cf6); color: #fff; font-size: 0.875rem; font-weight: 600; letter-spacing: -0.2px; }
+.sc-modal-apply { padding: 8px 20px; border: none; border-radius: 8px; cursor: pointer; background: linear-gradient(135deg,#10b981,#059669); color: #fff; font-size: 0.875rem; font-weight: 600; }
+
+/* Spell-check dialog, edit-post editor (sc-dlg-*): older compact card. */
+.sc-dlg-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 9998; }
+.sc-dlg { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; border-radius: 12px; padding: 20px 22px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); z-index: 9999; min-width: 320px; max-width: 520px; width: 90%; font-family: inherit; }
+.sc-dlg-models { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.sc-dlg-models-label { font-size: 0.82rem; color: #6b7280; }
+.sc-dlg-model { padding: 4px 14px; font-size: 0.82rem; border-radius: 5px; cursor: pointer; background: #fff; color: #6b7280; border: 1px solid #d1d5db; }
+.sc-dlg-model-active { background: #3b82f6; color: #fff; border: 1px solid #3b82f6; font-weight: 600; }
+.sc-dlg-text { background: #f9fafb; border-radius: 8px; padding: 10px 12px; font-size: 0.85rem; color: #374151; max-height: 140px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 16px; }
+.sc-dlg-result-area { margin-bottom: 16px; }
+/* Result box: shared box + one state class at a time (initial/loading/same/diff/error). */
+.sc-dlg-result { border-radius: 8px; padding: 10px 12px; font-size: 0.85rem; overflow: auto; }
+.sc-dlg-result-initial { background: #f0fdf4; color: #15803d; max-height: 140px; white-space: pre-wrap; word-break: break-all; }
+.sc-dlg-result-loading { background: #f8fafc; max-height: 140px; line-height: 1.6; }
+.sc-dlg-result-same { background: #f9fafb; max-height: 160px; white-space: pre-wrap; word-break: break-all; color: #9ca3af; }
+.sc-dlg-result-diff { background: #f8fafc; max-height: 160px; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+.sc-dlg-result-error { background: #fef2f2; max-height: 160px; white-space: pre-wrap; word-break: break-all; color: #991b1b; }
+.sc-dlg-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.sc-dlg-cancel { padding: 6px 18px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; background: #fff; font-size: 0.88rem; }
+.sc-dlg-close { float: right; }
+.sc-dlg-run { padding: 6px 18px; border: none; border-radius: 6px; cursor: pointer; background: #10b981; color: #fff; font-size: 0.88rem; font-weight: 600; }
+.sc-dlg-apply { padding: 6px 18px; border: none; border-radius: 6px; cursor: pointer; background: #3b82f6; color: #fff; font-size: 0.88rem; }
+
+/* Spell-check side panel inside a text block (sc-panel-*). */
+.sc-panel { width: 50%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #f8fafc; border-left: 1px solid #e2e8f0; }
+.sc-panel-hdr { display: flex; align-items: center; gap: 6px; padding: 10px 14px; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e2e8f0; }
+.sc-panel-x { background: none; border: none; cursor: pointer; font-size: 0.95rem; color: #94a3b8; padding: 2px 4px; line-height: 1; border-radius: 4px; }
+.sc-panel-model { padding: 12px 14px 10px; flex-shrink: 0; border-bottom: 1px solid #e2e8f0; background: #fff; }
+.sc-panel-label { font-size: 0.68rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+.sc-panel-models { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sc-panel-variant { padding: 7px 10px; border-radius: 8px; cursor: pointer; border: 1.5px solid #e2e8f0; background: #fff; color: #475569; text-align: left; }
+.sc-panel-variant-active { border: 2px solid #6366f1; background: linear-gradient(135deg,#6366f1,#8b5cf6); color: #fff; }
+.sc-panel-run { margin-top: 10px; width: 100%; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: linear-gradient(135deg,#6366f1,#8b5cf6); color: #fff; font-size: 0.82rem; font-weight: 600; letter-spacing: -0.2px; }
+/* Result text: inherits the text colour unless muted (hint / no errors) or error. */
+.sc-panel-result { flex: 1; padding: 14px; font-size: 0.875rem; line-height: 1.7; white-space: pre-wrap; word-break: break-all; overflow: auto; }
+.sc-panel-result-muted { color: #94a3b8; }
+.sc-panel-result-error { color: #991b1b; }
+.sc-panel-apply { margin: 10px 14px 14px; padding: 8px 18px; border: none; border-radius: 8px; cursor: pointer; background: linear-gradient(135deg,#10b981,#059669); color: #fff; font-size: 0.82rem; font-weight: 600; align-self: flex-end; flex-shrink: 0; display: block; width: calc(100% - 28px); }
+
+/* Spell-check run button while a check is running (kept last so it wins over the button looks). */
+.sc-btn-busy { opacity: 0.7; cursor: not-allowed; }

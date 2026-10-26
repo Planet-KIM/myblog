@@ -1,23 +1,11 @@
-{# 태그 입력 보조. #tags 입력 바로 아래에 include.
-   - 항상: 간단한 입력 힌트
-   - popular_tags 가 있으면: 클릭하면 입력에 추가되는 인기 태그 칩 #}
-<style>
-  .tag-suggest { margin-top: 0.4rem; flex-basis: 100%; width: 100%; }
-  .tag-suggest-hint { font-size: var(--fs-xs); color: var(--text-muted); margin-bottom: 0.3rem; }
-  .tag-suggest-label { font-size: var(--fs-xs); color: var(--text-muted); margin-right: 0.25rem; }
-  .tag-suggest-chip {
-    font-size: var(--fs-xs);
-    padding: 0.15rem 0.55rem;
-    margin: 0.15rem 0.15rem 0 0;
-    border: 1px solid var(--border-dark);
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--text-main);
-    cursor: pointer;
-    transition: border-color var(--transition-fast), color var(--transition-fast);
-  }
-  .tag-suggest-chip:hover { border-color: var(--text-muted); color: var(--text-primary); }
-</style>
+{# _tag_suggestions.html: tag input helper, included right after the #tags input
+   (태그 입력 보조. #tags 입력 바로 아래에 include).
+   - Always: a short input hint (항상: 간단한 입력 힌트)
+   - With popular_tags: chips that add their tag to the input when clicked
+     (popular_tags 가 있으면: 클릭하면 입력에 추가되는 인기 태그 칩)
+   Context: popular_tags (list[Tag], optional).
+   Assets: css/tag_suggestions.css, js/tag_suggestions.js #}
+<link rel="stylesheet" href="{{ url_for('static', path='css/tag_suggestions.css') }}">
 <div class="tag-suggest">
   <div class="tag-suggest-hint">쉼표로 구분해 입력 · 예: 개발, 일상, 리뷰</div>
   {% if popular_tags %}
@@ -29,18 +17,4 @@
   </div>
   {% endif %}
 </div>
-<script>
-  (function () {
-    var input = document.getElementById('tags');
-    if (!input) return;
-    document.querySelectorAll('.tag-suggest-chip').forEach(function (chip) {
-      chip.addEventListener('click', function () {
-        var tag = chip.getAttribute('data-tag');
-        var cur = input.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-        if (cur.indexOf(tag) === -1) { cur.push(tag); }
-        input.value = cur.join(', ');
-        input.focus();
-      });
-    });
-  })();
-</script>
+<script src="{{ url_for('static', path='js/tag_suggestions.js') }}"></script>

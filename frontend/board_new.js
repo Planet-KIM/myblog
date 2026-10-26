@@ -1,4 +1,12 @@
-// frontend/board_new.js
+/**
+ * @file frontend/board_new.js — Markdown (Milkdown/Crepe) editor for a new post
+ * (templates/board_new_clean.html).
+ *
+ * Adds image upload (picker, paste, drop) under the current draft, a floating
+ * text-colour toolbar for selections, and fills the publish form with the
+ * editor HTML. Built by Vite into static/editor/board_new.js; the toolbar's
+ * looks live in static/css/writing-enhanced.css.
+ */
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
 
@@ -8,6 +16,16 @@ import { editorViewCtx } from '@milkdown/core';
 import { textColorPlugin } from './plugins/textColor.js';
 
 // ── 이미지 업로드 ──────────────────────────────────────────
+/**
+ * Upload an image file and return its public URL.
+ *
+ * The server files it under the current draft (window.DRAFT_ID) so it can be
+ * moved into the post's folder when the post is published.
+ *
+ * @param {File} file - Image picked, dropped or pasted by the user.
+ * @returns {Promise<string>} URL of the stored image.
+ * @throws {Error} When the upload fails or the response has no URL.
+ */
 async function uploadImage(file) {
   const formData = new FormData();
   formData.append('file', file);
@@ -25,6 +43,15 @@ async function uploadImage(file) {
 }
 
 // ── 이미지 height 마크다운 주입 ────────────────────────────
+/**
+ * Copy image heights from the editor HTML into the Markdown as `{height="N"}`.
+ *
+ * Images already followed by an attribute block are left alone.
+ *
+ * @param {string} markdown - Markdown source.
+ * @param {string} html - Rendered editor HTML (.milkdown-image-block img).
+ * @returns {string} Markdown with height attributes added.
+ */
 function injectImageSizesIntoMarkdown(markdown, html) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
@@ -61,6 +88,14 @@ const PRESET_COLORS = [
 ];
 
 // 에디터 뷰에서 직접 ProseMirror 트랜잭션으로 색상 적용
+/**
+ * Colour the selected text: replace any text_color mark on the selection
+ * with one of `color`, in a single ProseMirror transaction.
+ *
+ * @param {Editor} editor - Milkdown editor.
+ * @param {string} color - CSS colour.
+ * @returns {void}
+ */
 function applyColor(editor, color) {
   editor.action((ctx) => {
     const view = ctx.get(editorViewCtx);
@@ -75,6 +110,12 @@ function applyColor(editor, color) {
   });
 }
 
+/**
+ * Remove the text colour from the selected text.
+ *
+ * @param {Editor} editor - Milkdown editor.
+ * @returns {void}
+ */
 function removeColor(editor) {
   editor.action((ctx) => {
     const view = ctx.get(editorViewCtx);
@@ -86,44 +127,34 @@ function removeColor(editor) {
   });
 }
 
+/**
+ * Build the floating colour toolbar (preset swatches, custom colour, remove)
+ * and append it to <body>, hidden.
+ *
+ * Swatches apply on mousedown so the editor keeps its selection.
+ *
+ * @param {Editor} editor - Milkdown editor the toolbar colours.
+ * @returns {HTMLDivElement} The toolbar (#text-color-toolbar).
+ */
 function createColorToolbar(editor) {
   const toolbar = document.createElement('div');
   toolbar.id = 'text-color-toolbar';
-  toolbar.style.cssText = `
-    position: fixed;
-    display: none;
-    align-items: center;
-    gap: 4px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 6px 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-    z-index: 9999;
-    pointer-events: all;
-  `;
+  toolbar.className = 'md-color-toolbar';
 
   // 프리셋 색상 스와치
   PRESET_COLORS.forEach((color) => {
     const swatch = document.createElement('button');
     swatch.type = 'button';
     swatch.title = color;
-    swatch.style.cssText = `
-      width: 18px; height: 18px;
-      border-radius: 50%;
-      border: 2px solid transparent;
-      background: ${color};
-      cursor: pointer;
-      transition: transform 0.1s, border-color 0.1s;
-      flex-shrink: 0;
-    `;
+    swatch.className = 'md-color-swatch';
+    swatch.style.setProperty('--swatch-color', color);
     swatch.addEventListener('mouseenter', () => {
-      swatch.style.transform = 'scale(1.25)';
-      swatch.style.borderColor = '#9ca3af';
+      swatch.classList.add('md-color-swatch-hover');
     });
     swatch.addEventListener('mouseleave', () => {
-      swatch.style.transform = 'scale(1)';
-      swatch.style.borderColor = 'transparent';
+      // 한 번 올렸다 뗀 스와치는 scale(1)·투명 테두리 상태로 남는다 (예전 인라인 스타일과 동일)
+      swatch.classList.remove('md-color-swatch-hover');
+      swatch.classList.add('md-color-swatch-rest');
     });
     swatch.addEventListener('mousedown', (e) => {
       e.preventDefault(); // 에디터 선택 유지
@@ -134,21 +165,14 @@ function createColorToolbar(editor) {
 
   // 구분선
   const sep = document.createElement('div');
-  sep.style.cssText = 'width:1px; height:18px; background:#e5e7eb; margin: 0 2px;';
+  sep.className = 'md-color-sep';
   toolbar.appendChild(sep);
 
   // 커스텀 색상 인풋
   const customInput = document.createElement('input');
   customInput.type = 'color';
   customInput.title = '사용자 지정 색상';
-  customInput.style.cssText = `
-    width: 22px; height: 22px;
-    border: 2px solid #e5e7eb;
-    border-radius: 4px;
-    padding: 0;
-    cursor: pointer;
-    background: none;
-  `;
+  customInput.className = 'md-color-custom';
   customInput.addEventListener('input', (e) => {
     applyColor(editor, e.target.value);
   });
@@ -159,19 +183,7 @@ function createColorToolbar(editor) {
   removeBtn.type = 'button';
   removeBtn.title = '색상 제거';
   removeBtn.innerHTML = '✕';
-  removeBtn.style.cssText = `
-    width: 22px; height: 22px;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    background: white;
-    color: #6b7280;
-    font-size: 11px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-  `;
+  removeBtn.className = 'md-color-remove';
   removeBtn.addEventListener('mousedown', (e) => {
     e.preventDefault();
     removeColor(editor);
@@ -182,21 +194,28 @@ function createColorToolbar(editor) {
   return toolbar;
 }
 
+/**
+ * Show the colour toolbar centred above the current selection, kept inside
+ * the viewport, or hide it when there is no visible selection.
+ *
+ * @param {HTMLDivElement} toolbar - The colour toolbar.
+ * @returns {void}
+ */
 function positionToolbar(toolbar) {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-    toolbar.style.display = 'none';
+    toolbar.classList.remove('md-color-toolbar-open');
     return;
   }
 
   const range = sel.getRangeAt(0);
   const rect = range.getBoundingClientRect();
   if (!rect.width && !rect.height) {
-    toolbar.style.display = 'none';
+    toolbar.classList.remove('md-color-toolbar-open');
     return;
   }
 
-  toolbar.style.display = 'flex';
+  toolbar.classList.add('md-color-toolbar-open');
 
   // 선택 영역 위에 표시 (화면 밖으로 나가지 않도록 clamp)
   const tbRect = toolbar.getBoundingClientRect();
@@ -206,11 +225,18 @@ function positionToolbar(toolbar) {
   top = Math.max(8, top);
   left = Math.max(8, Math.min(left, window.innerWidth - tbRect.width - 8));
 
-  toolbar.style.top = `${top}px`;
-  toolbar.style.left = `${left}px`;
+  toolbar.style.top = `${top}px`; // conventions: allow (follows the text selection)
+  toolbar.style.left = `${left}px`; // conventions: allow (follows the text selection)
 }
 
 // ── 메인 ──────────────────────────────────────────────────
+/**
+ * Entry point: create the Crepe (Milkdown) editor with image upload and the
+ * text-colour plugin, then wire the colour toolbar, image paste/drop and the
+ * publish form (the editor HTML goes into #content and #content_html).
+ *
+ * @returns {Promise<void>} Resolves once the editor is ready and wired.
+ */
 async function main() {
   const root = document.getElementById('editor-root');
   if (!root) return;
@@ -248,14 +274,14 @@ async function main() {
       // 약간의 딜레이로 selection rect가 확정된 후 위치 계산
       requestAnimationFrame(() => positionToolbar(colorToolbar));
     } else {
-      colorToolbar.style.display = 'none';
+      colorToolbar.classList.remove('md-color-toolbar-open');
     }
   });
 
   // 클릭이 툴바 밖이면 숨김
   document.addEventListener('mousedown', (e) => {
     if (!colorToolbar.contains(e.target)) {
-      colorToolbar.style.display = 'none';
+      colorToolbar.classList.remove('md-color-toolbar-open');
     }
   });
 

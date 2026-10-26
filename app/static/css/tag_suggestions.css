@@ -1,0 +1,24 @@
+/**
+ * tag_suggestions.css: hint line and popular-tag chips under the tag input.
+ * Used by templates/_tag_suggestions.html (included by the four editor pages).
+ * Relies on theme tokens (--fs-xs, --text-*, --border-dark, --radius-full).
+ */
+
+/* Wrapper: takes a full row inside the flex meta bar. */
+.tag-suggest { margin-top: 0.4rem; flex-basis: 100%; width: 100%; }
+.tag-suggest-hint { font-size: var(--fs-xs); color: var(--text-muted); margin-bottom: 0.3rem; }
+.tag-suggest-label { font-size: var(--fs-xs); color: var(--text-muted); margin-right: 0.25rem; }
+
+/* Chip: click to add the tag to the input. */
+.tag-suggest-chip {
+  font-size: var(--fs-xs);
+  padding: 0.15rem 0.55rem;
+  margin: 0.15rem 0.15rem 0 0;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.tag-suggest-chip:hover { border-color: var(--text-muted); color: var(--text-primary); }

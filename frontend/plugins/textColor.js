@@ -1,10 +1,12 @@
 /**
- * textColor.js
- * ============
- * Milkdown v7 용 텍스트 색상 플러그인.
+ * @file plugins/textColor.js — Text colour plugin for Milkdown v7
+ * (Milkdown v7 용 텍스트 색상 플러그인).
  *
- * 저장 형식: 마크다운 내 HTML 패스스루
+ * Adds a `text_color` mark plus SetTextColor / RemoveTextColor commands.
+ * Storage format: inline HTML passed through the Markdown
+ * (저장 형식: 마크다운 내 HTML 패스스루):
  *   <span data-text-color="#ff0000" style="color:#ff0000">텍스트</span>
+ * Used by frontend/board_new.js and frontend/board_edit.js.
  */
 
 import { $mark, $command } from '@milkdown/utils';

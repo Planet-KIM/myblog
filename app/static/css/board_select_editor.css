@@ -1,0 +1,290 @@
+/**
+ * board_select_editor.css: editor chooser page (/board/new without ?editor=):
+ * two option cards with sketched previews, feature lists and a comparison table.
+ * Used by templates/board_select_editor.html.
+ * Relies on theme tokens (--space-*, --fs-*, --surface*, --border, --text-*,
+ * --primary, --radius-*, --card-radius, --font-*).
+ */
+
+/* ── 페이지 ──────────────────────────────── */
+.editor-select-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 var(--space-md) var(--space-2xl);
+}
+
+.editor-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+/* ── 카드 ──────────────────────────────── */
+.editor-option {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.editor-option:hover,
+.editor-option:focus-visible {
+  border-color: var(--text-muted);
+  color: inherit;
+}
+
+/* ── 미리보기 (중립 톤 스케치) ──────────── */
+.editor-preview {
+  height: 184px;
+  overflow: hidden;
+  position: relative;
+  background: var(--surface-light);
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.editor-preview::after { /* 아래쪽 말줄임 페이드 */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  background: linear-gradient(transparent, var(--surface-light));
+}
+
+.pv-sheet {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  height: 100%;
+}
+
+/* 마크다운 원문 스케치: 마크다운 문법이므로 모노 사용 */
+.pv-md {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+.pv-md .md-sym { color: var(--primary); }
+.pv-md .h { color: var(--text-primary); font-weight: 500; }
+
+/* 텍스트 줄 플레이스홀더 */
+.pv-line {
+  height: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--border);
+  margin: 7px 0;
+}
+.pv-line.w-90 { width: 90%; }
+.pv-line.w-75 { width: 75%; }
+.pv-line.w-60 { width: 60%; }
+
+.pv-code {
+  margin-top: var(--space-sm);
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+}
+
+/* 매거진 스케치 */
+.pv-toolbar {
+  display: flex;
+  gap: 6px;
+  padding-bottom: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+.pv-toolbar span {
+  width: 14px;
+  height: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--border);
+}
+.pv-toolbar span.on { background: var(--primary); }
+
+.pv-hero {
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-disabled);
+  margin-bottom: var(--space-sm);
+}
+
+.pv-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+.pv-col-img {
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-dark);
+}
+
+/* ── 카드 본문 ──────────────────────────── */
+.editor-info {
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.editor-option-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-xs);
+}
+
+.editor-option-title small {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.editor-option-desc {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: var(--space-md);
+}
+
+.editor-features {
+  list-style: none;
+  padding: var(--space-md) 0 0;
+  margin: 0 0 var(--space-lg);
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm) var(--space-md);
+}
+
+.editor-features li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--fs-sm);
+  color: var(--text-main);
+}
+
+.editor-features i {
+  color: var(--text-muted);
+  width: 1rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* 카드 하단 액션: 평소엔 테두리 버튼, 카드에 올리면 주 버튼 색 */
+.editor-option-cta {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.editor-option:hover .editor-option-cta,
+.editor-option:focus-visible .editor-option-cta {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-on-primary);
+}
+
+.editor-templates-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.editor-templates-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── 비교표 ──────────────────────────── */
+.editor-compare {
+  margin-top: var(--space-2xl);
+}
+
+.editor-compare h2 {
+  font-size: var(--fs-lg);
+  margin-bottom: var(--space-md);
+}
+
+.editor-compare table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.editor-compare th,
+.editor-compare td {
+  padding: 0.65rem var(--space-md);
+  border-bottom: 1px solid var(--border);
+}
+
+.editor-compare th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  border-bottom-color: var(--text-disabled);
+}
+
+.editor-compare td { color: var(--text-main); }
+
+.editor-compare th:not(:first-child),
+.editor-compare td:not(:first-child) {
+  text-align: center;
+  width: 26%;
+}
+
+.editor-compare tr:last-child td { border-bottom: none; }
+
+/* 3단계 점수: 채운 점은 브랜드색, 빈 점은 테두리색 */
+.rating {
+  display: inline-flex;
+  gap: 4px;
+  vertical-align: middle;
+}
+.rating i {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--text-disabled);
+  opacity: 0.45;
+}
+.rating i.on { background: var(--primary); opacity: 1; }
+
+.yes { color: var(--text-primary); }
+.no { color: var(--text-disabled); }
+
+@media (max-width: 720px) {
+  .editor-options { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .editor-compare th,
+  .editor-compare td { padding: 0.6rem var(--space-sm); }
+}

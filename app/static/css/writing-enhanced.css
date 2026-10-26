@@ -551,3 +551,31 @@ body.focus-active .writing-editor .milkdown .editor {
 
   .writing-editor { max-width: 100% !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   States and widgets set from JS on the Markdown editor pages
+   (static/js/markdown_editor_page.js, frontend/board_new.js, board_edit.js).
+   These looks used to be written as inline styles; the declarations are
+   copied verbatim so nothing changes on screen. The colour toolbar's
+   position (top/left) and each swatch's colour stay runtime values.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Theme toggle: JS shows exactly one of the sun / moon icons. */
+.theme-btn .theme-icon-shown { display: block; }
+.theme-btn .theme-icon-hidden { display: none; }
+
+/* Focus-mode exit button: shown while focus mode is on. ID selector only
+   because the base rule above (#focusExitBtn) uses one. */
+#focusExitBtn.is-visible { display: flex; }
+
+/* Floating text-colour toolbar above a selection (md-color-*). */
+.md-color-toolbar { position: fixed; display: none; align-items: center; gap: 4px; background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); z-index: 9999; pointer-events: all; }
+.md-color-toolbar-open { display: flex; }
+/* Preset swatch; its colour comes from --swatch-color set per button. */
+.md-color-swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid transparent; background: var(--swatch-color); cursor: pointer; transition: transform 0.1s, border-color 0.1s; flex-shrink: 0; }
+/* After the pointer leaves, a swatch keeps an explicit resting state; hover wins over it. */
+.md-color-swatch-rest { transform: scale(1); border-color: transparent; }
+.md-color-swatch-hover { transform: scale(1.25); border-color: #9ca3af; }
+.md-color-sep { width: 1px; height: 18px; background: #e5e7eb; margin: 0 2px; }
+.md-color-custom { width: 22px; height: 22px; border: 2px solid #e5e7eb; border-radius: 4px; padding: 0; cursor: pointer; background: none; }
+.md-color-remove { width: 22px; height: 22px; border: 1px solid #e5e7eb; border-radius: 4px; background: white; color: #6b7280; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }

@@ -1,0 +1,11 @@
+/**
+ * editor_fullscreen.css: full-screen layout shared by the post editors.
+ * Used by templates/board_new_tiptap.html, board_edit_tiptap.html,
+ * board_new_clean.html and board_edit.html (linked right after the editor CSS).
+ */
+
+/* 글쓰기는 전체 화면: 사이트 헤더·푸터 숨김 (.navbar 의 display 를 이기도록 클래스 선택자) */
+body { overflow-x: hidden; }
+body > .site-nav,
+body > .site-footer { display: none !important; }
+main.container { max-width: none; width: 100%; padding: 0; margin: 0; }

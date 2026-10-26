@@ -1,3 +1,11 @@
+{#
+  board_new_tiptap.html: new post in the magazine (TipTap, free-position block) editor, full screen.
+  Context: categories (list[BoardCategory]), normal_category_id (int), draft_id (str, UUID),
+           tags_value (str), popular_tags (list[Tag], for _tag_suggestions.html).
+  Assets: css/tiptap-editor.css, css/editor_fullscreen.css, css/tiptap_editor_page.css,
+          js/editor_draft_id.js (window.DRAFT_ID), js/tiptap_word_count.js,
+          editor/board_new_tiptap.js (the editor bundle; builds the toolbar buttons, canvas and tabs).
+-#}
 {% extends "base.html" %}
 
 {% block title %}새 글 쓰기 · 매거진{% endblock %}
@@ -5,55 +13,8 @@
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}">
 
-<style>
-  /* 글쓰기는 전체 화면: 사이트 헤더·푸터 숨김 (.navbar 의 display 를 이기도록 클래스 선택자) */
-  body { overflow-x: hidden; }
-  body > .site-nav,
-  body > .site-footer { display: none !important; }
-  main.container { max-width: none; width: 100%; padding: 0; margin: 0; }
-
-  /* 템플릿이 소유한 툴바·메타 요소 (나머지 편집기 크롬은 tiptap-editor.css) */
-  .tiptap-toolbar .toolbar-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    margin-right: var(--space-sm);
-    padding: 0 var(--space-xs);
-    color: var(--text-main);
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .tiptap-toolbar .toolbar-back:hover { color: var(--primary); }
-  .tiptap-toolbar .word-count {
-    margin: 0 var(--space-sm);
-    font-size: var(--fs-sm);
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .tiptap-meta { flex-wrap: wrap; }
-  .tiptap-meta input[type="text"] {
-    flex: 0 1 260px;
-    min-width: 200px;
-    font-family: var(--font-sans);
-    font-size: var(--fs-sm);
-    padding: 0.4rem 0.7rem;
-    border: 1px solid var(--border);
-    border-radius: var(--input-radius);
-    background: var(--surface);
-    color: var(--text-main);
-  }
-  .tiptap-meta input[type="text"]::placeholder { color: var(--text-disabled); }
-  .tiptap-meta input[type="text"]:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: var(--shadow-glow);
-  }
-  .tiptap-meta label { white-space: nowrap; margin: 0; }
-  .tiptap-meta input[type="checkbox"] { accent-color: var(--primary); }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/editor_fullscreen.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/tiptap_editor_page.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -116,24 +77,7 @@
   </form>
 </div>
 
-<script>
-window.DRAFT_ID = "{{ draft_id }}";
-</script>
-<script>
-// 글자 수 (공백 제외) — 블록 본문만 센다
-(function () {
-  const out = document.getElementById('wordCount');
-  const canvas = document.getElementById('block-canvas');
-  if (!out || !canvas) return;
-  function update() {
-    let n = 0;
-    canvas.querySelectorAll('.fb-editor').forEach(el => { n += el.innerText.replace(/\s/g, '').length; });
-    out.textContent = `${n.toLocaleString()}자`;
-  }
-  canvas.addEventListener('input', update);
-  canvas.addEventListener('keyup', update);
-  setTimeout(update, 800);
-})();
-</script>
+<script src="{{ url_for('static', path='js/editor_draft_id.js') }}" data-draft-id="{{ draft_id }}"></script>
+<script src="{{ url_for('static', path='js/tiptap_word_count.js') }}"></script>
 <script type="module" src="{{ url_for('static', path='editor/board_new_tiptap.js') }}?v={{ asset_ver('editor/board_new_tiptap.js') }}"></script>
 {% endblock %}

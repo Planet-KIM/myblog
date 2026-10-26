@@ -1,4 +1,15 @@
-// frontend/board_edit_tiptap.js — Multi-page free-position editor (edit mode)
+/**
+ * @file frontend/board_edit_tiptap.js — Multi-page free-position (magazine)
+ * editor for editing an existing post (templates/board_edit_tiptap.html).
+ *
+ * Same editor as board_new_tiptap.js, but it loads the saved layout from
+ * #initial-blocks (or the HTML fallback from #initial-content), uploads images
+ * under the post id (data-post-id on #block-canvas) and keys its autosave by
+ * post. Its selection spell-check dialog uses the older compact design.
+ *
+ * Built by Vite into static/editor/board_edit_tiptap.js. Styles: static/css/
+ * tiptap-editor.css. Keep in sync with board_new_tiptap.js.
+ */
 import { Editor, Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -10,6 +21,16 @@ import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
 
 // ── Upload ────────────────────────────────────────────────
+/**
+ * Upload an image file and return its public URL.
+ *
+ * The server files it under the post being edited (data-post-id on
+ * #block-canvas).
+ *
+ * @param {File} file - Image picked, dropped or pasted by the user.
+ * @returns {Promise<string>} URL of the stored image.
+ * @throws {Error} When the upload request fails.
+ */
 async function uploadImage(file) {
   const fd = new FormData();
   fd.append('file', file);
@@ -31,14 +52,40 @@ let resizeInfo = null;
 let panInfo = null;
 const _scSplitActive = new Set(); // block ids with spell-preview panel open
 
+/**
+ * Return a new unique id ("b1", "b2", …) for a block or page.
+ *
+ * The same counter also feeds "bring to front" z-indexes, so ids and z-order
+ * values never repeat.
+ *
+ * @returns {string} Fresh id.
+ */
 function uid() { return 'b' + (++idCounter); }
 
 // ── 매거진 타이포그래피: textStyle 마크에 크기/서체/자간/대소문자 속성 추가 ──
 // (TipTap 기본은 font-size 등을 버리므로, 저장·출력·에디터에서 모두 유지되도록 확장)
 const MagTypography = Extension.create({
   name: 'magTypography',
+  /**
+   * Default options: the extension decorates textStyle marks.
+   *
+   * @returns {{types: string[]}} Mark types that get the typography attributes.
+   */
   addOptions() { return { types: ['textStyle'] }; },
+  /**
+   * Register the typography attributes on the configured mark types.
+   *
+   * @returns {Array<Object>} TipTap global attribute definitions for fontSize,
+   *   fontFamily, letterSpacing and textTransform.
+   */
   addGlobalAttributes() {
+    /**
+     * Build a mark attribute that round-trips one inline CSS property.
+     *
+     * @param {string} prop - camelCase CSS property name (e.g. "fontSize").
+     * @returns {Object} TipTap attribute spec: parsed from `style[prop]`, rendered as
+     *   a `style="kebab-case: value"` declaration (nothing when unset).
+     */
     const attr = (prop) => ({
       default: null,
       parseHTML: (el) => el.style && el.style[prop] ? el.style[prop] : null,
@@ -59,6 +106,11 @@ const MagTypography = Extension.create({
       },
     }];
   },
+  /**
+   * Commands that set the font size / family through the textStyle mark.
+   *
+   * @returns {Object} `setFontSize(size)` and `setFontFamily(family)` command factories.
+   */
   addCommands() {
     return {
       setFontSize: (size) => ({ chain }) => chain().setMark('textStyle', { fontSize: size }).run(),
@@ -71,7 +123,22 @@ const MagTypography = Extension.create({
 const FONT_SERIF = "'Fraunces','Noto Serif KR',serif";
 const FONT_SANS = "'Pretendard','Inter',system-ui,sans-serif";
 
+/**
+ * Default font size of a block type, in px.
+ *
+ * @param {string} type - Block type.
+ * @returns {number} 34 for headings, 18 for everything else.
+ */
 function _defaultFs(type) { return type === 'heading' ? 34 : 18; }
+/**
+ * Grow or shrink all text of a block by `delta` px.
+ *
+ * The size is clamped to 10–120px and applied to the whole content.
+ *
+ * @param {Object} block - Text or heading block with a live editor.
+ * @param {number} delta - Pixels to add (negative to shrink).
+ * @returns {void}
+ */
 function bumpFont(block, delta) {
   if (!block.editor) return;
   block._fs = Math.max(10, Math.min(120, (block._fs || _defaultFs(block.type)) + delta));
@@ -79,9 +146,30 @@ function bumpFont(block, delta) {
 }
 
 // ── 여행 타임라인: 'DAY n / 라벨:시간' 텍스트 → HTML ──────────
+/**
+ * Escape &, <, > and " for timeline HTML.
+ *
+ * @param {?string} s - Raw text (null/undefined become "").
+ * @returns {string} HTML-safe text.
+ */
 function tlEscape(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+/**
+ * Parse travel-timeline source text into days and events.
+ *
+ * Lines starting with "#", "DAY", "N일차" or "N일째" open a new day; "label:HH:MM"
+ * (ASCII or full-width colon) adds a timed event; any other line adds an event
+ * without a time. Days with neither a title nor events are dropped.
+ *
+ * @param {?string} text - Timeline source, one entry per line.
+ * @returns {Array<{title: string, events: Array<{label: string, time: string}>}>} Parsed days.
+ */
 function parseTimeline(text) {
   const days = []; let cur = null;
+  /**
+   * Open an untitled day when an event comes before any day header.
+   *
+   * @returns {void}
+   */
   const ensure = () => { if (!cur) { cur = { title: '', events: [] }; days.push(cur); } };
   (text || '').split(/\r?\n/).forEach(raw => {
     const line = raw.trim(); if (!line) return;
@@ -93,6 +181,13 @@ function parseTimeline(text) {
   });
   return days.filter(d => d.events.length || d.title.trim());
 }
+/**
+ * Render timeline source text as .mag-timeline HTML.
+ *
+ * @param {?string} text - Timeline source (see parseTimeline).
+ * @param {string} [dir] - "h" for the horizontal layout, anything else for vertical.
+ * @returns {string} Timeline HTML, or a hint paragraph when there is nothing to show.
+ */
 function renderTimelineHTML(text, dir) {
   const days = parseTimeline(text);
   const cls = 'mag-timeline' + (dir === 'h' ? ' mtl-h' : '');
@@ -111,11 +206,24 @@ function renderTimelineHTML(text, dir) {
 }
 
 // ── 여행 지도: 장소 텍스트 → 서버 렌더 지도 이미지 ──────────
+/**
+ * Render a place list as a server-drawn map image.
+ *
+ * @param {?string} text - Places, one per line ("name@lat,lng" or a name to look up).
+ * @returns {string} An <img> pointing at /api/mapimg, or an empty-state hint.
+ */
 function renderMapHTML(text) {
   if (!(text || '').trim()) return '<div class="mag-map-empty">지도: 장소를 입력하세요 (예: 왕궁@13.75,100.49 또는 장소명)</div>';
   return `<img class="mag-map" src="/api/mapimg?m=${encodeURIComponent(text)}" alt="여행 지도" loading="lazy">`;
 }
 
+/**
+ * Create the TipTap editor used inside text, heading and code blocks.
+ *
+ * @param {HTMLElement} el - Element to mount the editor in.
+ * @param {string} [content] - Initial HTML (defaults to an empty paragraph).
+ * @returns {Editor} The new editor instance.
+ */
 function createEditor(el, content) {
   return new Editor({
     element: el,
@@ -132,15 +240,30 @@ function createEditor(el, content) {
   });
 }
 
+/**
+ * Current width of the block canvas.
+ *
+ * @returns {number} Width in px (at least 1, so it is safe to divide by).
+ */
 function canvasW() { return document.getElementById('block-canvas').offsetWidth || 1; }
 
+/**
+ * Grow the canvas so the lowest block has 100px of room below it (min 600px).
+ *
+ * @returns {void}
+ */
 function updateCanvasHeight() {
   const canvas = document.getElementById('block-canvas');
   const max = blocks.reduce((m, b) => Math.max(m, b.y + b.h + 100), 600);
-  canvas.style.minHeight = max + 'px';
+  canvas.style.minHeight = max + 'px'; // conventions: allow (height measured from the blocks at runtime)
 }
 
 // ── Page management ───────────────────────────────────────
+/**
+ * Save the current page's editor HTML and canvas size into `pages`.
+ *
+ * @returns {void}
+ */
 function syncCurrentPage() {
   blocks.forEach(b => { if (b.editor) b.content = b.editor.getHTML(); });
   const cW = canvasW();
@@ -149,13 +272,26 @@ function syncCurrentPage() {
   pages[currentPageIdx].ch = cH;
 }
 
+/**
+ * Remove the current page's blocks from the canvas and destroy their editors.
+ *
+ * The block data stays in `pages`; only the DOM and editors go away.
+ *
+ * @returns {void}
+ */
 function clearCanvas() {
   blocks.forEach(b => { if (b.editor) { b.editor.destroy(); b.editor = null; } });
   document.querySelectorAll('#block-canvas .fb').forEach(el => el.remove());
-  document.getElementById('block-canvas').style.minHeight = '600px';
+  document.getElementById('block-canvas').style.minHeight = '600px'; // conventions: allow (resets the runtime min-height kept by updateCanvasHeight)
   selectedId = null;
 }
 
+/**
+ * Show another page: save the current one, then render the target page.
+ *
+ * @param {number} idx - Index into `pages`.
+ * @returns {void}
+ */
 function switchPage(idx) {
   if (idx === currentPageIdx) return;
   syncCurrentPage();
@@ -167,6 +303,11 @@ function switchPage(idx) {
   updatePageTabs();
 }
 
+/**
+ * Append a new page with an empty heading and text block and switch to it.
+ *
+ * @returns {void}
+ */
 function addPage() {
   syncCurrentPage();
   clearCanvas();
@@ -179,6 +320,12 @@ function addPage() {
   updatePageTabs();
 }
 
+/**
+ * Delete a page (the last remaining page is kept) and show its neighbour.
+ *
+ * @param {number} idx - Index into `pages`.
+ * @returns {void}
+ */
 function deletePage(idx) {
   if (pages.length === 1) return;
   clearCanvas();
@@ -190,6 +337,12 @@ function deletePage(idx) {
   updatePageTabs();
 }
 
+/**
+ * Rebuild the page tab bar: one tab per page (with × when there are
+ * several pages) plus the "+ Page" button.
+ *
+ * @returns {void}
+ */
 function updatePageTabs() {
   const tabBar = document.getElementById('page-tab-bar');
   if (!tabBar) return;
@@ -217,6 +370,14 @@ function updatePageTabs() {
 }
 
 // ── Add / Remove blocks ───────────────────────────────────
+/**
+ * Create a block on the current page, render it and select it.
+ *
+ * @param {string} type - text | heading | image | code | timeline | map | spacer.
+ * @param {Object} [opts] - Initial values (position/size, content, src, image
+ *   offsets and filter, timeline/map text, drop cap, border settings, id).
+ * @returns {Object} The new block record.
+ */
 function addBlock(type, opts = {}) {
   const cW = canvasW();
   const block = {
@@ -247,11 +408,22 @@ function addBlock(type, opts = {}) {
   return block;
 }
 
+/**
+ * Y position for a new block: 20px below the lowest block (20 on an empty page).
+ *
+ * @returns {number} Top offset in px.
+ */
 function nextY() {
   if (!blocks.length) return 20;
   return blocks.reduce((m, b) => Math.max(m, b.y + b.h), 0) + 20;
 }
 
+/**
+ * Delete a block from the current page, its element and its editor.
+ *
+ * @param {string} id - Block id.
+ * @returns {void}
+ */
 function removeBlock(id) {
   const idx = blocks.findIndex(b => b.id === id);
   if (idx === -1) return;
@@ -264,12 +436,24 @@ function removeBlock(id) {
   updateCanvasHeight();
 }
 
+/**
+ * Resize an image block to the image's aspect ratio once the image has loaded.
+ *
+ * @param {Object} block - Image block (its width is kept).
+ * @param {HTMLImageElement} imgEl - The block's <img>.
+ * @returns {void}
+ */
 function fitBlockToImage(block, imgEl) {
+  /**
+   * Apply the natural aspect ratio to the block height.
+   *
+   * @returns {void}
+   */
   const doFit = () => {
     if (!imgEl.naturalWidth || !imgEl.naturalHeight) return;
     block.h = Math.round(block.w * imgEl.naturalHeight / imgEl.naturalWidth);
     const el = document.querySelector(`[data-bid="${block.id}"]`);
-    if (el) el.style.height = block.h + 'px';
+    if (el) el.style.height = block.h + 'px'; // conventions: allow (height from the image's aspect ratio)
     updateCanvasHeight();
   };
   if (imgEl.complete && imgEl.naturalWidth) doFit();
@@ -277,6 +461,17 @@ function fitBlockToImage(block, imgEl) {
 }
 
 // ── Render block ──────────────────────────────────────────
+/**
+ * Create the DOM for one block and append it to the canvas.
+ *
+ * Builds the drag header (type label, z-order, border controls and the
+ * type-specific buttons), the body for the block type (TipTap editor, image or
+ * drop zone, spacer, timeline or map with its source textarea) and the resize
+ * handles, then applies the saved border and image filter.
+ *
+ * @param {Object} block - Block record from `pages`.
+ * @returns {void}
+ */
 function renderBlock(block) {
   const canvas = document.getElementById('block-canvas');
   const el = document.createElement('div');
@@ -287,7 +482,7 @@ function renderBlock(block) {
   hdr.className = 'fb-hdr';
   const label = document.createElement('span'); label.className = 'fb-label'; label.textContent = block.type;
   hdr.appendChild(label);
-  const flex = document.createElement('div'); flex.style.flex = '1'; hdr.appendChild(flex);
+  const flex = document.createElement('div'); flex.className = 'fb-hdr-spacer'; hdr.appendChild(flex);
   hdr.appendChild(mkBtn('<i class="bi bi-front"></i>', 'Bring front', () => bringFront(block.id)));
   hdr.appendChild(mkBtn('<i class="bi bi-back"></i>', 'Send back', () => sendBack(block.id)));
 
@@ -295,8 +490,8 @@ function renderBlock(block) {
   const colorSwatch = document.createElement('label');
   colorSwatch.className = 'fb-border-swatch';
   colorSwatch.title = 'Border color';
-  colorSwatch.style.display = block.showBorder ? 'flex' : 'none';
-  colorSwatch.style.background = block.borderColor;
+  colorSwatch.hidden = !block.showBorder;
+  colorSwatch.style.background = block.borderColor; // conventions: allow (border colour picked by the user)
 
   const colorInput = document.createElement('input');
   colorInput.type = 'color';
@@ -304,7 +499,7 @@ function renderBlock(block) {
   colorInput.className = 'fb-color-input';
   colorInput.addEventListener('input', () => {
     block.borderColor = colorInput.value;
-    colorSwatch.style.background = block.borderColor;
+    colorSwatch.style.background = block.borderColor; // conventions: allow (border colour picked by the user)
     applyBorder(el, block);
   });
   colorSwatch.appendChild(colorInput);
@@ -312,7 +507,7 @@ function renderBlock(block) {
   const widthSel = document.createElement('select');
   widthSel.className = 'fb-border-width';
   widthSel.title = 'Border width';
-  widthSel.style.display = block.showBorder ? 'block' : 'none';
+  widthSel.hidden = !block.showBorder;
   [['1px', 1], ['2px', 2], ['3px', 3], ['4px', 4]].forEach(([lbl, val]) => {
     const opt = document.createElement('option');
     opt.value = val; opt.textContent = lbl;
@@ -327,7 +522,7 @@ function renderBlock(block) {
   const radiusSel = document.createElement('select');
   radiusSel.className = 'fb-border-width';
   radiusSel.title = 'Border radius';
-  radiusSel.style.display = block.showBorder ? 'block' : 'none';
+  radiusSel.hidden = !block.showBorder;
   [['0', 0], ['4', 4], ['8', 8], ['12', 12], ['16', 16], ['24', 24], ['pill', 9999]].forEach(([lbl, val]) => {
     const opt = document.createElement('option');
     opt.value = val; opt.textContent = lbl === 'pill' ? '● pill' : `${lbl}r`;
@@ -342,9 +537,9 @@ function renderBlock(block) {
   const borderBtn = mkBtn('<i class="bi bi-border-style"></i>', 'Toggle border', () => {
     block.showBorder = !block.showBorder;
     borderBtn.classList.toggle('fb-btn-active', block.showBorder);
-    colorSwatch.style.display = block.showBorder ? 'flex' : 'none';
-    widthSel.style.display = block.showBorder ? 'block' : 'none';
-    radiusSel.style.display = block.showBorder ? 'block' : 'none';
+    colorSwatch.hidden = !block.showBorder;
+    widthSel.hidden = !block.showBorder;
+    radiusSel.hidden = !block.showBorder;
     applyBorder(el, block);
   });
   if (block.showBorder) borderBtn.classList.add('fb-btn-active');
@@ -364,12 +559,11 @@ function renderBlock(block) {
     hdr.appendChild(mkBtn('<b style="font-size:0.72rem;">A−</b>', '글자 작게', () => bumpFont(block, -2)));
     hdr.appendChild(mkBtn('<b style="font-size:0.95rem;">A+</b>', '글자 크게', () => bumpFont(block, 2)));
     const tcLabel = document.createElement('label');
-    tcLabel.className = 'fb-btn'; tcLabel.title = '글자 색';
-    tcLabel.style.cssText = 'position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;';
+    tcLabel.className = 'fb-btn fb-tc-btn'; tcLabel.title = '글자 색';
     tcLabel.innerHTML = '<i class="bi bi-palette-fill"></i>';
     const tcIn = document.createElement('input');
     tcIn.type = 'color'; tcIn.value = '#b4542f';
-    tcIn.style.cssText = 'position:absolute;inset:0;opacity:0;cursor:pointer;';
+    tcIn.className = 'fb-tc-input';
     tcIn.addEventListener('mousedown', e => e.stopPropagation());
     tcIn.addEventListener('input', () => block.editor && block.editor.chain().focus().selectAll().setColor(tcIn.value).run());
     tcLabel.appendChild(tcIn);
@@ -403,9 +597,9 @@ function renderBlock(block) {
     const editBtn = mkBtn('<i class="bi bi-pencil"></i>', block.type === 'map' ? '장소 편집' : '일정 텍스트 편집', () => {
       const ta = el.querySelector('.fb-tl-src'), rd = el.querySelector('.fb-tl-render');
       if (!ta || !rd) return;
-      const editing = ta.style.display === 'none';
-      ta.style.display = editing ? 'block' : 'none';
-      rd.style.display = editing ? 'none' : 'block';
+      const editing = ta.hidden;
+      ta.hidden = !editing;
+      rd.hidden = editing;
       editBtn.classList.toggle('fb-btn-active', editing);
       if (editing) ta.focus();
     });
@@ -430,7 +624,7 @@ function renderBlock(block) {
       () => _scBlockPreviewToggle(block.id),
     );
     scBtn.classList.add('fb-sc-preview-btn');
-    scBtn.style.cssText = 'width:auto;padding:0 6px;';
+    scBtn.classList.add('fb-btn-wide');
     hdr.appendChild(scBtn);
   }
 
@@ -452,7 +646,7 @@ function renderBlock(block) {
     if (block.src) {
       const img = document.createElement('img');
       img.src = block.src; img.className = 'fb-img'; img.draggable = false;
-      img.style.objectPosition = `${block.imgOffsetX}% ${block.imgOffsetY}%`;
+      img.style.objectPosition = `${block.imgOffsetX}% ${block.imgOffsetY}%`; // conventions: allow (photo focal point panned by the user)
       fitBlockToImage(block, img);
       body.appendChild(img);
       body.addEventListener('mousedown', e => { e.stopPropagation(); selectBlock(block.id); startPan(e, block); });
@@ -472,11 +666,11 @@ function renderBlock(block) {
     if (!block.content) block.content = renderTimelineHTML(block.tlText || '', block.tlDir || 'v');
     render.innerHTML = block.content;
     const ta = document.createElement('textarea');
-    ta.className = 'fb-tl-src';
+    ta.className = 'fb-tl-src fb-tl-src-block';
     ta.value = block.tlText || '';
     ta.spellcheck = false;
     ta.placeholder = '# 첫째 날\n왕궁:09:00\n점심:12:30';
-    ta.style.display = 'none';
+    ta.hidden = true;
     ta.addEventListener('mousedown', e => e.stopPropagation());
     ta.addEventListener('input', () => {
       block.tlText = ta.value;
@@ -493,11 +687,11 @@ function renderBlock(block) {
     if (!block.content) block.content = renderMapHTML(block.mapText || '');
     render.innerHTML = block.content;
     const ta = document.createElement('textarea');
-    ta.className = 'fb-tl-src';
+    ta.className = 'fb-tl-src fb-tl-src-block';
     ta.value = block.mapText || '';
     ta.spellcheck = false;
     ta.placeholder = '왕궁@13.75,100.49\n왓 포@13.746,100.493\n(장소명만 적으면 자동 검색)';
-    ta.style.display = 'none';
+    ta.hidden = true;
     ta.addEventListener('mousedown', e => e.stopPropagation());
     ta.addEventListener('change', () => {
       block.mapText = ta.value;
@@ -522,6 +716,12 @@ function renderBlock(block) {
   el.addEventListener('mousedown', () => selectBlock(block.id));
 }
 
+/**
+ * Build the "click or drag image here" area of an empty image block.
+ *
+ * @param {Object} block - Image block that receives the uploaded src.
+ * @returns {HTMLDivElement} The drop zone element.
+ */
 function buildDropZone(block) {
   const drop = document.createElement('div');
   drop.className = 'fb-drop';
@@ -537,6 +737,12 @@ function buildDropZone(block) {
   return drop;
 }
 
+/**
+ * Re-render a block from its data (after its image changed) and select it.
+ *
+ * @param {Object} block - Block record.
+ * @returns {void}
+ */
 function refreshBlock(block) {
   if (block.editor) block.content = block.editor.getHTML();
   const old = document.querySelector(`[data-bid="${block.id}"]`);
@@ -544,24 +750,45 @@ function refreshBlock(block) {
   renderBlock(block); selectBlock(block.id);
 }
 
+/**
+ * Position and size a block element from its record.
+ *
+ * @param {HTMLElement} el - The .fb element.
+ * @param {{x: number, y: number, w: number, h: number}} b - Block geometry in px.
+ * @returns {void}
+ */
 function applyPos(el, b) {
-  el.style.left = b.x + 'px'; el.style.top = b.y + 'px';
-  el.style.width = b.w + 'px'; el.style.height = b.h + 'px';
+  el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; // conventions: allow (block geometry from the layout data)
+  el.style.width = b.w + 'px'; el.style.height = b.h + 'px'; // conventions: allow (block geometry from the layout data)
 }
 
+/**
+ * Show or clear the user-chosen border on a block body.
+ *
+ * @param {HTMLElement} el - The .fb element.
+ * @param {Object} block - Block with showBorder, borderWidth, borderColor, borderRadius.
+ * @returns {void}
+ */
 function applyBorder(el, block) {
   const body = el.querySelector('.fb-body');
   if (!body) return;
   if (block.showBorder) {
-    body.style.border = `${block.borderWidth ?? 1}px solid ${block.borderColor ?? '#000000'}`;
+    body.style.border = `${block.borderWidth ?? 1}px solid ${block.borderColor ?? '#000000'}`; // conventions: allow (border chosen by the user)
     const r = block.borderRadius ?? 0;
-    body.style.borderRadius = r >= 9999 ? '9999px' : `${r}px`;
+    body.style.borderRadius = r >= 9999 ? '9999px' : `${r}px`; // conventions: allow (radius chosen by the user)
   } else {
-    body.style.border = '';
-    body.style.borderRadius = '';
+    body.style.border = ''; // conventions: allow (clears the user-chosen border)
+    body.style.borderRadius = ''; // conventions: allow (clears the user-chosen radius)
   }
 }
 
+/**
+ * Apply the block's photo filter class (duotone / black-and-white) to its image.
+ *
+ * @param {HTMLElement} el - The .fb element.
+ * @param {Object} block - Image block with imgFilter.
+ * @returns {void}
+ */
 function applyImgFilter(el, block) {
   const img = el.querySelector('.fb-img');
   if (!img) return;
@@ -570,15 +797,41 @@ function applyImgFilter(el, block) {
   if (f !== 'none') img.classList.add('mag-filter-' + f);
 }
 
+/**
+ * Mark one block as selected (and unmark the others).
+ *
+ * @param {string} id - Block id.
+ * @returns {void}
+ */
 function selectBlock(id) {
   selectedId = id;
   document.querySelectorAll('.fb').forEach(e => e.classList.remove('selected'));
   document.querySelector(`[data-bid="${id}"]`)?.classList.add('selected');
 }
 
-function bringFront(id) { const el = document.querySelector(`[data-bid="${id}"]`); if (el) el.style.zIndex = String(++idCounter); }
-function sendBack(id)   { const el = document.querySelector(`[data-bid="${id}"]`); if (el) el.style.zIndex = '1'; }
+/**
+ * Raise a block above the others with a fresh, higher z-index.
+ *
+ * @param {string} id - Block id.
+ * @returns {void}
+ */
+function bringFront(id) { const el = document.querySelector(`[data-bid="${id}"]`); if (el) el.style.zIndex = String(++idCounter); } // conventions: allow (stacking order chosen by the user)
+/**
+ * Send a block behind the others (z-index 1).
+ *
+ * @param {string} id - Block id.
+ * @returns {void}
+ */
+function sendBack(id)   { const el = document.querySelector(`[data-bid="${id}"]`); if (el) el.style.zIndex = '1'; } // conventions: allow (stacking order chosen by the user)
 
+/**
+ * Create a small block-header button.
+ *
+ * @param {string} html - Button content (icon markup).
+ * @param {string} title - Tooltip.
+ * @param {Function} fn - Click handler; the click does not reach the block.
+ * @returns {HTMLButtonElement} The button.
+ */
 function mkBtn(html, title, fn) {
   const b = document.createElement('button');
   b.type = 'button'; b.innerHTML = html; b.title = title; b.className = 'fb-btn';
@@ -586,6 +839,12 @@ function mkBtn(html, title, fn) {
   return b;
 }
 
+/**
+ * Open a file picker and upload the chosen image into an image block.
+ *
+ * @param {Object} block - Image block that receives the src.
+ * @returns {void}
+ */
 function pickImage(block) {
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*';
@@ -597,6 +856,13 @@ function pickImage(block) {
 }
 
 // ── Drag ──────────────────────────────────────────────────
+/**
+ * Start moving a block with the mouse (from its header).
+ *
+ * @param {MouseEvent} e - The mousedown event.
+ * @param {Object} block - Block being moved.
+ * @returns {void}
+ */
 function startDrag(e, block) {
   e.preventDefault();
   const el = document.querySelector(`[data-bid="${block.id}"]`); if (!el) return;
@@ -608,6 +874,20 @@ function startDrag(e, block) {
 }
 // ── Snap & alignment guides (Alt 키로 일시 해제) ────────────
 const SNAP_PX = 7;
+/**
+ * Snap a moving box to the canvas edges/centre and to other blocks.
+ *
+ * Each axis snaps independently to the nearest target within `snap` px, using
+ * the box's start, centre and end against the targets' start, centre and end.
+ *
+ * @param {{x: number, y: number, w: number, h: number}} moving - Proposed box.
+ * @param {Array<Object>} others - Other blocks on the page.
+ * @param {number} cw - Canvas width.
+ * @param {number} snap - Snap distance in px.
+ * @param {number[]} [extraX] - Extra vertical targets (column grid lines).
+ * @returns {{x: number, y: number, vLines: number[], hLines: number[]}} Snapped
+ *   position and the guide lines that it now touches.
+ */
 function computeSnap(moving, others, cw, snap, extraX = []) {
   const mX = [moving.x, moving.x + moving.w / 2, moving.x + moving.w];
   const mY = [moving.y, moving.y + moving.h / 2, moving.y + moving.h];
@@ -625,6 +905,19 @@ function computeSnap(moving, others, cw, snap, extraX = []) {
   const hLines = [...new Set(tY.filter(t => sY.some(e => Math.abs(e - t) < 0.5)))];
   return { x, y, vLines, hLines };
 }
+/**
+ * Snap the right and bottom edges of a block being resized.
+ *
+ * @param {Object} block - Block being resized (x/y stay fixed).
+ * @param {number} w - Proposed width.
+ * @param {number} h - Proposed height.
+ * @param {Array<Object>} others - Other blocks on the page.
+ * @param {number} cw - Canvas width.
+ * @param {number} snap - Snap distance in px.
+ * @param {number[]} [extraX] - Extra vertical targets (column grid lines).
+ * @returns {{w: number, h: number, vLines: number[], hLines: number[]}} Snapped
+ *   size (min 80x40) and the guide lines it touches.
+ */
 function computeResizeSnap(block, w, h, others, cw, snap, extraX = []) {
   const tX = [cw / 2, cw, ...extraX], tY = [];
   others.forEach(o => { tX.push(o.x, o.x + o.w / 2, o.x + o.w); tY.push(o.y, o.y + o.h / 2, o.y + o.h); });
@@ -638,31 +931,59 @@ function computeResizeSnap(block, w, h, others, cw, snap, extraX = []) {
   const hLines = [...new Set(tY.filter(t => Math.abs((block.y + nh) - t) < 0.5))];
   return { w: nw, h: nh, vLines, hLines };
 }
+/**
+ * Return the snap-guide overlay, creating it on first use.
+ *
+ * @returns {HTMLDivElement} The #snap-guides layer on the canvas.
+ */
 function _guideLayer() {
   const canvas = document.getElementById('block-canvas');
   let layer = document.getElementById('snap-guides');
   if (!layer) {
     layer = document.createElement('div');
     layer.id = 'snap-guides';
-    layer.style.cssText = 'position:absolute;top:0;left:0;width:100%;pointer-events:none;z-index:9998;';
+    layer.className = 'fb-snap-layer';
     canvas.appendChild(layer);
   }
   return layer;
 }
+/**
+ * Draw the snap guide lines, replacing the previous ones.
+ *
+ * @param {number[]} vLines - X positions of vertical guides.
+ * @param {number[]} hLines - Y positions of horizontal guides.
+ * @returns {void}
+ */
 function showSnapGuides(vLines, hLines) {
   const canvas = document.getElementById('block-canvas');
   const layer = _guideLayer();
   const H = Math.max(canvas.scrollHeight, canvas.clientHeight);
   layer.innerHTML = '';
+  // conventions: allow (guide position and length computed from the canvas at runtime)
   vLines.forEach(x => { const l = document.createElement('div'); l.style.cssText = `position:absolute;top:0;left:${x}px;width:1px;height:${H}px;background:#2a82c4;`; layer.appendChild(l); });
+  // conventions: allow (guide position and length computed from the canvas at runtime)
   hLines.forEach(y => { const l = document.createElement('div'); l.style.cssText = `position:absolute;left:0;top:${y}px;height:1px;width:100%;background:#2a82c4;`; layer.appendChild(l); });
 }
+/**
+ * Remove all snap guide lines.
+ *
+ * @returns {void}
+ */
 function clearSnapGuides() { document.getElementById('snap-guides')?.replaceChildren(); }
 
 // ── 칼럼 그리드 (12칼럼, 스냅 가이드 역할) ──────────────────
 let gridOn = false;
 const GRID_COLS = 12, GRID_MARGIN = 40, GRID_GUTTER = 16;
 let _gridXs = [];
+/**
+ * Left and right edges of the columns of a column grid.
+ *
+ * @param {number} cw - Canvas width.
+ * @param {number} margin - Outer margin on each side.
+ * @param {number} cols - Number of columns.
+ * @param {number} gutter - Gap between columns.
+ * @returns {number[]} Rounded x positions (two per column), or [] when nothing fits.
+ */
 function columnLines(cw, margin, cols, gutter) {
   const usable = cw - margin * 2;
   if (usable <= 0 || cols < 1) return [];
@@ -674,6 +995,11 @@ function columnLines(cw, margin, cols, gutter) {
   }
   return xs;
 }
+/**
+ * Draw (or remove) the 12-column guide grid and cache its snap lines.
+ *
+ * @returns {void}
+ */
 function renderGrid() {
   const canvas = document.getElementById('block-canvas');
   let layer = document.getElementById('col-grid');
@@ -681,7 +1007,7 @@ function renderGrid() {
   if (!layer) {
     layer = document.createElement('div');
     layer.id = 'col-grid';
-    layer.style.cssText = 'position:absolute;top:0;left:0;width:100%;pointer-events:none;z-index:1;';
+    layer.className = 'fb-grid-layer';
     canvas.insertBefore(layer, canvas.firstChild);
   }
   const cw = canvasW();
@@ -692,16 +1018,28 @@ function renderGrid() {
   for (let i = 0; i < GRID_COLS; i++) {
     const left = GRID_MARGIN + i * (colW + GRID_GUTTER);
     const band = document.createElement('div');
+    // conventions: allow (column position and size computed from the canvas width)
     band.style.cssText = `position:absolute;top:0;left:${left}px;width:${colW}px;height:${H}px;background:rgba(42,130,196,0.05);border-left:1px solid rgba(42,130,196,0.14);border-right:1px solid rgba(42,130,196,0.14);`;
     layer.appendChild(band);
   }
 }
+/**
+ * Turn the column grid on or off and update the toolbar button.
+ *
+ * @returns {void}
+ */
 function toggleGrid() {
   gridOn = !gridOn;
   renderGrid();
   document.getElementById('fb-grid-btn')?.classList.toggle('fb-btn-active', gridOn);
 }
 
+/**
+ * Move the dragged block with the mouse, snapping unless Alt is held.
+ *
+ * @param {MouseEvent} e - mousemove event.
+ * @returns {void}
+ */
 function onDrag(e) {
   if (!dragInfo) return;
   const block = blocks.find(b => b.id === dragInfo.id); if (!block) return;
@@ -717,9 +1055,14 @@ function onDrag(e) {
   } else { clearSnapGuides(); }
   block.x = nx; block.y = ny;
   const el = document.querySelector(`[data-bid="${block.id}"]`);
-  if (el) { el.style.left = block.x + 'px'; el.style.top = block.y + 'px'; }
+  if (el) { el.style.left = block.x + 'px'; el.style.top = block.y + 'px'; } // conventions: allow (drag position)
   updateCanvasHeight();
 }
+/**
+ * Finish a block drag and remove the guides and listeners.
+ *
+ * @returns {void}
+ */
 function endDrag() {
   clearSnapGuides();
   document.querySelector(`[data-bid="${dragInfo?.id}"]`)?.classList.remove('dragging');
@@ -729,12 +1072,26 @@ function endDrag() {
 }
 
 // ── Resize ────────────────────────────────────────────────
+/**
+ * Start resizing a block from one of its handles.
+ *
+ * @param {MouseEvent} e - The mousedown event.
+ * @param {Object} block - Block being resized.
+ * @param {string} edge - Handle: "e" (width), "s" (height) or "se" (both).
+ * @returns {void}
+ */
 function startResize(e, block, edge) {
   e.preventDefault(); e.stopPropagation();
   resizeInfo = { id: block.id, edge, startX: e.clientX, startY: e.clientY, startW: block.w, startH: block.h };
   document.addEventListener('mousemove', onResize);
   document.addEventListener('mouseup', endResize);
 }
+/**
+ * Resize the block with the mouse, snapping unless Alt is held.
+ *
+ * @param {MouseEvent} e - mousemove event.
+ * @returns {void}
+ */
 function onResize(e) {
   if (!resizeInfo) return;
   const block = blocks.find(b => b.id === resizeInfo.id); if (!block) return;
@@ -750,9 +1107,14 @@ function onResize(e) {
   } else { clearSnapGuides(); }
   block.w = w; block.h = h;
   const el = document.querySelector(`[data-bid="${block.id}"]`);
-  if (el) { el.style.width = block.w + 'px'; el.style.height = block.h + 'px'; }
+  if (el) { el.style.width = block.w + 'px'; el.style.height = block.h + 'px'; } // conventions: allow (resize geometry)
   updateCanvasHeight();
 }
+/**
+ * Finish a resize and remove the guides and listeners.
+ *
+ * @returns {void}
+ */
 function endResize() {
   clearSnapGuides();
   resizeInfo = null;
@@ -761,6 +1123,13 @@ function endResize() {
 }
 
 // ── Image Pan ─────────────────────────────────────────────
+/**
+ * Start panning the photo inside an image block.
+ *
+ * @param {MouseEvent} e - The mousedown event.
+ * @param {Object} block - Image block.
+ * @returns {void}
+ */
 function startPan(e, block) {
   e.preventDefault();
   document.querySelector(`[data-bid="${block.id}"] .fb-body-image`)?.classList.add('panning');
@@ -768,14 +1137,25 @@ function startPan(e, block) {
   document.addEventListener('mousemove', onPan);
   document.addEventListener('mouseup', endPan);
 }
+/**
+ * Move the photo's focal point (object-position, 0–100%) with the mouse.
+ *
+ * @param {MouseEvent} e - mousemove event.
+ * @returns {void}
+ */
 function onPan(e) {
   if (!panInfo) return;
   const block = blocks.find(b => b.id === panInfo.id); if (!block) return;
   block.imgOffsetX = Math.max(0, Math.min(100, panInfo.startOX - (e.clientX - panInfo.startX) / block.w * 100));
   block.imgOffsetY = Math.max(0, Math.min(100, panInfo.startOY - (e.clientY - panInfo.startY) / block.h * 100));
   const img = document.querySelector(`[data-bid="${block.id}"] .fb-img`);
-  if (img) img.style.objectPosition = `${block.imgOffsetX}% ${block.imgOffsetY}%`;
+  if (img) img.style.objectPosition = `${block.imgOffsetX}% ${block.imgOffsetY}%`; // conventions: allow (photo focal point while panning)
 }
+/**
+ * Finish panning and remove the listeners.
+ *
+ * @returns {void}
+ */
 function endPan() {
   document.querySelector(`[data-bid="${panInfo?.id}"] .fb-body-image`)?.classList.remove('panning');
   panInfo = null;
@@ -786,6 +1166,15 @@ function endPan() {
 // ── Inline preview ────────────────────────────────────────
 let previewActive = false;
 
+/**
+ * Build the HTML of one page for the inline preview.
+ *
+ * Same percent-based absolute layout as the published HTML. A page that was
+ * never synced falls back to a 1200px x 600px page.
+ *
+ * @param {{cw: ?number, ch: ?number, blocks: Array<Object>}} page - Page snapshot.
+ * @returns {string} HTML for one preview page.
+ */
 function buildPreviewSlide(page) {
   const cw = page.cw || 1200;
   const ch = page.ch || 600;
@@ -814,6 +1203,13 @@ function buildPreviewSlide(page) {
   return html;
 }
 
+/**
+ * Replace the canvas with a read-only preview of every page.
+ *
+ * Clicking anywhere in the preview returns to editing.
+ *
+ * @returns {void}
+ */
 function enterPreview() {
   syncCurrentPage();
   const pagesSnap = pages.map(p => ({
@@ -823,8 +1219,8 @@ function enterPreview() {
 
   const canvas = document.getElementById('block-canvas');
   const tabBar = document.getElementById('page-tab-bar');
-  canvas.style.display = 'none';
-  if (tabBar) tabBar.style.display = 'none';
+  canvas.hidden = true;
+  if (tabBar) tabBar.hidden = true;
 
   const wrap = canvas.parentElement;
   const pv = document.createElement('div');
@@ -853,12 +1249,17 @@ function enterPreview() {
   previewActive = true;
 }
 
+/**
+ * Remove the preview and show the canvas and page tabs again.
+ *
+ * @returns {void}
+ */
 function exitPreview() {
   const canvas = document.getElementById('block-canvas');
   const tabBar = document.getElementById('page-tab-bar');
   const pv = document.getElementById('inline-preview');
-  canvas.style.display = '';
-  if (tabBar) tabBar.style.display = '';
+  canvas.hidden = false;
+  if (tabBar) tabBar.hidden = false;
   if (pv) pv.remove();
 
   const btn = document.querySelector('.tiptap-btn-preview');
@@ -867,11 +1268,26 @@ function exitPreview() {
   previewActive = false;
 }
 
+/**
+ * Switch between editing and the inline preview.
+ *
+ * @returns {void}
+ */
 function togglePreview() {
   previewActive ? exitPreview() : enterPreview();
 }
 
 // ── Collect (v3 multi-page) ───────────────────────────────
+/**
+ * Serialize every page for the publish form.
+ *
+ * Syncs the current page first, then builds the v3 layout JSON
+ * ({v: 3, pages: [{id, cw, ch, blocks}]}) and the reading HTML: one
+ * .magazine-page per page whose blocks are absolutely positioned in percent of
+ * the page size, so the published layout scales with the reader's width.
+ *
+ * @returns {{blocksJson: string, html: string}} Layout JSON and reading HTML.
+ */
 function collectData() {
   syncCurrentPage();
 
@@ -937,13 +1353,41 @@ function collectData() {
 let _scState = { editor: null, from: 0, to: 0 };
 let _scEnVariant = 'vennify'; // 글로벌 팝업 모델 선택 상태
 
+/**
+ * Escape &, < and > for spell-check messages.
+ *
+ * @param {string} text - Raw text.
+ * @returns {string} HTML-safe text.
+ */
 function _scEscapeHtml(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/**
+ * Word-level diff of one line or sentence (LCS over words and spaces).
+ *
+ * Very long inputs (over 400 tokens) are shown as one inserted span instead.
+ *
+ * @param {string} orig - Original text.
+ * @param {string} corr - Corrected text.
+ * @returns {{html: string, changes: number}} Diff HTML (deleted and inserted spans)
+ *   and the number of changed runs.
+ */
 function _scWordDiff(orig, corr) {
   // 단일 줄(문자열) 내 word-level LCS diff → { html, changes }
+  /**
+   * Escape &, < and > for the diff output.
+   *
+   * @param {string} s - Raw text.
+   * @returns {string} HTML-safe text.
+   */
   const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  /**
+   * Split text into word and whitespace tokens.
+   *
+   * @param {string} s - Text.
+   * @returns {string[]} Tokens (empty for empty text).
+   */
   const tok = s => s.match(/\S+|\s+/g) || [];
   const a = tok(orig), b = tok(corr);
   if (a.length > 400 || b.length > 400) {
@@ -975,9 +1419,26 @@ function _scWordDiff(orig, corr) {
   return { html, changes };
 }
 
+/**
+ * Diff two texts line by line, then sentence by sentence, then word by word.
+ *
+ * Lines only in the correction are shown as inserted, lines only in the original
+ * as deleted.
+ *
+ * @param {string} orig - Original text.
+ * @param {string} corr - Corrected text.
+ * @returns {{html: string, changes: number}} Diff HTML with <br> between lines and
+ *   the total number of changes.
+ */
 function _scDiffHtml(orig, corr) {
   // 항상 줄(\n) 단위로 처리 — _scWordDiff(orig, corr) 전체 텍스트 호출 절대 없음
   // 줄 수가 달라도 zip으로 처리 (추가된 줄 → 초록, 삭제된 줄 → 빨강)
+  /**
+   * Escape &, < and > for the diff output.
+   *
+   * @param {string} s - Raw text.
+   * @returns {string} HTML-safe text.
+   */
   const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const DEL = 'background:#fee2e2;color:#b91c1c;text-decoration:line-through;border-radius:2px;padding:0 1px;';
   const INS = 'background:#dcfce7;color:#166534;border-radius:2px;padding:0 1px;';
@@ -1040,6 +1501,12 @@ function _scDiffHtml(orig, corr) {
   return { html: parts.join(''), changes: totalChanges };
 }
 
+/**
+ * Legend shown under a diff: change count plus deleted / added samples.
+ *
+ * @param {number} changes - Number of changes.
+ * @returns {string} Legend HTML.
+ */
 function _scDiffLegend(changes) {
   return `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <span style="font-size:0.69rem;color:#94a3b8;flex:1;font-weight:500;">${changes}개 수정됨</span>
@@ -1056,26 +1523,74 @@ function _scDiffLegend(changes) {
   (document.head || document.documentElement).appendChild(s);
 })();
 
+/**
+ * Put a spell-check run button into its busy state (spinner, disabled).
+ *
+ * @param {HTMLButtonElement} btn - Run button.
+ * @returns {void}
+ */
 function _scBtnLoad(btn) {
   btn.disabled = true;
   btn.innerHTML = '<span style="display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,0.35);border-top-color:#fff;border-radius:50%;animation:spin 0.65s linear infinite;vertical-align:middle;margin-right:8px;"></span>검사 중...';
-  btn.style.opacity = '0.7';
-  btn.style.cursor = 'not-allowed';
+  btn.classList.add('sc-btn-busy');
 }
+/**
+ * Re-enable a spell-check run button and label it "다시 검사".
+ *
+ * @param {HTMLButtonElement} btn - Run button.
+ * @returns {void}
+ */
 function _scBtnReady(btn) {
   btn.disabled = false;
   btn.textContent = '다시 검사';
-  btn.style.opacity = '';
-  btn.style.cursor = '';
+  btn.classList.remove('sc-btn-busy');
+}
+
+// 결과 영역 상태 클래스 (tiptap-editor.css)
+const SC_RESULT_STATES = ['initial', 'loading', 'same', 'diff', 'error'];
+const SC_PANEL_TONES = ['muted', 'error'];
+
+/**
+ * Switch an element to one of several mutually exclusive state classes.
+ *
+ * @param {HTMLElement} el - Element whose look depends on the state.
+ * @param {string} prefix - Class prefix, e.g. "sc-modal-result-".
+ * @param {string[]} states - Every state name that uses the prefix.
+ * @param {?string} state - State to turn on; null turns them all off.
+ * @returns {void}
+ */
+function _scSetState(el, prefix, states, state) {
+  states.forEach(s => el.classList.toggle(prefix + s, s === state));
 }
 
 const _scSpinnerBtn = '';
 
+/**
+ * Placeholder shown while the spell checker runs (four shimmering bars).
+ *
+ * @returns {string} Skeleton HTML.
+ */
 function _scLoadingHtml() {
+  /**
+   * One shimmering skeleton bar.
+   *
+   * @param {number} w - Width in percent.
+   * @param {number} d - Animation delay in seconds.
+   * @returns {string} Bar HTML.
+   */
   const bar = (w, d) => `<div style="height:13px;background:linear-gradient(90deg,#e2e8f0 25%,#f8fafc 50%,#e2e8f0 75%);background-size:200% 100%;animation:scShimmer 1.4s ease-in-out infinite;animation-delay:${d}s;border-radius:4px;width:${w}%;"></div>`;
   return `<div style="display:flex;flex-direction:column;gap:10px;padding:2px 0;">${bar(88,0)}${bar(73,0.15)}${bar(81,0.3)}${bar(65,0.45)}</div>`;
 }
 
+/**
+ * Find the text selection to spell-check.
+ *
+ * Looks for the block whose editor has a non-empty selection (the selection
+ * survives the editor losing focus to the toolbar button).
+ *
+ * @returns {?{editor: Editor, text: string, from: number, to: number}} The
+ *   selection, with paragraphs joined by "\n", or null when nothing is selected.
+ */
 function _scGetTarget() {
   // isFocused 대신 selection 상태로 탐지 (버튼 클릭 시 포커스 잃어도 selection은 유지됨)
   const blockWithSel = blocks.find(b => {
@@ -1091,11 +1606,22 @@ function _scGetTarget() {
   return { editor, text, from, to };
 }
 
+/**
+ * Close the spell-check dialog and its overlay.
+ *
+ * @returns {void}
+ */
 function _scRemovePopup() {
   document.getElementById('sc-overlay')?.remove();
   document.getElementById('sc-popup')?.remove();
 }
 
+/**
+ * Replace the checked selection with the corrected text (one paragraph per line).
+ *
+ * @param {string} correctedText - Text returned by the spell checker.
+ * @returns {void}
+ */
 function _scApply(correctedText) {
   const { editor, from, to } = _scState;
   if (!editor) return;
@@ -1109,22 +1635,32 @@ function _scApply(correctedText) {
   _scRemovePopup();
 }
 
+/**
+ * Open the selection spell-check dialog (overlay + compact card).
+ *
+ * With `error` the dialog only shows the message and a close button. Otherwise it
+ * shows the model buttons, the selected text, a result area and the
+ * close / run / apply buttons; running posts the text to /api/spellcheck and
+ * shows a word-level diff that "적용하기" writes back over the selection.
+ * Escape and the overlay dismiss it.
+ *
+ * @param {Object} opts - Dialog options.
+ * @param {boolean} [opts.selectModel] - Show the model chooser (always true when no error).
+ * @param {string} [opts.original] - Selected text to check.
+ * @param {string} [opts.error] - Message to show instead of the checker.
+ * @returns {void}
+ */
 function _scShowPopup({ selectModel, original, error }) {
   _scRemovePopup();
 
   const overlay = document.createElement('div');
   overlay.id = 'sc-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:9998;';
+  overlay.className = 'sc-dlg-overlay';
   overlay.addEventListener('click', _scRemovePopup);
 
   const popup = document.createElement('div');
   popup.id = 'sc-popup';
-  popup.style.cssText = [
-    'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);',
-    'background:#fff;border-radius:12px;padding:20px 22px;',
-    'box-shadow:0 8px 32px rgba(0,0,0,0.18);z-index:9999;',
-    'min-width:320px;max-width:520px;width:90%;font-family:inherit;',
-  ].join('');
+  popup.className = 'sc-dlg';
   popup.addEventListener('click', e => e.stopPropagation());
 
   if (error) {
@@ -1132,32 +1668,30 @@ function _scShowPopup({ selectModel, original, error }) {
       <div style="color:#ef4444;font-size:0.9rem;margin-bottom:16px;">${_scEscapeHtml(error)}</div>`;
     const btn = document.createElement('button');
     btn.type = 'button'; btn.textContent = '닫기';
-    btn.style.cssText = 'float:right;padding:6px 18px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#fff;font-size:0.88rem;';
+    btn.className = 'sc-dlg-cancel sc-dlg-close';
     btn.addEventListener('click', _scRemovePopup);
     popup.appendChild(btn);
   } else {
     popup.innerHTML = `<div style="font-weight:600;margin-bottom:14px;">맞춤법 검사</div>`;
 
     const modelRow = document.createElement('div');
-    modelRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:16px;';
+    modelRow.className = 'sc-dlg-models';
     const modelLabel = document.createElement('span');
-    modelLabel.style.cssText = 'font-size:0.82rem;color:#6b7280;';
+    modelLabel.className = 'sc-dlg-models-label';
     modelLabel.textContent = '모델:';
     modelRow.appendChild(modelLabel);
 
-    const activeStyle = 'padding:4px 14px;font-size:0.82rem;border-radius:5px;cursor:pointer;background:#3b82f6;color:#fff;border:1px solid #3b82f6;font-weight:600;';
-    const inactiveStyle = 'padding:4px 14px;font-size:0.82rem;border-radius:5px;cursor:pointer;background:#fff;color:#6b7280;border:1px solid #d1d5db;';
     const variantBtns = {};
     ['vennify', 'coedit'].forEach(v => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = v === 'vennify' ? '빠름' : '고품질';
       btn.title = v === 'vennify' ? 'vennify/t5-base-grammar-correction' : 'grammarly/coedit-large';
-      btn.style.cssText = v === _scEnVariant ? activeStyle : inactiveStyle;
+      btn.className = 'sc-dlg-model' + (v === _scEnVariant ? ' sc-dlg-model-active' : '');
       btn.addEventListener('click', e => {
         e.stopPropagation();
         _scEnVariant = v;
-        Object.entries(variantBtns).forEach(([key, b]) => { b.style.cssText = key === v ? activeStyle : inactiveStyle; });
+        Object.entries(variantBtns).forEach(([key, b]) => { b.classList.toggle('sc-dlg-model-active', key === v); });
       });
       variantBtns[v] = btn;
       modelRow.appendChild(btn);
@@ -1165,32 +1699,34 @@ function _scShowPopup({ selectModel, original, error }) {
     popup.appendChild(modelRow);
 
     const previewBox = document.createElement('div');
-    previewBox.style.cssText = 'background:#f9fafb;border-radius:8px;padding:10px 12px;font-size:0.85rem;color:#374151;max-height:140px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin-bottom:16px;';
+    previewBox.className = 'sc-dlg-text';
     previewBox.textContent = original;
     popup.appendChild(previewBox);
 
     const resultArea = document.createElement('div');
-    resultArea.style.cssText = 'display:none;margin-bottom:16px;';
+    resultArea.className = 'sc-dlg-result-area';
+    resultArea.hidden = true;
     resultArea.innerHTML = `
       <div style="font-size:0.75rem;color:#9ca3af;margin-bottom:4px;">교정 결과</div>
-      <div class="sc-result-box" style="background:#f0fdf4;border-radius:8px;padding:10px 12px;font-size:0.85rem;color:#15803d;max-height:140px;overflow:auto;white-space:pre-wrap;word-break:break-all;"></div>`;
+      <div class="sc-result-box sc-dlg-result sc-dlg-result-initial"></div>`;
     popup.appendChild(resultArea);
 
     const actions = document.createElement('div');
-    actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+    actions.className = 'sc-dlg-actions';
 
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button'; cancelBtn.textContent = '닫기';
-    cancelBtn.style.cssText = 'padding:6px 18px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#fff;font-size:0.88rem;';
+    cancelBtn.className = 'sc-dlg-cancel';
     cancelBtn.addEventListener('click', _scRemovePopup);
 
     const runBtn = document.createElement('button');
     runBtn.type = 'button'; runBtn.textContent = '검사 시작';
-    runBtn.style.cssText = 'padding:6px 18px;border:none;border-radius:6px;cursor:pointer;background:#10b981;color:#fff;font-size:0.88rem;font-weight:600;';
+    runBtn.className = 'sc-dlg-run';
 
     const applyBtn = document.createElement('button');
     applyBtn.type = 'button'; applyBtn.textContent = '적용하기';
-    applyBtn.style.cssText = 'display:none;padding:6px 18px;border:none;border-radius:6px;cursor:pointer;background:#3b82f6;color:#fff;font-size:0.88rem;';
+    applyBtn.className = 'sc-dlg-apply';
+    applyBtn.hidden = true;
 
     actions.appendChild(cancelBtn);
     actions.appendChild(runBtn);
@@ -1200,11 +1736,11 @@ function _scShowPopup({ selectModel, original, error }) {
     runBtn.addEventListener('click', async e => {
       e.stopPropagation();
       _scBtnLoad(runBtn);
-      applyBtn.style.display = 'none';
+      applyBtn.hidden = true;
       // 로딩 shimmer 즉시 표시
       const resultBox = resultArea.querySelector('.sc-result-box');
-      resultArea.style.display = 'block';
-      resultBox.style.cssText = 'background:#f8fafc;border-radius:8px;padding:10px 12px;font-size:0.85rem;max-height:140px;overflow:auto;line-height:1.6;';
+      resultArea.hidden = false;
+      _scSetState(resultBox, 'sc-dlg-result-', SC_RESULT_STATES, 'loading');
       resultBox.innerHTML = _scLoadingHtml();
       const _scCtrl = new AbortController();
       const _scTimer = setTimeout(() => _scCtrl.abort(), 150000);
@@ -1219,20 +1755,20 @@ function _scShowPopup({ selectModel, original, error }) {
         const data = await res.json();
         const corrected = data.corrected;
         const isSame = original === corrected;
-        resultArea.style.display = 'block';
+        resultArea.hidden = false;
         if (isSame) {
-          resultBox.style.cssText = 'background:#f9fafb;border-radius:8px;padding:10px 12px;font-size:0.85rem;max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:#9ca3af;';
+          _scSetState(resultBox, 'sc-dlg-result-', SC_RESULT_STATES, 'same');
           resultBox.innerHTML = '<i class="bi bi-check-circle-fill" style="color:#10b981;margin-right:6px;"></i>오류가 발견되지 않았습니다.';
         } else {
-          resultBox.style.cssText = 'background:#f8fafc;border-radius:8px;padding:10px 12px;font-size:0.85rem;max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;line-height:1.6;';
+          _scSetState(resultBox, 'sc-dlg-result-', SC_RESULT_STATES, 'diff');
           const diff = _scDiffHtml(original, corrected);
           resultBox.innerHTML = diff.html + _scDiffLegend(diff.changes);
-          applyBtn.style.display = '';
+          applyBtn.hidden = false;
           applyBtn.onclick = () => { _scApply(corrected); };
         }
       } catch (err) {
-        resultArea.style.display = 'block';
-        resultBox.style.cssText = 'background:#fef2f2;border-radius:8px;padding:10px 12px;font-size:0.85rem;max-height:160px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:#991b1b;';
+        resultArea.hidden = false;
+        _scSetState(resultBox, 'sc-dlg-result-', SC_RESULT_STATES, 'error');
         const msg = err.name === 'AbortError' ? '요청 시간 초과 (2분 30초). 모델 로딩 중이면 잠시 후 다시 시도해주세요.' : (err.message || '오류가 발생했습니다.');
         resultBox.innerHTML = `<i class="bi bi-exclamation-circle-fill" style="margin-right:6px;"></i>${msg}`;
       } finally {
@@ -1252,10 +1788,24 @@ function _scShowPopup({ selectModel, original, error }) {
     document.head.appendChild(s);
   }
 
+  /**
+   * Close the dialog on Escape and stop listening.
+   *
+   * @param {KeyboardEvent} e - keydown event.
+   * @returns {void}
+   */
   const onEsc = e => { if (e.key === 'Escape') { _scRemovePopup(); document.removeEventListener('keydown', onEsc); } };
   document.addEventListener('keydown', onEsc);
 }
 
+/**
+ * Spell-check the selected text (toolbar button or Ctrl+Shift+S).
+ *
+ * Shows the model chooser for the selection, or an error dialog when no text is
+ * selected.
+ *
+ * @returns {void}
+ */
 function triggerSpellCheck() {
   const target = _scGetTarget();
   if (!target) {
@@ -1267,6 +1817,16 @@ function triggerSpellCheck() {
 }
 
 // ── Block-level spell preview (split panel) ───────────────
+/**
+ * Open the spell-check side panel of a text block.
+ *
+ * Splits the block body into the editor (left) and a panel (right) with a model
+ * choice, a run button and the result; a diff result offers "적용하기", which
+ * replaces the whole block text and closes the panel.
+ *
+ * @param {string} blockId - Text block id.
+ * @returns {void}
+ */
 function _scBlockPreviewOpen(blockId) {
   const block = blocks.find(b => b.id === blockId);
   if (!block || !block.editor) return;
@@ -1278,29 +1838,22 @@ function _scBlockPreviewOpen(blockId) {
 
   // Split body into two panes
   const body = el.querySelector('.fb-body');
-  body.style.cssText += 'display:flex;flex-direction:row;';
+  body.classList.add('fb-body-split');
   const edEl = body.querySelector('.fb-editor');
-  edEl.style.cssText += 'width:50%;height:100%;overflow:auto;border-right:1px solid #e5e7eb;box-sizing:border-box;';
+  edEl.classList.add('fb-editor-split');
 
   // ── 패널 ─────────────────────────────────────────────────
   const panel = document.createElement('div');
-  panel.className = 'fb-spell-preview';
-  panel.style.cssText = [
-    'width:50%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;',
-    'background:#f8fafc;border-left:1px solid #e2e8f0;',
-  ].join('');
+  panel.className = 'fb-spell-preview sc-panel';
 
   // 헤더
   const panelHdr = document.createElement('div');
-  panelHdr.style.cssText = [
-    'display:flex;align-items:center;gap:6px;padding:10px 14px;flex-shrink:0;',
-    'background:#fff;border-bottom:1px solid #e2e8f0;',
-  ].join('');
+  panelHdr.className = 'sc-panel-hdr';
   panelHdr.innerHTML = `<i class="bi bi-spell-check" style="color:#6366f1;font-size:0.9rem;"></i>
     <span style="font-size:0.78rem;font-weight:700;color:#334155;letter-spacing:-0.2px;flex:1;">맞춤법 미리보기</span>`;
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button'; closeBtn.innerHTML = '<i class="bi bi-x"></i>';
-  closeBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:0.95rem;color:#94a3b8;padding:2px 4px;line-height:1;border-radius:4px;';
+  closeBtn.className = 'sc-panel-x';
   closeBtn.addEventListener('click', e => { e.stopPropagation(); _scBlockPreviewClose(blockId); });
   panelHdr.appendChild(closeBtn);
   panel.appendChild(panelHdr);
@@ -1308,25 +1861,23 @@ function _scBlockPreviewOpen(blockId) {
   // 모델 선택
   let selectedVariant = 'vennify';
   const modelSection = document.createElement('div');
-  modelSection.style.cssText = 'padding:12px 14px 10px;flex-shrink:0;border-bottom:1px solid #e2e8f0;background:#fff;';
+  modelSection.className = 'sc-panel-model';
   const modelTopLabel = document.createElement('div');
-  modelTopLabel.style.cssText = 'font-size:0.68rem;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;';
+  modelTopLabel.className = 'sc-panel-label';
   modelTopLabel.textContent = '모델 선택';
   modelSection.appendChild(modelTopLabel);
 
   const modelGrid = document.createElement('div');
-  modelGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;';
-  const activeStyle = 'padding:7px 10px;border-radius:8px;cursor:pointer;border:2px solid #6366f1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-align:left;';
-  const inactiveStyle = 'padding:7px 10px;border-radius:8px;cursor:pointer;border:1.5px solid #e2e8f0;background:#fff;color:#475569;text-align:left;';
+  modelGrid.className = 'sc-panel-models';
   const variantBtns = {};
   [{ v: 'vennify', label: '빠름', sub: 'KO: et5 · EN: T5-base' }, { v: 'coedit', label: '고품질', sub: 'KO: et5 · EN: CoEdIT' }].forEach(({ v, label, sub }) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.style.cssText = v === 'vennify' ? activeStyle : inactiveStyle;
+    btn.className = 'sc-panel-variant' + (v === 'vennify' ? ' sc-panel-variant-active' : '');
     btn.innerHTML = `<div style="font-size:0.8rem;font-weight:600;margin-bottom:1px;">${label}</div><div style="font-size:0.67rem;opacity:0.7;">${sub}</div>`;
     btn.addEventListener('click', e => {
       e.stopPropagation(); selectedVariant = v;
-      Object.entries(variantBtns).forEach(([key, b]) => { b.style.cssText = key === v ? activeStyle : inactiveStyle; });
+      Object.entries(variantBtns).forEach(([key, b]) => { b.classList.toggle('sc-panel-variant-active', key === v); });
     });
     variantBtns[v] = btn; modelGrid.appendChild(btn);
   });
@@ -1335,14 +1886,13 @@ function _scBlockPreviewOpen(blockId) {
   // 검사 시작 버튼
   const runBtn = document.createElement('button');
   runBtn.type = 'button'; runBtn.textContent = '검사 시작';
-  runBtn.style.cssText = 'margin-top:10px;width:100%;padding:8px;border:none;border-radius:8px;cursor:pointer;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:0.82rem;font-weight:600;letter-spacing:-0.2px;';
+  runBtn.className = 'sc-panel-run';
   modelSection.appendChild(runBtn);
   panel.appendChild(modelSection);
 
   // 결과 영역
   const content = document.createElement('div');
-  content.className = 'fb-spell-preview-text';
-  content.style.cssText = 'flex:1;padding:14px;font-size:0.875rem;line-height:1.7;color:#94a3b8;white-space:pre-wrap;word-break:break-all;overflow:auto;';
+  content.className = 'fb-spell-preview-text sc-panel-result sc-panel-result-muted';
   content.textContent = '모델을 선택하고 검사 시작을 눌러주세요.';
   panel.appendChild(content);
 
@@ -1352,11 +1902,11 @@ function _scBlockPreviewOpen(blockId) {
   runBtn.addEventListener('click', async e => {
     e.stopPropagation();
     const fullText = block.editor.state.doc.textBetween(0, block.editor.state.doc.content.size, '\n');
-    if (!fullText.trim()) { content.style.color = '#94a3b8'; content.textContent = '내용이 없습니다.'; return; }
+    if (!fullText.trim()) { _scSetState(content, 'sc-panel-result-', SC_PANEL_TONES, 'muted'); content.textContent = '내용이 없습니다.'; return; }
 
     _scBtnLoad(runBtn);
     panel.querySelector('.fb-spell-apply-btn')?.remove();
-    content.style.color = '';
+    _scSetState(content, 'sc-panel-result-', SC_PANEL_TONES, null);
     content.innerHTML = _scLoadingHtml();
 
     const _scCtrl2 = new AbortController();
@@ -1373,16 +1923,15 @@ function _scBlockPreviewOpen(blockId) {
       const corrected = data.corrected;
       const isSame = fullText === corrected;
       if (isSame) {
-        content.style.color = '#94a3b8';
+        _scSetState(content, 'sc-panel-result-', SC_PANEL_TONES, 'muted');
         content.innerHTML = '<i class="bi bi-check-circle-fill" style="color:#10b981;margin-right:6px;"></i>오류가 발견되지 않았습니다.';
       } else {
-        content.style.color = '';
+        _scSetState(content, 'sc-panel-result-', SC_PANEL_TONES, null);
         const diff = _scDiffHtml(fullText, corrected);
         content.innerHTML = diff.html + _scDiffLegend(diff.changes);
         const applyBtn = document.createElement('button');
         applyBtn.type = 'button'; applyBtn.textContent = '적용하기';
-        applyBtn.className = 'fb-spell-apply-btn';
-        applyBtn.style.cssText = 'margin:10px 14px 14px;padding:8px 18px;border:none;border-radius:8px;cursor:pointer;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:0.82rem;font-weight:600;align-self:flex-end;flex-shrink:0;display:block;width:calc(100% - 28px);';
+        applyBtn.className = 'fb-spell-apply-btn sc-panel-apply';
         applyBtn.addEventListener('click', () => {
           const lines = corrected.split('\n');
           const nodes = lines.map(line => ({ type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] }));
@@ -1392,7 +1941,7 @@ function _scBlockPreviewOpen(blockId) {
         panel.appendChild(applyBtn);
       }
     } catch (err) {
-      content.style.color = '#991b1b';
+      _scSetState(content, 'sc-panel-result-', SC_PANEL_TONES, 'error');
       const msg = err.name === 'AbortError' ? '요청 시간 초과 (2분 30초). 모델 로딩 중이면 잠시 후 다시 시도해주세요.' : (err.message || '오류가 발생했습니다.');
       content.innerHTML = `<i class="bi bi-exclamation-circle-fill" style="margin-right:6px;"></i>${msg}`;
     } finally {
@@ -1402,6 +1951,12 @@ function _scBlockPreviewOpen(blockId) {
   });
 }
 
+/**
+ * Close a block's spell-check panel and restore the full-width editor.
+ *
+ * @param {string} blockId - Text block id.
+ * @returns {void}
+ */
 function _scBlockPreviewClose(blockId) {
   _scSplitActive.delete(blockId);
   const el = document.querySelector(`[data-bid="${blockId}"]`);
@@ -1409,16 +1964,29 @@ function _scBlockPreviewClose(blockId) {
   el.querySelector('.fb-sc-preview-btn')?.classList.remove('fb-btn-active');
   el.querySelector('.fb-spell-preview')?.remove();
   const body = el.querySelector('.fb-body');
-  if (body) { body.style.display = ''; body.style.flexDirection = ''; }
+  if (body) { body.classList.remove('fb-body-split'); }
   const edEl = el.querySelector('.fb-editor');
-  if (edEl) { edEl.style.width = ''; edEl.style.height = ''; edEl.style.overflow = ''; edEl.style.borderRight = ''; }
+  if (edEl) { edEl.classList.remove('fb-editor-split'); }
 }
 
+/**
+ * Open or close a block's spell-check panel.
+ *
+ * @param {string} blockId - Text block id.
+ * @returns {void}
+ */
 function _scBlockPreviewToggle(blockId) {
   _scSplitActive.has(blockId) ? _scBlockPreviewClose(blockId) : _scBlockPreviewOpen(blockId);
 }
 
 // ── Toolbar ───────────────────────────────────────────────
+/**
+ * Add the editor buttons to #tiptap-toolbar: undo/redo, column grid, one
+ * button per block type or preset (kicker, lead, pull quote, divider, caption,
+ * timeline, map, spacer) and spell check.
+ *
+ * @returns {void}
+ */
 function buildToolbar() {
   const tb = document.getElementById('tiptap-toolbar');
   if (!tb) return;
@@ -1443,7 +2011,7 @@ function buildToolbar() {
     const btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'tiptap-toolbar-btn';
     if (id) btn.id = id;
-    if (wide) btn.style.cssText = 'width:auto;padding:0 8px;';
+    if (wide) btn.classList.add('tiptap-toolbar-btn-wide');
     btn.innerHTML = icon; btn.title = tip;
     btn.addEventListener('click', fn);
     tb.appendChild(btn);
@@ -1451,6 +2019,16 @@ function buildToolbar() {
 }
 
 // ── Load blocks from saved data ───────────────────────────
+/**
+ * Load a saved layout into the editor.
+ *
+ * Accepts the v3 multi-page format, the v2 single-page format and the legacy
+ * block array. Horizontal positions and widths are scaled from the saved canvas
+ * width to the current one.
+ *
+ * @param {*} raw - Parsed content_blocks JSON.
+ * @returns {boolean} True when blocks were loaded.
+ */
 function loadSavedData(raw) {
   const currentCW = canvasW();
 
@@ -1524,6 +2102,11 @@ const _history = { past: [], future: [], last: null, max: 60 };
 let _historyReady = false;
 let _commitTimer = null, _asTimer = null, _suppressUntil = 0;
 
+/**
+ * Serialize all pages (and the current page index) for undo history and autosave.
+ *
+ * @returns {string} JSON snapshot.
+ */
 function snapshotState() {
   syncCurrentPage();
   return JSON.stringify({
@@ -1546,6 +2129,14 @@ function snapshotState() {
     })),
   });
 }
+/**
+ * Replace all pages with a snapshot and re-render the current page.
+ *
+ * Invalid JSON is ignored.
+ *
+ * @param {string} json - Snapshot from snapshotState().
+ * @returns {void}
+ */
 function _applySnapshot(json) {
   let data; try { data = JSON.parse(json); } catch { return; }
   clearCanvas();
@@ -1560,6 +2151,14 @@ function _applySnapshot(json) {
   updateCanvasHeight();
   updatePageTabs();
 }
+/**
+ * Record the current state as a new undo step when it changed.
+ *
+ * Skipped before history is ready and right after an undo/redo. Clears the redo
+ * stack and schedules an autosave.
+ *
+ * @returns {void}
+ */
 function commitHistory() {
   if (!_historyReady || Date.now() < _suppressUntil) return;
   const snap = snapshotState();
@@ -1570,7 +2169,17 @@ function commitHistory() {
   scheduleAutosave();
   updateUndoButtons();
 }
+/**
+ * Debounce commitHistory() (250ms) after a mouse action.
+ *
+ * @returns {void}
+ */
 function scheduleCommit() { if (!_historyReady) return; clearTimeout(_commitTimer); _commitTimer = setTimeout(commitHistory, 250); }
+/**
+ * Step the layout back one history entry.
+ *
+ * @returns {void}
+ */
 function undoAction() {
   if (!_history.past.length) return;
   _suppressUntil = Date.now() + 500;
@@ -1580,6 +2189,11 @@ function undoAction() {
   scheduleAutosave();
   updateUndoButtons();
 }
+/**
+ * Re-apply the history entry that was last undone.
+ *
+ * @returns {void}
+ */
 function redoAction() {
   if (!_history.future.length) return;
   _suppressUntil = Date.now() + 500;
@@ -1589,37 +2203,70 @@ function redoAction() {
   scheduleAutosave();
   updateUndoButtons();
 }
+/**
+ * Enable or dim the undo/redo buttons for the current history.
+ *
+ * @returns {void}
+ */
 function updateUndoButtons() {
   const u = document.getElementById('fb-undo-btn'), r = document.getElementById('fb-redo-btn');
-  if (u) { u.disabled = !_history.past.length; u.style.opacity = _history.past.length ? '1' : '0.4'; }
-  if (r) { r.disabled = !_history.future.length; r.style.opacity = _history.future.length ? '1' : '0.4'; }
+  if (u) { u.disabled = !_history.past.length; u.classList.toggle('tiptap-toolbar-btn-dim', !_history.past.length); }
+  if (r) { r.disabled = !_history.future.length; r.classList.toggle('tiptap-toolbar-btn-dim', !_history.future.length); }
 }
+/**
+ * localStorage key for this editor's autosave.
+ *
+ * @returns {string} "magazine:autosave:post-<id>", "…:draft-<id>" or "…:new".
+ */
 function _draftKey() {
   const pid = document.getElementById('block-canvas')?.dataset?.postId;
   const did = (typeof window !== 'undefined' && window.DRAFT_ID) ? window.DRAFT_ID : null;
   return 'magazine:autosave:' + (pid ? ('post-' + pid) : (did ? ('draft-' + did) : 'new'));
 }
+/**
+ * Save the latest snapshot to localStorage after 1s (debounced).
+ *
+ * @returns {void}
+ */
 function scheduleAutosave() {
   clearTimeout(_asTimer);
   _asTimer = setTimeout(() => { try { localStorage.setItem(_draftKey(), JSON.stringify({ t: Date.now(), s: _history.last })); } catch {} }, 1000);
 }
+/**
+ * Delete this editor's autosaved snapshot.
+ *
+ * @returns {void}
+ */
 function clearAutosave() { try { localStorage.removeItem(_draftKey()); } catch {} }
+/**
+ * Offer to restore an autosaved layout that differs from the loaded one.
+ *
+ * Shows a bar above the canvas with "복원" (apply the saved snapshot) and
+ * "버리기" (delete it).
+ *
+ * @param {string} currentSnap - Snapshot of the freshly loaded state.
+ * @returns {void}
+ */
 function maybeOfferRestore(currentSnap) {
   let saved; try { saved = JSON.parse(localStorage.getItem(_draftKey()) || 'null'); } catch { saved = null; }
   if (!saved || !saved.s || saved.s === currentSnap) return;
   const canvas = document.getElementById('block-canvas');
   const bar = document.createElement('div');
   bar.className = 'fb-restore-bar';
-  bar.style.cssText = 'display:flex;align-items:center;gap:12px;margin:0 0 12px;padding:10px 14px;background:#fff7ed;border:1px solid #f0c9a8;border-radius:10px;font-size:0.86rem;color:#7c4a2d;';
   const ago = new Date(saved.t || Date.now()).toLocaleString();
   bar.innerHTML = `<i class="bi bi-clock-history"></i><span style="flex:1">저장하지 않은 편집 내용이 있습니다 <span style="opacity:.7">(${ago})</span>. 이어서 편집할까요?</span>`;
-  const yes = document.createElement('button'); yes.type = 'button'; yes.textContent = '복원'; yes.style.cssText = 'border:none;background:#b4542f;color:#fff;padding:6px 14px;border-radius:7px;cursor:pointer;font-weight:600;';
-  const no = document.createElement('button'); no.type = 'button'; no.textContent = '버리기'; no.style.cssText = 'border:1px solid #d8c4b4;background:#fff;color:#7c4a2d;padding:6px 12px;border-radius:7px;cursor:pointer;';
+  const yes = document.createElement('button'); yes.type = 'button'; yes.textContent = '복원'; yes.className = 'fb-restore-yes';
+  const no = document.createElement('button'); no.type = 'button'; no.textContent = '버리기'; no.className = 'fb-restore-no';
   yes.onclick = () => { _applySnapshot(saved.s); _history.last = saved.s; _history.past = []; _history.future = []; updateUndoButtons(); bar.remove(); };
   no.onclick = () => { clearAutosave(); bar.remove(); };
   bar.appendChild(yes); bar.appendChild(no);
   canvas.parentElement.insertBefore(bar, canvas);
 }
+/**
+ * Start undo history from the loaded state and check for an autosave.
+ *
+ * @returns {void}
+ */
 function initHistory() {
   _history.past = []; _history.future = [];
   _history.last = snapshotState();
@@ -1627,12 +2274,25 @@ function initHistory() {
   updateUndoButtons();
   maybeOfferRestore(_history.last);
 }
+/**
+ * Tell whether keyboard focus is inside a TipTap editor.
+ *
+ * @returns {boolean} True when typing goes to a text editor (its own undo applies).
+ */
 function _inTextEditor() {
   const a = document.activeElement;
   return !!(a && (a.classList?.contains('ProseMirror') || a.closest?.('.ProseMirror')));
 }
 
 // ── Main ──────────────────────────────────────────────────
+/**
+ * Entry point: build the toolbar and page tabs, load the saved layout (or the
+ * HTML fallback, or an empty heading and text block), then wire history,
+ * keyboard shortcuts (undo/redo, Delete, Ctrl+Shift+S), image paste, the preview
+ * button and the update form.
+ *
+ * @returns {void}
+ */
 function main() {
   const canvas = document.getElementById('block-canvas');
   if (!canvas) return;
