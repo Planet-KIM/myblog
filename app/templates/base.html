@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- FOUC 방지: 스타일이 칠해지기 전에 저장된/OS 테마를 즉시 반영 (라이트 유저의 다크 깜빡임 제거) -->
   <script>
+    /* conventions: allow (critical head script: apply the theme before first paint) */
     (function () {
       try {
         var t = localStorage.getItem('theme');
@@ -74,6 +75,8 @@
   <link rel="stylesheet" href="{{ url_for('static', path='css/theme.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='css/components.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', path='css/mobile.css') }}">
+  {# Blocking on purpose (no defer): must listen before the first <img> is parsed. #}
+  <script src="{{ url_for('static', path='js/image-fallback.js') }}"></script>
   {% block extra_head %}{% endblock %}
 </head>
 
@@ -175,28 +178,10 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', path='js/confirm-submit.js') }}"></script>
   <script src="{{ url_for('static', path='js/app.js') }}"></script>
   {% if current_user %}
-  <script>
-    (function () {
-      var badge = document.getElementById('notif-badge');
-      if (!badge) return;
-      function refresh() {
-        if (document.hidden) return;
-        fetch('/api/notifications/unread_count', { credentials: 'same-origin' })
-          .then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (d) {
-            if (!d) return;
-            if (d.count > 0) { badge.textContent = d.count > 99 ? '99+' : d.count; badge.hidden = false; }
-            else { badge.hidden = true; }
-          })
-          .catch(function () {});
-      }
-      refresh();
-      setInterval(refresh, 45000);                               // 주기 폴링
-      document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
-    })();
-  </script>
+  <script src="{{ url_for('static', path='js/notif-badge.js') }}"></script>
   {% endif %}
   {% block extra_scripts %}{% endblock %}
 </body>

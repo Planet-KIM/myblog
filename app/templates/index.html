@@ -4,7 +4,7 @@
   Context: featured_posts, featured_bloggers, posts (+ card_sizes), board_posts,
   ordered_categories, category_counts, recommended_blogs, popular_tags, today,
   blogger_count, visible_post_total, selected_feed/sort/category_id, search_query.
-  Assets: static/css/home.css, static/js/image-fallback.js, static/js/home.js
+  Assets: static/css/home.css, static/js/home.js (image fallbacks come from base.html)
 #}
 {% extends "base.html" %}
 {% block title %}Planet KIM — 홈{% endblock %}
@@ -12,8 +12,6 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/home.css') }}">
-{# Blocking on purpose (no defer): must listen before the first <img> is parsed. #}
-<script src="{{ url_for('static', path='js/image-fallback.js') }}"></script>
 {% endblock %}
 
 {% block content %}
