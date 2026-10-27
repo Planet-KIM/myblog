@@ -6,7 +6,7 @@
   banner, related posts, comments and prev/next navigation.
   Context: post, current_user, stats, prev_post, next_post, comments,
   author_other_posts, related_posts, series_label, series_slug (+ SEO meta).
-  Assets: static/css/board_detail_magazine.css, static/js/board_detail.js
+  Assets: css/mag-overlay.css (text on photos, shared editor/post page), static/css/board_detail_magazine.css, static/js/board_detail.js
           (shared with the Markdown page), static/js/board_detail_magazine.js
           (viewer, layout-template prompt), static/css/bilingual.css +
           static/js/bilingual.js ({{ko||en}} text and the language switch; context
@@ -19,7 +19,8 @@
 {% block title %}{{ post.title or 'Story' }}{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/mag-overlay.css') }}?v={{ asset_ver('css/mag-overlay.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}?v={{ asset_ver('css/tiptap-editor.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/writer-journey.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/markdown-rendering.css') }}">
 <!-- Highlight.js — 구문 색은 markdown-rendering.css 가 정의 -->

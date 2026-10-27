@@ -161,6 +161,18 @@ main.container {
 .mag-reader .reader-block img { margin: 0.4rem 0; border-radius: var(--radius-md); }
 .mag-reader .reader-page-sep { height: 1px; background: var(--border); margin: 2.2rem 0; }
 
+/* 읽기 모드의 사진 + 그 위 글씨: 페이지 크기 캔버스를 칼럼 폭에 맞게 축소 (JS scaleReaderOverlays) */
+.mag-reader .reader-overlay { position: relative; overflow: hidden; border-radius: var(--radius-md); }
+.mag-reader .reader-overlay > .reader-overlay-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--mag-cw);
+  height: var(--mag-ch);
+  transform-origin: top left;
+}
+.mag-reader .reader-overlay img { margin: 0; border-radius: 0; }
+
 /* 리더 블록 (JS가 만든 마크업, 예전 인라인 style 속성). 글자 크기는 블록 폭에서 계산해 --reader-fs 로 넘긴다. */
 .mag-reader .reader-img { width: 100%; height: auto; display: block; }
 .mag-reader .reader-spacer { height: 1rem; }

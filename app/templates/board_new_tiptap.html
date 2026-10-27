@@ -2,7 +2,7 @@
   board_new_tiptap.html: new post in the magazine (TipTap, free-position block) editor, full screen.
   Context: categories (list[BoardCategory]), normal_category_id (int), draft_id (str, UUID),
            tags_value (str), popular_tags (list[Tag], for _tag_suggestions.html).
-  Assets: css/tiptap-editor.css, css/editor_fullscreen.css, css/tiptap_editor_page.css,
+  Assets: css/mag-overlay.css (text on photos, shared editor/post page), css/tiptap-editor.css, css/editor_fullscreen.css, css/tiptap_editor_page.css,
           js/editor_draft_id.js (window.DRAFT_ID), js/tiptap_word_count.js,
           editor/board_new_tiptap.js (the editor bundle; builds the toolbar buttons, canvas and tabs,
           and drives the [data-page-zoom-toggle] button in the bottom bar).
@@ -12,7 +12,8 @@
 {% block title %}새 글 쓰기 · 매거진{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/mag-overlay.css') }}?v={{ asset_ver('css/mag-overlay.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}?v={{ asset_ver('css/tiptap-editor.css') }}">
 
 <link rel="stylesheet" href="{{ url_for('static', path='css/editor_fullscreen.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/tiptap_editor_page.css') }}">

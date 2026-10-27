@@ -3,7 +3,8 @@
  * built from the post's content blocks (with a linear reading mode for small
  * screens and print, and view options for two-page spreads and full width that
  * are remembered in this browser; showing bilingual text in both languages
- * switches to the reading mode), the name prompt of the "save as layout
+ * switches to the reading mode; photos keep their overlay text and the text
+ * blocks laid on them, also in the reading mode), the name prompt of the "save as layout
  * template" form, and hiding a duplicated title in HTML-bodied posts. The
  * action bar, scroll progress and recent-posts history are shared with the
  * Markdown page in board_detail.js.
@@ -31,6 +32,85 @@
     let data;
     try { data = JSON.parse(raw.textContent); } catch { return; }
 
+    /**
+     * Markup of one block, positioned in percent of its parent canvas.
+     *
+     * @param {Object} b - Block from content_blocks.
+     * @param {number} x - Left edge, % of the canvas width.
+     * @param {number} y - Top edge, % of the canvas height.
+     * @param {number} w - Width, % of the canvas width.
+     * @param {number} h - Height, % of the canvas height.
+     * @returns {string} A .mag-block element (photos carry their overlay text).
+     */
+    function blockHTML(b, x, y, w, h) {
+      const br = b.showBorder ? (b.borderRadius >= 9999 ? '9999px' : `${b.borderRadius ?? 0}px`) : '';
+      const border = b.showBorder ? `--mag-bw:${b.borderWidth ?? 1}px;--mag-bc:${b.borderColor ?? '#000000'};--mag-br:${br};` : '';
+      const cls = 'mag-block' + (b.showBorder ? ' mag-block-bordered' : '');
+      const s = `--mag-x:${x.toFixed(3)}%;--mag-y:${y.toFixed(3)}%;--mag-w:${w.toFixed(3)}%;--mag-h:${h.toFixed(3)}%;${border}`;
+      if (b.type === 'image' && b.src) {
+        const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
+        const fc = b.imgFilter && b.imgFilter !== 'none' ? ` mag-filter-${b.imgFilter}` : '';
+        return `<div class="${cls}" style="${s}"><img class="mag-block-img${fc}" src="${b.src}" style="--mag-ox:${ox}%;--mag-oy:${oy}%;">${overlayHTML(b)}</div>`;
+      }
+      if (b.type === 'spacer') return `<div class="${cls}" style="${s}"></div>`;
+      return `<div class="${cls}${b.dropCap ? ' mag-dropcap' : ''}" style="${s}">${b.content || ''}</div>`;
+    }
+
+    /**
+     * Overlay text of a photo block (see static/css/mag-overlay.css).
+     * Position and tone are limited to the known values.
+     *
+     * @param {Object} b - Image block.
+     * @returns {string} The .mag-overlay element, or '' when the photo has none.
+     */
+    function overlayHTML(b) {
+      if (!b.overlay) return '';
+      const pos = OVERLAY_POSITIONS.includes(b.overlayPos) ? b.overlayPos : 'bottom';
+      const tone = OVERLAY_TONES.includes(b.overlayTone) ? b.overlayTone : 'band-dark';
+      return `<div class="mag-overlay mag-overlay--${pos} mag-overlay--${tone}">${b.overlay}</div>`;
+    }
+
+    /**
+     * Find the text blocks laid on top of a photo: a text or heading block whose
+     * centre lies inside a photo drawn before it (pages draw later blocks on top).
+     *
+     * @param {Array<Object>} blocks - One page's blocks, in drawing order.
+     * @returns {Map<Object, Array<Object>>} Photo block -> the text blocks on it.
+     */
+    function photoRiders(blocks) {
+      const riders = new Map();
+      blocks.forEach((t, ti) => {
+        if ((t.type !== 'text' && t.type !== 'heading') || !t.content) return;
+        const cx = t.x + t.w / 2, cy = t.y + t.h / 2;
+        for (let i = ti - 1; i >= 0; i--) {
+          const p = blocks[i];
+          if (p.type === 'image' && p.src && cx >= p.x && cx <= p.x + p.w && cy >= p.y && cy <= p.y + p.h) {
+            riders.set(p, [...(riders.get(p) || []), t]);
+            break;
+          }
+        }
+      });
+      return riders;
+    }
+
+    /**
+     * A photo for the reader with its overlay text and the text blocks on it,
+     * laid out on a canvas of the photo's page size (scaled to fit later).
+     *
+     * @param {Object} photo - Image block.
+     * @param {Array<Object>} riders - Text blocks on the photo, in drawing order.
+     * @returns {string} A .reader-overlay figure.
+     */
+    function overlayFigureHTML(photo, riders) {
+      const w = photo.w, h = photo.h;
+      let inner = blockHTML({ ...photo, showBorder: false }, 0, 0, 100, 100);
+      riders.forEach(t => {
+        inner += blockHTML(t, (t.x - photo.x) / w * 100, (t.y - photo.y) / h * 100, t.w / w * 100, t.h / h * 100);
+      });
+      return `<figure class="reader-block reader-overlay" data-w="${w}" data-h="${h}">`
+        + `<div class="reader-overlay-canvas magazine-layout" style="--mag-cw:${w}px;--mag-ch:${h}px;">${inner}</div></figure>`;
+    }
+
     let pages = [];
     if (data.v === 3 && Array.isArray(data.pages) && data.pages.length) {
       pages = data.pages;
@@ -53,23 +133,7 @@
       let html = `<div class="mag-fit" data-cw="${cw}" data-ch="${ch}">`;
       html += `<div class="magazine-layout" style="--mag-cw:${cw}px;--mag-ch:${ch}px;">`;
       (page.blocks || []).forEach(b => {
-        const L = (b.x / cw * 100).toFixed(3);
-        const T = (b.y / ch * 100).toFixed(3);
-        const W = (b.w / cw * 100).toFixed(3);
-        const H = (b.h / ch * 100).toFixed(3);
-        const br = b.showBorder ? (b.borderRadius >= 9999 ? '9999px' : `${b.borderRadius ?? 0}px`) : '';
-        const border = b.showBorder ? `--mag-bw:${b.borderWidth ?? 1}px;--mag-bc:${b.borderColor ?? '#000000'};--mag-br:${br};` : '';
-        const cls = 'mag-block' + (b.showBorder ? ' mag-block-bordered' : '');
-        const s = `--mag-x:${L}%;--mag-y:${T}%;--mag-w:${W}%;--mag-h:${H}%;${border}`;
-        if (b.type === 'image' && b.src) {
-          const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
-          const fc = b.imgFilter && b.imgFilter !== 'none' ? ` mag-filter-${b.imgFilter}` : '';
-          html += `<div class="${cls}" style="${s}"><img class="mag-block-img${fc}" src="${b.src}" style="--mag-ox:${ox}%;--mag-oy:${oy}%;"></div>`;
-        } else if (b.type === 'spacer') {
-          html += `<div class="${cls}" style="${s}"></div>`;
-        } else {
-          html += `<div class="${cls}${b.dropCap ? ' mag-dropcap' : ''}" style="${s}">${b.content || ''}</div>`;
-        }
+        html += blockHTML(b, b.x / cw * 100, b.y / ch * 100, b.w / cw * 100, b.h / ch * 100);
       });
       html += '</div></div>';
       return html;
@@ -78,7 +142,9 @@
     /**
      * Build the reader (linear reading mode): every page's blocks stacked
      * full width, top-to-bottom then left-to-right, with a font size estimated
-     * from each block's width (clamped to a readable range).
+     * from each block's width (clamped to a readable range). A photo keeps its
+     * overlay text and the text blocks laid on top of it (photoRiders()) as one
+     * figure, drawn at its page size and scaled by scaleReaderOverlays().
      *
      * @returns {string} HTML for the reader.
      */
@@ -87,9 +153,13 @@
       pages.forEach((page, pi) => {
         const cw = page.cw || 1200;
         if (pi > 0) html += '<div class="reader-page-sep" aria-hidden="true"></div>';
-        const blocks = (page.blocks || []).slice().sort((a, b) => (a.y - b.y) || (a.x - b.x));
+        const riders = photoRiders(page.blocks || []);
+        const onPhoto = new Set([...riders.values()].flat());
+        const blocks = (page.blocks || []).filter(b => !onPhoto.has(b)).sort((a, b) => (a.y - b.y) || (a.x - b.x));
         blocks.forEach(b => {
-          if (b.type === 'image' && b.src) {
+          if (b.type === 'image' && b.src && (b.overlay || riders.has(b))) {
+            html += overlayFigureHTML(b, riders.get(b) || []);
+          } else if (b.type === 'image' && b.src) {
             const fc = b.imgFilter && b.imgFilter !== 'none' ? ` mag-filter-${b.imgFilter}` : '';
             html += `<figure class="reader-block"><img class="reader-img${fc}" src="${b.src}" loading="lazy"></figure>`;
           } else if (b.type === 'spacer') {
@@ -367,6 +437,7 @@
       root.classList.toggle('full-on', fullPref);
       syncOptionToggles();
       scaleSlides();
+      scaleReaderOverlays();
     }
 
     prevBtn.addEventListener('click', () => goTo(current - 1, -1));
@@ -411,6 +482,27 @@
         fit.style.height = (ch * scale) + 'px'; // conventions: allow (scaled canvas height)
       });
     }
+    /**
+     * Scale each reader photo figure (photo + the text on it) from its page
+     * size to the reading column's width and size the figure to match. The
+     * photo's own overlay text is enlarged (--overlay-boost) so it never draws
+     * below READER_OVERLAY_MIN_SCALE of its page size; text blocks laid on the
+     * photo keep their exact scale because their boxes are fixed.
+     * Skipped while the reader is hidden (its width is 0).
+     *
+     * @returns {void}
+     */
+    function scaleReaderOverlays() {
+      reader.querySelectorAll('.reader-overlay').forEach(fig => {
+        const w = +fig.dataset.w, h = +fig.dataset.h, fw = fig.clientWidth;
+        if (!w || !fw) return;
+        const s = fw / w;
+        fig.querySelector('.reader-overlay-canvas').style.transform = `scale(${s})`; // conventions: allow (scale measured from the column width)
+        fig.style.height = (h * s) + 'px'; // conventions: allow (scaled figure height)
+        fig.style.setProperty('--overlay-boost', String(Math.max(1, READER_OVERLAY_MIN_SCALE / s))); // conventions: allow (CSS variable)
+      });
+    }
+
     applyLayout();
     let _rz;
     window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(applyLayout, 120); });
@@ -421,6 +513,11 @@
   const PREF_FULL = 'magViewer.full';
   const SPREAD_MIN_WIDTH = 900;  // px; narrower screens always show one page
   const FLIP_CLASSES = ['flip-out-left', 'flip-in-right', 'flip-out-right', 'flip-in-left'];
+  // 사진 위 글씨(덧글씨)의 위치·띠 — 에디터 frontend/plugins/imageOverlay.js 와 같은 값
+  const OVERLAY_POSITIONS = ['bottom', 'center', 'top'];
+  const OVERLAY_TONES = ['band-dark', 'band-light', 'plain'];
+  // 읽기 모드에서 사진 위 덧글씨가 페이지 크기 대비 이보다 작게 그려지지 않게 한다
+  const READER_OVERLAY_MIN_SCALE = 0.75;
 
   /**
    * Read a saved viewer preference.

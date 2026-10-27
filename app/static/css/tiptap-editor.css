@@ -126,6 +126,13 @@
   border-color: var(--border-dark);
 }
 
+/* 글·제목 블록은 배경 없이: 사진 위에 겹쳐도 아래가 보이게 (발행본과 같은 모습) */
+.fb--text,
+.fb--heading {
+  background: transparent;
+  box-shadow: none;
+}
+
 .fb.selected {
   border-color: var(--primary);
   box-shadow: var(--shadow-glow), var(--shadow-md);
@@ -296,6 +303,17 @@
 }
 .fb-body-image:hover .fb-pan-hint {
   opacity: 1;
+}
+
+/* 사진 위 글씨(덧글씨) 편집기: 모양은 mag-overlay.css, 여기선 편집 동작만 (plugins/imageOverlay.js) */
+.fb-overlay { cursor: text; }
+.fb-overlay .tiptap { outline: none; min-height: 1.5em; }
+.fb-overlay .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 /* ── Page tab bar ────────────────────────────────────────── */

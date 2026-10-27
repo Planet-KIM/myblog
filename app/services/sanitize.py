@@ -119,14 +119,31 @@ def _safe_url(src: str | None) -> str:
     return ""
 
 
+_OVERLAY_POSITIONS = ("bottom", "center", "top")
+_OVERLAY_TONES = ("band-dark", "band-light", "plain")
+
+
 def _sanitize_block(block: dict) -> None:
-    """content_blocks 내 단일 블록을 제자리(in-place)에서 정제."""
-    content = block.get("content")
-    if isinstance(content, str):
-        block["content"] = sanitize_html(content)
+    """Sanitize one content_blocks block in place.
+
+    The HTML fields (``content`` and a photo's ``overlay`` text) are cleaned,
+    ``src`` must be a safe URL, and the overlay's position and tone (used as
+    class names on the post page) are limited to the known values.
+
+    Args:
+        block: One block dict from content_blocks.
+    """
+    for key in ("content", "overlay"):
+        value = block.get(key)
+        if isinstance(value, str):
+            block[key] = sanitize_html(value)
     src = block.get("src")
     if isinstance(src, str):
         block["src"] = _safe_url(src)
+    if "overlayPos" in block and block["overlayPos"] not in _OVERLAY_POSITIONS:
+        block["overlayPos"] = "bottom"
+    if "overlayTone" in block and block["overlayTone"] not in _OVERLAY_TONES:
+        block["overlayTone"] = "band-dark"
 
 
 def sanitize_content_blocks(raw: str | None) -> str:

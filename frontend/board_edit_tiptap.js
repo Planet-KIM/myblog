@@ -20,7 +20,8 @@ import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
 import { magazineHtmlExtensions, stripPastedBlockStyles } from './plugins/tiptapMagazineHtml.js';
-import { applyPageWidth, pageHeight, canvasScale, initPageZoom } from './plugins/pageCanvas.js';
+import { applyPageWidth, pageHeight, canvasScale, initPageZoom, moveBlock, restack } from './plugins/pageCanvas.js';
+import { initImageOverlay, syncOverlay, destroyOverlay, overlayMarkup } from './plugins/imageOverlay.js';
 
 // ── Upload ────────────────────────────────────────────────
 /**
@@ -57,8 +58,7 @@ const _scSplitActive = new Set(); // block ids with spell-preview panel open
 /**
  * Return a new unique id ("b1", "b2", …) for a block or page.
  *
- * The same counter also feeds "bring to front" z-indexes, so ids and z-order
- * values never repeat.
+ * Ids never repeat within an editing session.
  *
  * @returns {string} Fresh id.
  */
@@ -276,7 +276,7 @@ function updateCanvasHeight() {
  * @returns {void}
  */
 function syncCurrentPage() {
-  blocks.forEach(b => { if (b.editor) b.content = b.editor.getHTML(); });
+  blocks.forEach(b => { if (b.editor) b.content = b.editor.getHTML(); syncOverlay(b); });
   const cW = canvasW();
   const cH = pageHeight(blocks, pages[currentPageIdx].openedCh);
   pages[currentPageIdx].cw = cW;
@@ -291,7 +291,7 @@ function syncCurrentPage() {
  * @returns {void}
  */
 function clearCanvas() {
-  blocks.forEach(b => { if (b.editor) { b.editor.destroy(); b.editor = null; } });
+  blocks.forEach(b => { if (b.editor) { b.editor.destroy(); b.editor = null; } destroyOverlay(b); });
   document.querySelectorAll('#block-canvas .fb').forEach(el => el.remove());
   document.getElementById('block-canvas').style.minHeight = '600px'; // conventions: allow (resets the runtime min-height kept by updateCanvasHeight)
   selectedId = null;
@@ -413,6 +413,9 @@ function addBlock(type, opts = {}) {
     borderColor: opts.borderColor ?? '#000000',
     borderWidth: opts.borderWidth ?? 1,
     borderRadius: opts.borderRadius ?? 0,
+    overlay: opts.overlay ?? '',
+    overlayPos: opts.overlayPos ?? 'bottom',
+    overlayTone: opts.overlayTone ?? 'band-dark',
     editor: null,
   };
   blocks.push(block);
@@ -443,6 +446,7 @@ function removeBlock(id) {
   if (idx === -1) return;
   const b = blocks[idx];
   if (b.editor) b.editor.destroy();
+  destroyOverlay(b);
   _scSplitActive.delete(id);
   document.querySelector(`[data-bid="${id}"]`)?.remove();
   blocks.splice(idx, 1);
@@ -489,8 +493,9 @@ function fitBlockToImage(block, imgEl) {
 function renderBlock(block) {
   const canvas = document.getElementById('block-canvas');
   const el = document.createElement('div');
-  el.className = 'fb'; el.dataset.bid = block.id;
+  el.className = `fb fb--${block.type}`; el.dataset.bid = block.id;
   applyPos(el, block);
+  el.style.zIndex = String(2 + Math.max(0, blocks.indexOf(block))); // conventions: allow (draw order = saved block order)
 
   const hdr = document.createElement('div');
   hdr.className = 'fb-hdr';
@@ -667,6 +672,7 @@ function renderBlock(block) {
       const hint = document.createElement('div');
       hint.className = 'fb-pan-hint'; hint.textContent = '✥ drag to pan';
       body.appendChild(hint);
+      initImageOverlay({ hdr, body, block, mkBtn, createEditor });
     } else { body.appendChild(buildDropZone(block)); }
     el.appendChild(body); canvas.appendChild(el);
   } else if (block.type === 'spacer') {
@@ -824,19 +830,20 @@ function selectBlock(id) {
 }
 
 /**
- * Raise a block above the others with a fresh, higher z-index.
+ * Bring a block in front of the others: it moves to the end of the page's
+ * block list, the order pages are drawn and saved in.
  *
  * @param {string} id - Block id.
  * @returns {void}
  */
-function bringFront(id) { const el = document.querySelector(`[data-bid="${id}"]`); if (el) el.style.zIndex = String(++idCounter); } // conventions: allow (stacking order chosen by the user)
+function bringFront(id) { moveBlock(blocks, id, 'front'); restack(blocks); }
 /**
- * Send a block behind the others (z-index 1).
+ * Send a block behind the others: it moves to the start of the page's block list.
  *
  * @param {string} id - Block id.
  * @returns {void}
  */
-function sendBack(id)   { const el = document.querySelector(`[data-bid="${id}"]`); if (el) el.style.zIndex = '1'; } // conventions: allow (stacking order chosen by the user)
+function sendBack(id) { moveBlock(blocks, id, 'back'); restack(blocks); }
 
 /**
  * Create a small block-header button.
@@ -1213,7 +1220,7 @@ function buildPreviewSlide(page) {
     if (b.type === 'image' && b.src) {
       const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
       const fc = b.imgFilter && b.imgFilter !== 'none' ? ` class="mag-filter-${b.imgFilter}"` : '';
-      html += `<div style="${s}"><img${fc} src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
+      html += `<div style="${s}"><img${fc} src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;">${overlayMarkup(b)}</div>`;
     } else if (b.type === 'spacer') {
       html += `<div style="${s}"></div>`;
     } else {
@@ -1324,6 +1331,7 @@ function collectData() {
         content: b.content || '', src: b.src || '',
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
         imgFilter: b.imgFilter || 'none',
+        overlay: b.overlay || '', overlayPos: b.overlayPos || 'bottom', overlayTone: b.overlayTone || 'band-dark',
         tlText: b.tlText || '',
         tlDir: b.tlDir || 'v',
         mapText: b.mapText || '',
@@ -1356,7 +1364,7 @@ function collectData() {
       if (b.type === 'image' && b.src) {
         const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
         const fc = b.imgFilter && b.imgFilter !== 'none' ? ` class="mag-filter-${b.imgFilter}"` : '';
-        html += `<div style="${s}"><img${fc} src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;"></div>`;
+        html += `<div style="${s}"><img${fc} src="${b.src}" style="width:100%;height:100%;object-fit:cover;object-position:${ox}% ${oy}%;display:block;">${overlayMarkup(b)}</div>`;
       } else if (b.type === 'spacer') {
         html += `<div style="${s}"></div>`;
       } else {
@@ -2073,6 +2081,7 @@ function loadSavedData(raw) {
           content: b.content || '', src: b.src || '',
           imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
           imgFilter: b.imgFilter || 'none', tlText: b.tlText || '', tlDir: b.tlDir || 'v', mapText: b.mapText || '', dropCap: b.dropCap || false,
+          overlay: b.overlay || '', overlayPos: b.overlayPos, overlayTone: b.overlayTone,
           showBorder: b.showBorder ?? false,
           borderColor: b.borderColor ?? '#000000',
           borderWidth: b.borderWidth ?? 1,
@@ -2147,6 +2156,7 @@ function snapshotState() {
         content: (b.editor ? b.editor.getHTML() : b.content) || '', src: b.src || '',
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
         imgFilter: b.imgFilter || 'none',
+        overlay: b.overlay || '', overlayPos: b.overlayPos || 'bottom', overlayTone: b.overlayTone || 'band-dark',
         tlText: b.tlText || '',
         tlDir: b.tlDir || 'v',
         mapText: b.mapText || '',
@@ -2173,7 +2183,7 @@ function _applySnapshot(json) {
   (data.pages || []).forEach(sp => {
     pages.push({
       id: sp.id || uid(), cw: sp.cw, ch: sp.ch, openedCh: openedChById.get(sp.id) || null,
-      blocks: (sp.blocks || []).map(b => ({ ...b, editor: null })),
+      blocks: (sp.blocks || []).map(b => ({ ...b, editor: null, overlayEditor: null })),
     });
   });
   if (!pages.length) pages.push({ id: uid(), blocks: [], cw: null, ch: null });

@@ -55,6 +55,38 @@ export function applyPageWidth(canvas, page) {
 }
 
 /**
+ * Move a block to the front (end of the list) or the back (start) of its page.
+ *
+ * Pages draw their blocks in list order, later ones on top, and the list
+ * order is what gets saved, so this is how a stacking change persists.
+ *
+ * @param {Array<Object>} blocks - The page's block list (changed in place).
+ * @param {string} id - Block id.
+ * @param {'front'|'back'} where - Where the block goes.
+ * @returns {void}
+ */
+export function moveBlock(blocks, id, where) {
+  const i = blocks.findIndex(b => b.id === id);
+  if (i < 0) return;
+  const [block] = blocks.splice(i, 1);
+  if (where === 'front') blocks.push(block); else blocks.unshift(block);
+}
+
+/**
+ * Stack the page's block elements in list order (z-index 2, 3, …), the way
+ * the post page draws them.
+ *
+ * @param {Array<Object>} blocks - The page's block list.
+ * @returns {void}
+ */
+export function restack(blocks) {
+  blocks.forEach((b, i) => {
+    const el = document.querySelector(`[data-bid="${b.id}"]`);
+    if (el) el.style.zIndex = String(2 + i); // conventions: allow (draw order = saved block order)
+  });
+}
+
+/**
  * Current on-screen scale of the canvas: 1 unless a wide page is zoomed out.
  *
  * Mouse positions are in screen px while block geometry is in page px, so the
