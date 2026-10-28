@@ -33,6 +33,7 @@ from app.services.sanitize import sanitize_html, sanitize_content_blocks
 from app.services.ratelimit import enforce
 from app.services.seo import post_jsonld, breadcrumb_jsonld, post_meta
 from app.services.bilingual import has_pairs, pick_language
+from app.services.reading_time import estimate_reading_minutes
 from app.services.recommendations import get_related_posts
 from app.config import settings
 from app.services.category_counts import (
@@ -1335,7 +1336,9 @@ def board_detail(
     template. The page gets sanitized content, comments, previous/next public
     posts of the same author, other posts by the author, related posts, the
     series link and SEO/Open Graph data (falling back to the generated
-    ``og.png`` when the post has no image).
+    ``og.png`` when the post has no image). The header's reading time counts
+    the body text only; a bilingual post also gets its English title and
+    English reading time for the language switch.
 
     Args:
         post_id: The post to show.
@@ -1391,12 +1394,17 @@ def board_detail(
     post.content_html_safe = sanitize_html(post.content_html)
     post.content_blocks_safe = sanitize_content_blocks(post.content_blocks)
 
-    # 이중 언어 글이면 제목의 영어 쪽 (머리말에서 언어 전환용)
-    title_en = None
+    # 읽기 시간: 본문 텍스트만, 이중 언어 글은 언어마다 따로 (머리말에서 언어 전환용)
+    body = post.content_html or post.content or ""
+    reading_minutes = estimate_reading_minutes(body)
+
+    # 이중 언어 글이면 제목·읽기 시간의 영어 쪽
+    title_en = reading_minutes_en = None
     if has_pairs(post.content_html) or has_pairs(post.content):
         title_en = derive_title(post.editor_type, post.content_html, post.content, "en")
         if title_en == post.title:
             title_en = None
+        reading_minutes_en = estimate_reading_minutes(body, "en")
 
     # 공유/SEO 메타
     meta_description = create_preview(post.content_html, post.content, 160)
@@ -1451,6 +1459,8 @@ def board_detail(
             "request": request,
             "post": post,
             "title_en": title_en,
+            "reading_minutes": reading_minutes,
+            "reading_minutes_en": reading_minutes_en,
             "current_user": current_user,
             "stats": stats,
             "prev_post": prev_post,

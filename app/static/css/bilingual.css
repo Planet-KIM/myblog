@@ -13,6 +13,9 @@
 :root:not([data-content-lang="en"]):not([data-content-lang="both"]) .bi-en { display: none; }
 :root[data-content-lang="en"] .bi-ko { display: none; }
 
+/* 머리말 읽기 시간(_bilingual.html reading_time): 함께일 때는 한국어 기준 하나만 */
+:root[data-content-lang="both"] .reading-time > .bi-en { display: none; }
+
 /* 함께 — 문장 속 단어 쌍은 어느 방식이든 괄호로: "가중치 (weights)" */
 :root[data-content-lang="both"] .bi-pair:not(.is-whole) > .bi-en::before { content: "\00a0("; }  /* 줄지 않는 공백 + 괄호 */
 :root[data-content-lang="both"] .bi-pair:not(.is-whole) > .bi-en::after { content: ")"; }

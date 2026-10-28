@@ -80,7 +80,7 @@ def build_weekly_digest(db, base_url: str, days: int = 7, limit: int = 5):
         ``subject`` (str), ``text`` (str), ``html`` (str) and ``posts`` (the
         ``BoardPost`` rows used).
     """
-    from app.routers.blog.router import markdown_to_plain
+    from app.services.plain_text import markdown_to_plain
 
     posts = top_weekly_posts(db, days=days, limit=limit)
     if not posts:

@@ -29,7 +29,8 @@ from app.database import get_db
 from app.auth_utils import get_current_user, get_current_user_optional
 from app.services.profile import validate_handle, validate_avatar_url, validate_accent_color
 from app.services.seo import website_jsonld, blog_jsonld
-from app.services.bilingual import pick_language
+from app.services.plain_text import markdown_to_plain
+from app.services.reading_time import estimate_reading_minutes
 from app.services.home_layout import (
     HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
     HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
@@ -225,41 +226,6 @@ def build_approved_api_catalog() -> List[Dict[str, str]]:
     ]
 
 
-def markdown_to_plain(text: str, max_len: int = 180) -> str:
-    """Markdown/HTML 혼합 본문에서 카드용 순수 텍스트 미리보기 생성."""
-    text = (text or "").strip()
-    if not text:
-        return ""
-
-    # 1) 이미지 문법은 미리 제거 (alt/url 노이즈 방지)
-    text = re.sub(r'!\[.*?\]\(.*?\)', ' ', text)
-
-    # 2) Markdown -> HTML 정규화
-    raw_html = markdown.markdown(text, extensions=['fenced_code', 'tables'])
-
-    # 3) 코드/스크립트/스타일 블록 제거 (카드 미리보기 노이즈 방지)
-    raw_html = re.sub(r'(?is)<(script|style)[^>]*>.*?</\1>', ' ', raw_html)
-    raw_html = re.sub(r'(?is)<pre[^>]*>.*?</pre>', ' ', raw_html)
-    raw_html = re.sub(r'(?is)<code[^>]*>.*?</code>', ' ', raw_html)
-    raw_html = pick_language(raw_html)  # 이중 언어 {{ko||en}} 은 한국어만
-
-    # 4) 태그 제거 -> 엔티티 복원 -> 잔재 태그 재제거
-    plain = re.sub(r'<[^>]+>', ' ', raw_html)
-    plain = html_module.unescape(plain)
-    plain = re.sub(r'<[^>\n]+>', ' ', plain)
-
-    # 5) 남아있는 꺾쇠 제거 (엔티티 복원 후 생긴 태그 조각 방어)
-    plain = plain.replace("<", " ").replace(">", " ")
-
-    # 6) 줄바꿈/연속 공백 정리
-    plain = re.sub(r'\s+', ' ', plain).strip()
-
-    # 7) 최대 길이 제한
-    if len(plain) > max_len:
-        plain = plain[:max_len] + '...'
-    return plain
-
-
 def extract_first_image(text: str):
     """
     본문에서 첫 번째 이미지 URL을 추출한다.
@@ -308,21 +274,6 @@ def extract_first_image(text: str):
         return html_module.unescape(bg_match.group(2).strip())
 
     return None
-
-
-def estimate_reading_minutes(text: str) -> int:
-    """Estimate the reading time of a post body.
-
-    Args:
-        text: Markdown or HTML body.
-
-    Returns:
-        Minutes at 350 non-whitespace characters per minute (counted on the
-        plain-text form, at most 10,000 characters), never less than 1.
-    """
-    plain = markdown_to_plain(text or "", max_len=10000)
-    char_count = len(re.sub(r"\s+", "", plain))
-    return max(1, round(char_count / 350))
 
 
 def count_toc_headings(text: str) -> int:

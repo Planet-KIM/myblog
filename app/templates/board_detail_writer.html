@@ -8,11 +8,11 @@
   Assets: static/css/board_detail_writer.css, static/js/board_detail.js (shared
           with the magazine page), static/js/board_detail_writer.js,
           static/css/bilingual.css + static/js/bilingual.js ({{ko||en}} text and the
-          language switch; context title_en); partials bring their own
-          (reading_enhancements.*, author_card.css).
+          language switch; context title_en, reading_minutes, reading_minutes_en);
+          partials bring their own (reading_enhancements.*, author_card.css).
 #}
 {% extends "base.html" %}
-{% from "_bilingual.html" import bilingual_title %}
+{% from "_bilingual.html" import bilingual_title, reading_time %}
 
 {% block title %}{{ post.title or 'Story' }}{% endblock %}
 
@@ -51,7 +51,7 @@
         {% endif %}
       </span>
       <time datetime="{{ post.created_at.strftime('%Y-%m-%d') }}">{{ post.created_at.strftime('%Y.%m.%d') }}</time>
-      <span>{{ [1, ((post.content or '').split()|length / 200)|round|int]|max }}분 읽기</span>
+      {{ reading_time(reading_minutes, reading_minutes_en) }}
       <span>조회 {{ stats.views if stats else 0 }}</span>
       {% if post.is_private %}
       <span class="byline-private"><i class="bi bi-lock"></i> 비공개</span>
