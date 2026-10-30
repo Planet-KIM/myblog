@@ -3,7 +3,8 @@
  * (templates/board_new_clean.html).
  *
  * Adds image upload (picker, paste, drop) under the current draft, a floating
- * text-colour toolbar for selections, and fills the publish form with the
+ * text-colour toolbar for selections, 글 연결 (post cards, plugins/postCardLine.js),
+ * and fills the publish form with the
  * editor HTML. Built by Vite into static/editor/board_new.js; the toolbar's
  * looks live in static/css/writing-enhanced.css.
  */
@@ -14,6 +15,7 @@ import { Crepe } from '@milkdown/crepe';
 import { insert, getHTML } from '@milkdown/utils';
 import { editorViewCtx } from '@milkdown/core';
 import { textColorPlugin } from './plugins/textColor.js';
+import { postCardLinePlugin, initPostLinkButton } from './plugins/postCardLine.js';
 
 // ── 이미지 업로드 ──────────────────────────────────────────
 /**
@@ -231,9 +233,10 @@ function positionToolbar(toolbar) {
 
 // ── 메인 ──────────────────────────────────────────────────
 /**
- * Entry point: create the Crepe (Milkdown) editor with image upload and the
- * text-colour plugin, then wire the colour toolbar, image paste/drop and the
- * publish form (the editor HTML goes into #content and #content_html).
+ * Entry point: create the Crepe (Milkdown) editor with image upload, the
+ * text-colour plugin and the post-card line marks, then wire the 글 연결 button,
+ * the colour toolbar, image paste/drop and the publish form (the editor HTML
+ * goes into #content and #content_html).
  *
  * @returns {Promise<void>} Resolves once the editor is ready and wired.
  */
@@ -252,9 +255,11 @@ async function main() {
 
   // 텍스트 색상 플러그인 등록 (create() 전에!)
   crepe.editor.use(textColorPlugin);
+  crepe.editor.use(postCardLinePlugin);
 
   await crepe.create();
   const editor = crepe.editor;
+  initPostLinkButton(editor);
 
   // 플로팅 색상 툴바 생성
   const colorToolbar = createColorToolbar(editor);

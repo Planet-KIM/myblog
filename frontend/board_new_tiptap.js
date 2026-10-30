@@ -25,6 +25,7 @@ import Image from '@tiptap/extension-image';
 import { magazineHtmlExtensions, stripPastedBlockStyles } from './plugins/tiptapMagazineHtml.js';
 import { applyPageWidth, pageHeight, canvasScale, initPageZoom, moveBlock, restack } from './plugins/pageCanvas.js';
 import { initImageOverlay, syncOverlay, destroyOverlay, overlayMarkup } from './plugins/imageOverlay.js';
+import { pickPostCard, renderPostCardBody } from './plugins/postCardBlock.js';
 
 // ── Upload ────────────────────────────────────────────────
 /**
@@ -423,6 +424,7 @@ function addBlock(type, opts = {}) {
     overlay: opts.overlay ?? '',
     overlayPos: opts.overlayPos ?? 'bottom',
     overlayTone: opts.overlayTone ?? 'band-dark',
+    postId: opts.postId ?? null,
     editor: null,
   };
   blocks.push(block);
@@ -492,8 +494,8 @@ function fitBlockToImage(block, imgEl) {
  *
  * Builds the drag header (type label, z-order, border controls and the
  * type-specific buttons), the body for the block type (TipTap editor, image or
- * drop zone, spacer, timeline or map with its source textarea) and the resize
- * handles, then applies the saved border and image filter.
+ * drop zone, spacer, timeline or map with its source textarea, or a post
+ * card) and the resize handles, then applies the saved border and image filter.
  *
  * @param {Object} block - Block record from `pages`.
  * @returns {void}
@@ -745,6 +747,10 @@ function renderBlock(block) {
     });
     body.appendChild(render);
     body.appendChild(ta);
+    el.appendChild(body);
+    canvas.appendChild(el);
+  } else if (block.type === 'postcard') {
+    renderPostCardBody(body, block);
     el.appendChild(body);
     canvas.appendChild(el);
   }
@@ -1245,7 +1251,7 @@ function collectData() {
         content: b.content || '', src: b.src || '',
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
         imgFilter: b.imgFilter || 'none',
-        overlay: b.overlay || '', overlayPos: b.overlayPos || 'bottom', overlayTone: b.overlayTone || 'band-dark',
+        overlay: b.overlay || '', overlayPos: b.overlayPos || 'bottom', overlayTone: b.overlayTone || 'band-dark', postId: b.postId ?? null,
         tlText: b.tlText || '',
         tlDir: b.tlDir || 'v',
         mapText: b.mapText || '',
@@ -2113,6 +2119,7 @@ function buildToolbar() {
     { icon: '<i class="bi bi-card-text"></i>', tip: '캡션 (Caption)', fn: () => addBlock('text', { content: '<p><span style="font-size:14px;color:#8a7c6d">사진 캡션을 입력하세요</span></p>', h: 40 }) },
     { icon: '<i class="bi bi-signpost-2"></i>', tip: '타임라인 (여행 일정)', fn: () => { const s = '# 첫째 날\n왕궁:09:00\n점심:12:30\n카페:15:00\n호텔 복귀:22:00'; addBlock('timeline', { tlText: s, content: renderTimelineHTML(s), w: 460, h: 340 }); } },
     { icon: '<i class="bi bi-geo-alt"></i>', tip: '지도 (여행 장소)', fn: () => { const s = '왕궁@13.7500,100.4914\n왓 포@13.7465,100.4927\n왓 아룬@13.7437,100.4889'; addBlock('map', { mapText: s, content: renderMapHTML(s), w: 520, h: 380 }); } },
+    { icon: '<i class="bi bi-link-45deg"></i>', tip: '글 카드 (다른 글 연결)', fn: () => pickPostCard(addBlock) },
     { icon: '<i class="bi bi-arrows-expand"></i>', tip: 'Spacer', fn: () => addBlock('spacer', { h: 60 }) },
     { icon: '<span style="font-size:0.72rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>', tip: '맞춤법 검사 (Ctrl+Shift+S)', fn: () => triggerSpellCheck(), wide: true },
   ].forEach(({ icon, tip, fn, wide, id }) => {
@@ -2148,7 +2155,7 @@ function snapshotState() {
         content: (b.editor ? b.editor.getHTML() : b.content) || '', src: b.src || '',
         imgOffsetX: b.imgOffsetX ?? 50, imgOffsetY: b.imgOffsetY ?? 50,
         imgFilter: b.imgFilter || 'none',
-        overlay: b.overlay || '', overlayPos: b.overlayPos || 'bottom', overlayTone: b.overlayTone || 'band-dark',
+        overlay: b.overlay || '', overlayPos: b.overlayPos || 'bottom', overlayTone: b.overlayTone || 'band-dark', postId: b.postId ?? null,
         tlText: b.tlText || '',
         tlDir: b.tlDir || 'v',
         mapText: b.mapText || '',

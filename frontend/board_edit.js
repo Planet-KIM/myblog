@@ -3,8 +3,8 @@
  * post (templates/board_edit.html).
  *
  * Loads the saved HTML, adds image upload (picker, paste, drop) under the post,
- * a floating text-colour toolbar for selections, and fills the update form with
- * the editor HTML. Built by Vite into static/editor/board_edit.js; the
+ * a floating text-colour toolbar for selections, 글 연결 (post cards,
+ * plugins/postCardLine.js), and fills the update form with the editor HTML. Built by Vite into static/editor/board_edit.js; the
  * toolbar's looks live in static/css/writing-enhanced.css.
  */
 import '@milkdown/crepe/theme/common/style.css';
@@ -15,6 +15,7 @@ import { insert, getHTML } from '@milkdown/utils';
 import { editorViewCtx } from '@milkdown/core';
 import { DOMParser as ProseDOMParser } from 'prosemirror-model';
 import { textColorPlugin } from './plugins/textColor.js';
+import { postCardLinePlugin, initPostLinkButton } from './plugins/postCardLine.js';
 
 // ── 이미지 업로드 ──────────────────────────────────────────
 /**
@@ -172,10 +173,10 @@ function positionToolbar(toolbar) {
 
 // ── 메인 ──────────────────────────────────────────────────
 /**
- * Entry point: create the Crepe (Milkdown) editor, load the post's saved HTML
- * (#initial-content) with colour marks intact, then wire the colour toolbar,
- * image paste/drop and the update form (the editor HTML goes into #content and
- * #content_html).
+ * Entry point: create the Crepe (Milkdown) editor (with the post-card line
+ * marks), load the post's saved HTML (#initial-content) with colour marks intact,
+ * then wire the 글 연결 button, the colour toolbar, image paste/drop and the
+ * update form (the editor HTML goes into #content and #content_html).
  *
  * @returns {Promise<void>} Resolves once the editor is ready and wired.
  */
@@ -207,8 +208,10 @@ async function main() {
   });
 
   crepe.editor.use(textColorPlugin);
+  crepe.editor.use(postCardLinePlugin);
   await crepe.create();
   const editor = crepe.editor;
+  initPostLinkButton(editor, postId);
 
   // HTML 을 ProseMirror DOMParser 로 로드 (색상 marks 포함)
   if (initialHtml) {

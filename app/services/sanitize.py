@@ -104,8 +104,17 @@ def sanitize_html(html: str | None) -> str:
     )
 
 
-def _safe_url(src: str | None) -> str:
-    """이미지 등 URL 값 검증. 안전하지 않으면 빈 문자열 반환."""
+def safe_url(src: str | None) -> str:
+    """Check a URL taken from user content (an image source, a link).
+
+    Args:
+        src: The URL. ``None`` is treated as empty.
+
+    Returns:
+        The URL stripped of surrounding spaces when it is a site path or an
+        http(s)/mailto/tel URL without quote, angle-bracket or space
+        characters; otherwise an empty string.
+    """
     if not src:
         return ""
     s = src.strip()
@@ -127,8 +136,9 @@ def _sanitize_block(block: dict) -> None:
     """Sanitize one content_blocks block in place.
 
     The HTML fields (``content`` and a photo's ``overlay`` text) are cleaned,
-    ``src`` must be a safe URL, and the overlay's position and tone (used as
-    class names on the post page) are limited to the known values.
+    ``src`` must be a safe URL, the overlay's position and tone (used as
+    class names on the post page) are limited to the known values, and a post
+    card's ``postId`` must be an integer (else None).
 
     Args:
         block: One block dict from content_blocks.
@@ -139,11 +149,16 @@ def _sanitize_block(block: dict) -> None:
             block[key] = sanitize_html(value)
     src = block.get("src")
     if isinstance(src, str):
-        block["src"] = _safe_url(src)
+        block["src"] = safe_url(src)
     if "overlayPos" in block and block["overlayPos"] not in _OVERLAY_POSITIONS:
         block["overlayPos"] = "bottom"
     if "overlayTone" in block and block["overlayTone"] not in _OVERLAY_TONES:
         block["overlayTone"] = "band-dark"
+    if "postId" in block:
+        try:
+            block["postId"] = int(block["postId"])
+        except (TypeError, ValueError):
+            block["postId"] = None
 
 
 def sanitize_content_blocks(raw: str | None) -> str:

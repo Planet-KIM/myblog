@@ -3,16 +3,22 @@
   bilingual_title(ko, en): the post title; with an English title it renders the
     same .bi-pair markup static/js/bilingual.js makes in the body, so the
     language switch changes the title too.
-  reading_time(minutes, minutes_en): the header's "N분 읽기"; with an English
-    estimate it holds both (.reading-time > .bi-ko + .bi-en) and the switch
-    shows the one for the chosen language (함께: the Korean one).
-  Used by board_detail_writer.html and board_detail_magazine.html, which link
-  static/css/bilingual.css and static/js/bilingual.js.
+  one_language(ko, en): text that has a Korean and an English version but shows
+    only one (.bi-one > .bi-ko + .bi-en): the chosen language, and Korean under
+    함께. It is not a .bi-pair, so it never turns the language switch on by itself.
+  reading_time(minutes, minutes_en): the header's "N분 읽기", one_language when
+    there is an English estimate.
+  Used by board_detail_writer.html, board_detail_magazine.html and
+  _post_card.html; pages link static/css/bilingual.css and static/js/bilingual.js.
 #}
 {% macro bilingual_title(ko, en) -%}
 {% if en %}<span class="bi-pair is-whole"><span class="bi-ko" lang="ko">{{ ko }}</span><span class="bi-en" lang="en">{{ en }}</span></span>{% else %}{{ ko }}{% endif %}
 {%- endmacro %}
 
+{% macro one_language(ko, en) -%}
+{% if en %}<span class="bi-one"><span class="bi-ko" lang="ko">{{ ko }}</span><span class="bi-en" lang="en">{{ en }}</span></span>{% else %}{{ ko }}{% endif %}
+{%- endmacro %}
+
 {% macro reading_time(minutes, minutes_en) -%}
-{% if minutes_en %}<span class="reading-time"><span class="bi-ko">{{ minutes }}분 읽기</span><span class="bi-en">{{ minutes_en }}분 읽기</span></span>{% else %}<span>{{ minutes }}분 읽기</span>{% endif %}
+<span>{{ one_language(minutes ~ '분 읽기', minutes_en ~ '분 읽기' if minutes_en else none) }}</span>
 {%- endmacro %}

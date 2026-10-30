@@ -3,7 +3,7 @@
   Context: categories (list[BoardCategory]), normal_category_id (int), draft_id (str, UUID),
            tags_value (str), popular_tags (list[Tag], for _tag_suggestions.html).
   Assets: css/writing-enhanced.css, editor/index.css (Milkdown bundle CSS), css/editor_fullscreen.css,
-          js/editor_draft_id.js (window.DRAFT_ID), js/markdown_editor_page.js (width, theme, focus mode,
+          css/post-link.css (글 연결 dialog and card lines), js/editor_draft_id.js (window.DRAFT_ID), js/markdown_editor_page.js (width, theme, focus mode,
           character count, colours), editor/board_new.js (the editor bundle).
 -#}
 {% extends "base.html" %}
@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
 
 <link rel="stylesheet" href="{{ url_for('static', path='css/editor_fullscreen.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/post-link.css') }}?v={{ asset_ver('css/post-link.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -28,6 +29,11 @@
     </div>
 
     <div class="toolbar-right">
+      <!-- 글 연결: 다른 글을 카드로 넣는다 (editor/board_new.js, plugins/postCardLine.js) -->
+      <button type="button" class="clean-btn clean-btn-secondary" data-post-link title="다른 글을 카드로 연결"><i class="bi bi-link-45deg"></i>글 연결</button>
+
+      <div class="toolbar-divider"></div>
+
       <!-- Text color -->
       <div class="color-control">
         <label for="textColorPicker">글자</label>

@@ -5,6 +5,8 @@
  * heading or item; those also get a .bi-fold EN toggle) and sets on <html>:
  *   data-content-lang  "ko" | "en" | "both"
  *   data-both-style    "side" (나란히) | "stack" (아래에) | "fold" (펼쳐보기), used with "both"
+ * .bi-one > .bi-ko + .bi-en (templates/_bilingual.html one_language) shows one
+ * language only: the chosen one, Korean under "both".
  * Used by templates/board_detail_writer.html and board_detail_magazine.html.
  * Relies on theme tokens (--space-*, --fs-*, --btn-radius, --radius-*, colours).
  */
@@ -13,8 +15,8 @@
 :root:not([data-content-lang="en"]):not([data-content-lang="both"]) .bi-en { display: none; }
 :root[data-content-lang="en"] .bi-ko { display: none; }
 
-/* 머리말 읽기 시간(_bilingual.html reading_time): 함께일 때는 한국어 기준 하나만 */
-:root[data-content-lang="both"] .reading-time > .bi-en { display: none; }
+/* 한 언어만 보이는 글(_bilingual.html one_language: 읽기 시간, 글 카드): 함께일 때는 한국어 */
+:root[data-content-lang="both"] .bi-one > .bi-en { display: none; }
 
 /* 함께 — 문장 속 단어 쌍은 어느 방식이든 괄호로: "가중치 (weights)" */
 :root[data-content-lang="both"] .bi-pair:not(.is-whole) > .bi-en::before { content: "\00a0("; }  /* 줄지 않는 공백 + 괄호 */

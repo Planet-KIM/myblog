@@ -41,6 +41,7 @@ from app.services.newsletter import (
     verify_unsubscribe_token,
 )
 from app.services.recommendations import get_curated_home_recommendations
+from app.services.post_links import search_link_targets
 
 # 맞춤법 전용 스레드풀 (Celery 없이 직접 추론할 때 사용)
 _spellcheck_executor = ThreadPoolExecutor(max_workers=2)
@@ -714,6 +715,28 @@ async def get_post_engagement(
         "liked": liked,
         "bookmarked": bookmarked,
     }
+
+
+@router.get("/posts/link-targets")
+def post_link_targets(
+    q: str = "",
+    exclude: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Posts the writer can link to, for the editors' post picker (글 연결).
+
+    Args:
+        q: Search text (title or body), or a post URL; empty lists the
+            writer's own latest posts.
+        exclude: Post being edited, left out.
+        db: Database session.
+        current_user: The logged-in writer (401 otherwise).
+
+    Returns:
+        Up to 8 posts, newest first (see post_links.search_link_targets).
+    """
+    return search_link_targets(db, current_user, q, exclude_id=exclude)
 
 
 @router.post("/follow/category/{category_id}", response_model=FollowToggleResponse)

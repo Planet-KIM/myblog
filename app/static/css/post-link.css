@@ -1,0 +1,244 @@
+/**
+ * post-link.css: links between posts (글 연결).
+ * - .post-link > .post-link-card: card for a linked post (templates/_post_card.html)
+ *   in Markdown post bodies, magazine card blocks (pages and reading mode) and the
+ *   magazine editors; .is-unavailable when the reader cannot open the post.
+ * - .md-post-card-line: a card paragraph while writing in the Markdown editor
+ *   (frontend/plugins/postCardLine.js).
+ * - .post-picker: the "글 연결" dialog (frontend/plugins/postPicker.js).
+ * Used by board_detail_writer.html, board_detail_magazine.html, board_new_clean.html,
+ * board_edit.html, board_new_tiptap.html and board_edit_tiptap.html.
+ * Relies on theme tokens (--space-*, --fs-*, --radius-*, --border*, --surface*,
+ * --text-*, --primary, --font-*, --shadow-lg, --bg-overlay, --transition-fast).
+ * Selectors start at .post-link so they win over body link/image rules
+ * (.markdown-content a, .magazine-layout a, .markdown-content img).
+ */
+
+/* 카드: 1px 테두리, 그림자 없음. 호버는 테두리 색만 바뀐다 */
+.post-link { margin: 1.6em 0; }
+.post-link > .post-link-card {
+  display: flex;
+  align-items: stretch;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text-main);
+  text-decoration: none;
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+.post-link > a.post-link-card:hover,
+.post-link > a.post-link-card:focus-visible {
+  border-color: var(--primary);
+  color: var(--text-main);
+  text-decoration: none;
+}
+.post-link .plc-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-lg);
+}
+/* 자리가 모자라면 (작게 줄인 카드 블록) 미리보기만 줄어든다 */
+.post-link .plc-meta,
+.post-link .plc-title { flex-shrink: 0; }
+.post-link .plc-preview { min-height: 0; }
+.post-link .plc-meta {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.post-link .plc-title,
+.post-link .plc-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.post-link .plc-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+.post-link .plc-preview {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+/* 대표 사진: 오른쪽, 카드 높이에 맞춰 잘라 채운다 */
+.post-link .plc-thumb {
+  position: relative;
+  flex: 0 0 30%;
+  max-width: 200px;
+  border-left: 1px solid var(--border);
+  background: var(--surface-light);
+}
+.post-link .plc-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  border-radius: 0;
+  object-fit: cover;
+}
+
+/* 볼 수 없는 글: 점선 테두리, 흐린 글자 */
+.post-link > .post-link-card.is-unavailable {
+  border-style: dashed;
+  background: var(--surface-light);
+}
+.post-link .is-unavailable .plc-title { font-size: var(--fs-base); color: var(--text-muted); }
+
+/* 매거진: 카드 블록을 꽉 채운다 (페이지 보기, 읽기 모드, 에디터) */
+.mag-block > .post-link,
+.fb-body-postcard > .post-link,
+.reader-postcard > .post-link { margin: 0; }
+.mag-block > .post-link,
+.fb-body-postcard > .post-link { height: 100%; container-type: size; }
+/* 블록이 낮으면 미리보기를 한 줄로, 더 낮으면 빼서 줄 중간에서 잘리지 않게 한다
+   (여백 32 + 메타 18 + 제목 두 줄 49 + 간격 8 = 107px, 미리보기 한 줄 22px) */
+@container (max-height: 150px) {
+  .post-link .plc-preview { -webkit-line-clamp: 1; }
+}
+@container (max-height: 130px) {
+  .post-link .plc-preview { display: none; }
+}
+.mag-block > .post-link > .post-link-card,
+.fb-body-postcard > .post-link > .post-link-card { height: 100%; }
+.fb-body-postcard { height: 100%; }
+.fb-body-postcard .post-link-card { cursor: default; }
+.fb-postcard-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* 마크다운 에디터: 카드가 될 문단(링크 하나만 있는 줄)을 카드 모양으로 표시.
+   Milkdown 테마의 문단 여백보다 우선하도록 .ProseMirror 아래로 쓴다 */
+.ProseMirror p.md-post-card-line {
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.ProseMirror p.md-post-card-line a {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.ProseMirror p.md-post-card-line::before {
+  content: "글 카드";
+  display: block;
+  margin-bottom: var(--space-xs);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* 글 연결 대화상자: 떠 있는 요소라 그림자를 쓴다 */
+.post-picker {
+  width: min(560px, calc(100vw - 2 * var(--space-md)));
+  max-height: min(640px, calc(100vh - 2 * var(--space-xl)));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text-main);
+  box-shadow: var(--shadow-lg);
+}
+.post-picker::backdrop { background: var(--bg-overlay, rgba(248, 244, 238, 0.92)); }
+.post-picker-form { display: flex; flex-direction: column; max-height: inherit; }
+.post-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-light);
+}
+.post-picker-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.post-picker-close {
+  padding: var(--space-xs) var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.post-picker-close:hover { color: var(--text-primary); background: var(--surface-light); }
+.post-picker-search {
+  margin: var(--space-md) var(--space-lg) var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-md);
+  background: var(--bg-body);
+  color: var(--text-main);
+  font-size: var(--fs-base);
+}
+.post-picker-search:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+.post-picker-hint {
+  margin: 0 var(--space-lg) var(--space-sm);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.post-picker-list {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0 var(--space-sm) var(--space-sm);
+  overflow-y: auto;
+  list-style: none;
+}
+.post-picker-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.post-picker-item:hover,
+.post-picker-item[aria-selected="true"] { background: var(--surface-light); }
+.post-picker-item-title {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.post-picker-item-meta { display: block; font-size: var(--fs-xs); color: var(--text-muted); }
+.post-picker-empty {
+  padding: var(--space-lg);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media print {
+  .post-link > .post-link-card { break-inside: avoid; }
+}

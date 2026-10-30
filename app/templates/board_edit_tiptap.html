@@ -3,7 +3,7 @@
   Context: post (BoardPost; content_blocks_safe = saved layout JSON, else content_html/content as
            the HTML fallback), categories (list[BoardCategory]), normal_category_id (int),
            tags_value (str), popular_tags (list[Tag], for _tag_suggestions.html).
-  Assets: css/mag-overlay.css (text on photos, shared editor/post page), css/tiptap-editor.css, css/editor_fullscreen.css, css/tiptap_editor_page.css,
+  Assets: css/mag-overlay.css (text on photos, shared editor/post page), css/post-link.css (글 카드 blocks and the 글 연결 dialog), css/tiptap-editor.css, css/editor_fullscreen.css, css/tiptap_editor_page.css,
           js/tiptap_word_count.js, editor/board_edit_tiptap.js (the editor bundle; reads
           #initial-blocks / #initial-content and data-post-id on #block-canvas, and drives the
           [data-page-zoom-toggle] button in the bottom bar).
@@ -14,6 +14,7 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/mag-overlay.css') }}?v={{ asset_ver('css/mag-overlay.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/post-link.css') }}?v={{ asset_ver('css/post-link.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/tiptap-editor.css') }}?v={{ asset_ver('css/tiptap-editor.css') }}">
 
 <link rel="stylesheet" href="{{ url_for('static', path='css/editor_fullscreen.css') }}">

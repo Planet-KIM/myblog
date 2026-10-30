@@ -13,7 +13,6 @@ excluded by the global session filter in ``app.database``.
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 import re
-import html as html_module
 import markdown
 import copy
 
@@ -30,6 +29,7 @@ from app.auth_utils import get_current_user, get_current_user_optional
 from app.services.profile import validate_handle, validate_avatar_url, validate_accent_color
 from app.services.seo import website_jsonld, blog_jsonld
 from app.services.plain_text import markdown_to_plain
+from app.services.post_media import extract_first_image
 from app.services.reading_time import estimate_reading_minutes
 from app.services.home_layout import (
     HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
@@ -224,56 +224,6 @@ def build_approved_api_catalog() -> List[Dict[str, str]]:
             "fetch_example": "fetch('/api/spellcheck', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: '안녕하세요' }) })",
         },
     ]
-
-
-def extract_first_image(text: str):
-    """
-    본문에서 첫 번째 이미지 URL을 추출한다.
-    지원 포맷:
-    1) Markdown: ![alt](url)
-    2) HTML: <img src="..."> 또는 <img data-src="...">
-    3) Inline style: background-image: url(...)
-    """
-    if not text:
-        return None
-
-    # 1) Markdown 이미지
-    md_match = re.search(r'!\[[^\]]*]\(([^)]+)\)', text)
-    if md_match:
-        md_url = md_match.group(1).strip()
-        # ![alt](url "title") 형태 대응: 첫 토큰만 URL로 사용
-        md_url = md_url.split()[0].strip("<>")
-        if md_url:
-            return html_module.unescape(md_url)
-
-    # 2) HTML 이미지 태그 (src / data-src)
-    html_match = re.search(
-        r'<img[^>]+(?:src|data-src)\s*=\s*["\']([^"\']+)["\']',
-        text,
-        flags=re.IGNORECASE,
-    )
-    if html_match:
-        return html_module.unescape(html_match.group(1).strip())
-
-    # 2-1) 따옴표 없는 속성값 fallback
-    html_unquoted_match = re.search(
-        r'<img[^>]+(?:src|data-src)\s*=\s*([^\s>]+)',
-        text,
-        flags=re.IGNORECASE,
-    )
-    if html_unquoted_match:
-        return html_module.unescape(html_unquoted_match.group(1).strip())
-
-    # 3) inline background-image
-    bg_match = re.search(
-        r'background-image\s*:\s*url\((["\']?)(.*?)\1\)',
-        text,
-        flags=re.IGNORECASE,
-    )
-    if bg_match and bg_match.group(2).strip():
-        return html_module.unescape(bg_match.group(2).strip())
-
-    return None
 
 
 def count_toc_headings(text: str) -> int:

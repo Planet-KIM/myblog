@@ -1,0 +1,39 @@
+{#
+  _post_card.html: card for a post linked from another post's body.
+  post_link_card(card, post_id, english=true)
+    card: PostCard (app/services/post_links.py), or None when the reader cannot
+          open the post (deleted, private or hidden): a muted "볼 수 없는 글" card.
+    post_id: the linked post id (data-post-card, also for the unavailable card).
+    english: false leaves out the English title/preview (the editors, which do
+             not load bilingual.css).
+  Rendered by app/routers/board/router.py into Markdown post bodies, magazine
+  card blocks and the editors' block previews.
+  Assets: static/css/post-link.css; bilingual titles use one_language
+  (static/css/bilingual.css on post pages).
+#}
+{% from "_bilingual.html" import one_language %}
+{% macro post_link_card(card, post_id, english=true) -%}
+<div class="post-link" data-post-card="{{ post_id }}">
+{%- if card %}
+<a class="post-link-card{% if card.thumbnail %} has-thumb{% endif %}" href="/board/{{ card.id }}">
+<span class="plc-text">
+<span class="plc-meta">{{ card.author }} · {{ card.date.strftime('%Y.%m.%d') }} · {{ card.reading_minutes }}분{% if card.is_private %} · 비공개{% endif %}</span>
+<span class="plc-title">{{ one_language(card.title, card.title_en if english else none) }}</span>
+{%- if card.preview %}
+<span class="plc-preview">{{ one_language(card.preview, card.preview_en if english else none) }}</span>
+{%- endif %}
+</span>
+{%- if card.thumbnail %}
+<span class="plc-thumb"><img src="{{ card.thumbnail }}" alt="" loading="lazy"></span>
+{%- endif %}
+</a>
+{%- else %}
+<div class="post-link-card is-unavailable">
+<span class="plc-text">
+<span class="plc-title">볼 수 없는 글</span>
+<span class="plc-preview">삭제되었거나 비공개로 바뀐 글입니다.</span>
+</span>
+</div>
+{%- endif %}
+</div>
+{%- endmacro %}

@@ -3,7 +3,7 @@
 =====================
 - handle: URL(/@handle)에 노출되는 블로그 식별자. 라우트/시스템 경로 위장을 막기 위해
   형식(영소문자/숫자/_/-, 2~30자) + 예약어를 강하게 제한한다.
-- avatar_url: 외부 이미지 URL. javascript:/data: 등 위험 스킴 차단(sanitize._safe_url 재사용).
+- avatar_url: 외부 이미지 URL. javascript:/data: 등 위험 스킴 차단(sanitize.safe_url 재사용).
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import re
 from typing import Optional, Tuple
 
 from app import models
-from app.services.sanitize import _safe_url
+from app.services.sanitize import safe_url
 
 HANDLE_RE = re.compile(r"^[a-z0-9_-]{2,30}$")
 
@@ -56,7 +56,7 @@ def validate_avatar_url(raw: Optional[str]) -> Tuple[Optional[str], Optional[str
     value = (raw or "").strip()
     if not value:
         return None, None
-    safe = _safe_url(value)
+    safe = safe_url(value)
     if not safe:
         return None, "이미지 URL이 올바르지 않습니다. (http/https 또는 내부 경로만 허용)"
     return safe, None

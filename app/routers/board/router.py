@@ -14,7 +14,7 @@ import re
 from uuid import uuid4
 from pathlib import Path
 from datetime import datetime
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from fastapi import (
     APIRouter, Depends, Form, HTTPException, Request
@@ -34,6 +34,14 @@ from app.services.ratelimit import enforce
 from app.services.seo import post_jsonld, breadcrumb_jsonld, post_meta
 from app.services.bilingual import has_pairs, pick_language
 from app.services.reading_time import estimate_reading_minutes
+from app.services.post_links import (
+    build_post_card,
+    card_block_ids,
+    card_paragraph_ids,
+    load_linked_posts,
+    refresh_card_blocks,
+    replace_card_paragraphs,
+)
 from app.services.recommendations import get_related_posts
 from app.config import settings
 from app.services.category_counts import (
@@ -278,6 +286,54 @@ def create_preview(
         text = text[:max_length].rsplit(" ", 1)[0] + "..."
 
     return text
+
+
+# ------------------------------------------------------------
+# 다른 글 카드 (글 연결)
+# ------------------------------------------------------------
+def site_hosts(request: Request) -> set[str]:
+    """Host names under which links count as links to this site.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        The request's host name and SITE_BASE_URL's, when set (no ports).
+    """
+    hosts = {request.url.hostname, urlsplit(settings.SITE_BASE_URL or "").hostname}
+    return {h for h in hosts if h}
+
+
+def render_post_cards(
+    db: Session,
+    ids: list[int],
+    viewer: Optional[models.User],
+    english: bool = True,
+) -> dict[int, str]:
+    """Render the cards (templates/_post_card.html) for linked posts.
+
+    Args:
+        db: Database session.
+        ids: Linked post ids.
+        viewer: The reader; posts they may not open get the unavailable card.
+        english: Give bilingual posts their English title and preview too.
+
+    Returns:
+        Post id -> card HTML.
+    """
+    macro = templates.env.get_template("_post_card.html").module.post_link_card
+    posts = load_linked_posts(db, ids, viewer)
+    cards = {}
+    for post_id in dict.fromkeys(ids):
+        post = posts.get(post_id)
+        card = None
+        if post:
+            title_en = None
+            if english and (has_pairs(post.content_html) or has_pairs(post.content)):
+                title_en = derive_title(post.editor_type, post.content_html, post.content, "en")
+            card = build_post_card(post, title_en)
+        cards[post_id] = str(macro(card, post_id, english))
+    return cards
 
 
 # ------------------------------------------------------------
@@ -1391,8 +1447,17 @@ def board_detail(
     template_name = "board_detail_magazine.html" if post.editor_type == "tiptap" else "board_detail_writer.html"
 
     # XSS 방어: 출력 직전 본문 정제 (저장값은 그대로, 렌더 시에만 정제)
-    post.content_html_safe = sanitize_html(post.content_html)
-    post.content_blocks_safe = sanitize_content_blocks(post.content_blocks)
+    # 다른 글 카드: 링크만 있는 문단·매거진 카드 블록에 지금 시점의 카드를 넣는다
+    html_safe = sanitize_html(post.content_html)
+    blocks_raw = post.content_blocks
+    hosts = site_hosts(request)
+    card_ids = card_paragraph_ids(html_safe, hosts) + card_block_ids(blocks_raw)
+    if card_ids:
+        cards = render_post_cards(db, card_ids, current_user)
+        html_safe = replace_card_paragraphs(html_safe, hosts, cards.__getitem__)
+        blocks_raw = refresh_card_blocks(blocks_raw, cards.__getitem__)
+    post.content_html_safe = html_safe
+    post.content_blocks_safe = sanitize_content_blocks(blocks_raw)
 
     # 읽기 시간: 본문 텍스트만, 이중 언어 글은 언어마다 따로 (머리말에서 언어 전환용)
     body = post.content_html or post.content or ""
@@ -1489,6 +1554,29 @@ def board_detail(
 #   디스크 캐시: 제목/작성자/수정시각이 바뀌면 자동 재생성.
 # ============================================================
 _OG_CACHE_DIR = Path("app/static/og_cache")
+
+
+@router.get("/{post_id}/card", response_class=HTMLResponse)
+def board_post_card(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
+):
+    """Serve the card HTML of one post, for the editors' card previews.
+
+    Korean only (the editors do not switch languages); a post the user may
+    not open gets the unavailable card.
+
+    Args:
+        post_id: The linked post.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The card fragment, not cached.
+    """
+    html = render_post_cards(db, [post_id], current_user, english=False)[post_id]
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/{post_id}/og.png")

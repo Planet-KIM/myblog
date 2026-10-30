@@ -4,6 +4,7 @@
            (list[BoardCategory]), normal_category_id (int), tags_value (str),
            popular_tags (list[Tag], for _tag_suggestions.html).
   Assets: css/writing-enhanced.css, editor/index.css (Milkdown bundle CSS), css/editor_fullscreen.css,
+          css/post-link.css (글 연결 dialog and card lines),
           js/markdown_layout_preload.js (head), js/markdown_editor_page.js (width, theme, focus mode,
           character count incl. the loaded body), editor/board_edit.js (the editor bundle).
 -#}
@@ -16,6 +17,7 @@
 <link rel="stylesheet" href="{{ url_for('static', path='editor/index.css') }}">
 
 <link rel="stylesheet" href="{{ url_for('static', path='css/editor_fullscreen.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/post-link.css') }}?v={{ asset_ver('css/post-link.css') }}">
 
 <!-- FOUC 방지: layout 미리 적용 -->
 <script src="{{ url_for('static', path='js/markdown_layout_preload.js') }}"></script>
@@ -31,6 +33,11 @@
     </div>
 
     <div class="toolbar-right">
+      <!-- 글 연결: 다른 글을 카드로 넣는다 (editor/board_edit.js, plugins/postCardLine.js) -->
+      <button type="button" class="clean-btn clean-btn-secondary" data-post-link title="다른 글을 카드로 연결"><i class="bi bi-link-45deg"></i>글 연결</button>
+
+      <div class="toolbar-divider"></div>
+
       <!-- Theme toggle -->
       <button type="button" class="theme-btn" id="themeToggle" title="다크 모드 전환" aria-label="다크 모드 전환">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="sunIcon">

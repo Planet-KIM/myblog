@@ -10,8 +10,9 @@
           (shared with the Markdown page), static/js/board_detail_magazine.js
           (viewer, layout-template prompt), static/css/bilingual.css +
           static/js/bilingual.js ({{ko||en}} text and the language switch; context
-          title_en, reading_minutes, reading_minutes_en); partials bring their own
-          (reading_enhancements.*, author_card.css).
+          title_en, reading_minutes, reading_minutes_en), static/css/post-link.css
+          (cards of linked posts; card blocks get their HTML from the server);
+          partials bring their own (reading_enhancements.*, author_card.css).
 #}
 {% extends "base.html" %}
 {% from "_bilingual.html" import bilingual_title, reading_time %}
@@ -28,6 +29,7 @@
 
 <link rel="stylesheet" href="{{ url_for('static', path='css/board_detail_magazine.css') }}?v={{ asset_ver('css/board_detail_magazine.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/bilingual.css') }}?v={{ asset_ver('css/bilingual.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/post-link.css') }}?v={{ asset_ver('css/post-link.css') }}">
 {% endblock %}
 
 {% block content %}

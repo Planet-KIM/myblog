@@ -144,7 +144,9 @@
      * full width, top-to-bottom then left-to-right, with a font size estimated
      * from each block's width (clamped to a readable range). A photo keeps its
      * overlay text and the text blocks laid on top of it (photoRiders()) as one
-     * figure, drawn at its page size and scaled by scaleReaderOverlays().
+     * figure, drawn at its page size and scaled by scaleReaderOverlays(). Cards of
+     * linked posts (type "postcard"; the server fills in their HTML) keep the
+     * card's own type sizes.
      *
      * @returns {string} HTML for the reader.
      */
@@ -164,6 +166,8 @@
             html += `<figure class="reader-block"><img class="reader-img${fc}" src="${b.src}" loading="lazy"></figure>`;
           } else if (b.type === 'spacer') {
             html += '<div class="reader-spacer"></div>';
+          } else if (b.type === 'postcard' && b.content) {
+            html += `<div class="reader-block reader-postcard">${b.content}</div>`;
           } else if (b.content) {
             const rel = Math.max(0.85, Math.min(1.9, (b.w || cw) / cw * 2.2));
             html += `<div class="reader-block reader-text${b.dropCap ? ' mag-dropcap' : ''}" style="--reader-fs:${rel.toFixed(2)}rem;">${b.content}</div>`;
