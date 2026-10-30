@@ -5,7 +5,8 @@
   owner; like, bookmark, copy link, print, share on X), author card, series
   banner, related posts, comments and prev/next navigation.
   Context: post, current_user, stats, prev_post, next_post, comments,
-  author_other_posts, related_posts, series_label, series_slug (+ SEO meta).
+  author_other_posts, related_posts, backlinks (posts linking here, _backlinks.html),
+  series_label, series_slug (+ SEO meta).
   Assets: css/mag-overlay.css (text on photos, shared editor/post page), static/css/board_detail_magazine.css, static/js/board_detail.js
           (shared with the Markdown page), static/js/board_detail_magazine.js
           (viewer, layout-template prompt), static/css/bilingual.css +
@@ -134,6 +135,8 @@
     {% include "_author_card.html" %}
 
     {% include "_series_banner.html" %}
+
+    {% include "_backlinks.html" %}
 
     {% include "_related_posts.html" %}
 

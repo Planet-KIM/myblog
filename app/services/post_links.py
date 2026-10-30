@@ -8,6 +8,9 @@ is replaced with the current card on every view.
 
 Cards only show posts the viewer may read (public, or the viewer's own);
 anything else is rendered as an unavailable card by the caller.
+
+The other direction, "이 글을 언급한 글" (backlinks), lists the readable posts
+that link to a post: by a card, a card block or a plain link in a sentence.
 """
 import html as html_module
 import json
@@ -30,6 +33,8 @@ from app.services.sanitize import safe_url
 CARD_BLOCK_TYPE = "postcard"
 CARD_PREVIEW_CHARS = 160
 PICKER_LIMIT = 8
+BACKLINK_LIMIT = 6
+BACKLINK_SCAN = 100   # 후보(본문에 /board/<id> 가 들어간 글)를 최신순으로 이만큼만 살핀다
 
 _POST_PATH = re.compile(r"^/board/(\d+)/?$")
 _POST_PATH_ANYWHERE = re.compile(r"/board/(\d+)")
@@ -39,6 +44,7 @@ _CARD_PARAGRAPH = re.compile(
     re.S | re.I,
 )
 _HREF = re.compile(r"""\bhref\s*=\s*["']([^"']*)["']""", re.I)
+_MARKDOWN_LINK = re.compile(r"\]\(\s*<?([^)\s>]+)")
 
 
 @dataclass
@@ -278,6 +284,68 @@ def load_linked_posts(db: Session, ids: Iterable[int], viewer: Optional[models.U
         .all()
     )
     return {p.id: p for p in posts}
+
+
+def linked_post_ids(post: models.BoardPost, hosts: Iterable[str]) -> set[int]:
+    """Every post that ``post`` links to: cards, card blocks and plain links.
+
+    Args:
+        post: The linking post (its HTML body, Markdown body and content_blocks
+            are read).
+        hosts: Host names that count as this site.
+
+    Returns:
+        The linked post ids, without ``post`` itself.
+    """
+    hrefs = _HREF.findall(post.content_html or "") + _HREF.findall(post.content or "")
+    hrefs += _MARKDOWN_LINK.findall(post.content or "")
+    ids = {post_id_from_href(h, hosts) for h in hrefs} | set(card_block_ids(post.content_blocks))
+    ids.discard(None)
+    ids.discard(post.id)
+    return ids
+
+
+def linking_posts(
+    db: Session,
+    post_id: int,
+    viewer: Optional[models.User],
+    hosts: Iterable[str],
+    limit: int = BACKLINK_LIMIT,
+) -> list[models.BoardPost]:
+    """Find the posts that link to ``post_id`` ("이 글을 언급한 글").
+
+    A text search narrows the candidates; each is then checked link by link
+    (so ``/board/42`` does not count for ``/board/4``).
+
+    Args:
+        db: Database session.
+        post_id: The post being read.
+        viewer: The reader; only posts they may read are listed.
+        hosts: Host names that count as this site.
+        limit: Maximum number of posts.
+
+    Returns:
+        Linking posts (with their user loaded), newest first.
+    """
+    needle = f"%/board/{post_id}%"
+    candidates = (
+        visible_posts(db, viewer)
+        .options(joinedload(models.BoardPost.user))
+        .filter(models.BoardPost.id != post_id)
+        .filter(
+            or_(
+                models.BoardPost.content_html.like(needle),
+                models.BoardPost.content.like(needle),
+                models.BoardPost.content_blocks.like(needle),
+                models.BoardPost.content_blocks.like(f'%"postId":{post_id}%'),
+                models.BoardPost.content_blocks.like(f'%"postId": {post_id}%'),
+            )
+        )
+        .order_by(models.BoardPost.created_at.desc())
+        .limit(BACKLINK_SCAN)
+        .all()
+    )
+    return [p for p in candidates if post_id in linked_post_ids(p, hosts)][:limit]
 
 
 def search_link_targets(

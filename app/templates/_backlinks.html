@@ -1,0 +1,27 @@
+{#
+  _backlinks.html: "이 글을 언급한 글" — the posts that link to this one (a card, a
+  magazine card block or a link in a sentence), newest first; shown only when
+  there are any. The reader's own private posts are marked 비공개.
+  Context: backlinks (list[BoardPost], app/services/post_links.py linking_posts).
+  Styles: writer-journey.css (.reading-section / .related-*), as in _related_posts.html.
+#}
+{% if backlinks %}
+<section class="reading-section no-print" aria-labelledby="backlinks-title">
+  <h2 class="reading-section-title" id="backlinks-title">이 글을 언급한 글</h2>
+  <div class="related-list">
+    {% for bp in backlinks %}
+    <a href="/board/{{ bp.id }}" class="related-item">
+      <span class="related-text">
+        <span class="related-title">{{ bp.title or 'Untitled' }}</span>
+        {% if bp.user and bp.user.handle %}
+        <span class="related-author">{{ bp.user.display_name or ('@' ~ bp.user.handle) }}{% if bp.is_private %} · 비공개{% endif %}</span>
+        {% elif bp.is_private %}
+        <span class="related-author">비공개</span>
+        {% endif %}
+      </span>
+      <time class="related-date" datetime="{{ bp.created_at.strftime('%Y-%m-%d') }}">{{ bp.created_at.strftime('%Y.%m.%d') }}</time>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

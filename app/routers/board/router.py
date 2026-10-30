@@ -38,6 +38,7 @@ from app.services.post_links import (
     build_post_card,
     card_block_ids,
     card_paragraph_ids,
+    linking_posts,
     load_linked_posts,
     refresh_card_blocks,
     replace_card_paragraphs,
@@ -1394,7 +1395,9 @@ def board_detail(
     series link and SEO/Open Graph data (falling back to the generated
     ``og.png`` when the post has no image). The header's reading time counts
     the body text only; a bilingual post also gets its English title and
-    English reading time for the language switch.
+    English reading time for the language switch. Links to other posts become
+    cards, and the posts that link here are listed (backlinks; left out of the
+    related posts).
 
     Args:
         post_id: The post to show.
@@ -1509,6 +1512,11 @@ def board_detail(
     # 태그를 공유하는 다른 공개 글 (블로그 경계 없이) — 토픽 기반 탐색
     related_posts = get_related_posts(db, post, limit=4)
 
+    # 이 글을 언급한 글 (카드·링크로 이 글을 연결한 글). 관련 글과 겹치면 관련 글에서 뺀다
+    backlinks = linking_posts(db, post.id, current_user, hosts)
+    backlink_ids = {p.id for p in backlinks}
+    related_posts = [p for p in related_posts if p.id not in backlink_ids]
+
     # 시리즈(series:<이름> 태그) 감지
     series_label = series_slug = None
     for _t in (post.tags or []):
@@ -1533,6 +1541,7 @@ def board_detail(
             "comments": comments,
             "author_other_posts": author_other_posts,
             "related_posts": related_posts,
+            "backlinks": backlinks,
             "series_label": series_label,
             "series_slug": series_slug,
             "meta_description": meta_description,
