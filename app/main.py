@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .routers import blog, board, admin, auth, upload, api
+from .services.static_assets import asset_version
 
 # DB 스키마는 Alembic이 단일 소스로 관리합니다 (create_all 제거: alembic 마이그레이션과의 충돌 방지).
 #   신규 설치:  alembic upgrade head
@@ -127,6 +128,7 @@ async def security_headers(request: Request, call_next):
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["asset_ver"] = asset_version
 
 
 @app.exception_handler(404)

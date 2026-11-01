@@ -23,6 +23,7 @@ from app.database import get_db
 from app import models
 from app.services.profile import generate_unique_handle
 from app.services.ratelimit import enforce
+from app.services.static_assets import asset_version
 from app.auth_utils import (
     get_password_hash,
     verify_password,
@@ -33,6 +34,7 @@ from app.auth_utils import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["asset_ver"] = asset_version
 
 
 def safe_next_url(next_url: Optional[str], default: str = "/board/") -> str:

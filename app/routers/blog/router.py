@@ -31,17 +31,18 @@ from app.services.seo import website_jsonld, blog_jsonld
 from app.services.plain_text import markdown_to_plain
 from app.services.post_media import extract_first_image
 from app.services.reading_time import estimate_reading_minutes
-from app.services.home_layout import (
-    HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
-    HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
-    select_home_card_sizes,
+from app.services.home_sections import (
+    HomeShowcase,
+    fallback_title,
+    list_posts,
+    own_title,
+    page_count,
+    pick_showcase,
+    strip_leading_title,
 )
-from app.services.category_counts import (
-    collect_descendant_category_ids,
-    order_categories_parent_first,
-    rollup_category_counts,
-)
+from app.services.category_counts import collect_descendant_category_ids
 from app.services.recommendations import get_recommended_blogs
+from app.services.static_assets import asset_version
 from app.cv_content import (
     cv_profile,
     education,
@@ -96,6 +97,7 @@ def render_markdown_fields(cv):
     return cv_copy
 
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["asset_ver"] = asset_version
 
 router = APIRouter(tags=["blog"])
 
@@ -325,7 +327,26 @@ def read_index(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    """홈(/) 페이지: 비로그인=public, 로그인=public+내 private"""
+    """Render the portal home (``/``).
+
+    Guests see public posts; a logged-in user also sees their own private ones.
+    Without a search or category filter the page opens with the showcase
+    sections (cover stories, "요즘 많이 읽는 글", the magazine shelf; see
+    ``app/services/home_sections.py``) and the list below skips what they show.
+
+    Args:
+        request: The incoming request.
+        feed: List mode: ``"latest"``, ``"following"`` or ``"recommended"``.
+        q: Search text for titles, bodies and authors.
+        category_id: Show only this category and its sub-categories.
+        sort: List order for latest/following: ``"recent"``, ``"popular"`` or
+            ``"discussed"``.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The rendered ``index.html``.
+    """
     feed_mode = (feed or "latest").strip().lower()
     if feed_mode not in {"latest", "following", "recommended"}:
         feed_mode = "latest"
@@ -407,6 +428,9 @@ def read_index(
         return query.order_by(models.BoardPost.created_at.desc())
 
     HOME_LIMIT = 12
+    # 위 쇼케이스에 나온 글·빈 글을 목록에서 빼므로 후보를 넉넉히 가져온다
+    HOME_FETCH = HOME_LIMIT * 2
+    SHOWCASE_CANDIDATES = 12
     following_requires_login = False
     following_empty = False
 
@@ -440,7 +464,7 @@ def read_index(
                 follow_filters.append(models.BoardPost.category_id.in_(followed_category_ids))
             if followed_author_ids:
                 follow_filters.append(models.BoardPost.user_id.in_(followed_author_ids))
-            posts = apply_sort(base_query.filter(or_(*follow_filters))).limit(HOME_LIMIT).all()
+            posts = apply_sort(base_query.filter(or_(*follow_filters))).limit(HOME_FETCH).all()
             if not posts:
                 following_empty = True
     elif feed_mode == "recommended":
@@ -451,29 +475,37 @@ def read_index(
                 func.coalesce(models.PostStats.views, 0).desc(),
                 models.BoardPost.created_at.desc(),
             )
-            .limit(HOME_LIMIT)
+            .limit(HOME_FETCH)
             .all()
         )
     else:
-        posts = apply_sort(base_query).limit(HOME_LIMIT).all()
+        posts = apply_sort(base_query).limit(HOME_FETCH).all()
 
     if feed_mode == "following" and not posts and not following_requires_login and not following_empty:
         following_empty = True
 
-    latest_query = visible_posts_query(with_options=True)
-    board_posts = latest_query.order_by(models.BoardPost.created_at.desc()).limit(5).all()
-
-    # 히어로 아래 featured: 조회수 높은 공개 글 4개 (없으면 최신) — 커버 스토리 1 + 옆 목록 3
-    featured_posts = (
-        visible_posts_query(with_options=True)
-        .outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id)
-        .order_by(
-            func.coalesce(models.PostStats.views, 0).desc(),
-            models.BoardPost.created_at.desc(),
+    # 쇼케이스는 검색·카테고리 필터가 없을 때만 (있으면 결과 목록이 주인공)
+    show_showcase = not q and not category_id
+    most_read: list[models.BoardPost] = []
+    magazine_posts: list[models.BoardPost] = []
+    if show_showcase:
+        most_read = (
+            visible_posts_query(with_options=True)
+            .outerjoin(models.PostStats, models.PostStats.post_id == models.BoardPost.id)
+            .order_by(
+                func.coalesce(models.PostStats.views, 0).desc(),
+                models.BoardPost.created_at.desc(),
+            )
+            .limit(SHOWCASE_CANDIDATES)
+            .all()
         )
-        .limit(4)
-        .all()
-    )
+        magazine_posts = (
+            visible_posts_query(with_options=True)
+            .filter(models.BoardPost.content_blocks.isnot(None), models.BoardPost.content_blocks != "")
+            .order_by(models.BoardPost.created_at.desc())
+            .limit(SHOWCASE_CANDIDATES)
+            .all()
+        )
 
     visible_post_total = (
         visible_posts_query(with_options=False)
@@ -489,33 +521,19 @@ def read_index(
         .scalar()
         or 0
     )
-    tag_total = (
-        db.query(func.count(models.Tag.id)).filter(models.Tag.count > 0).scalar() or 0
-    )
-    featured_bloggers = [
-        {"user": u, "post_count": n}
-        for (u, n) in (
-            db.query(models.User, func.count(models.BoardPost.id).label("cnt"))
-            .join(
-                models.BoardPost,
-                (models.BoardPost.user_id == models.User.id)
-                & (models.BoardPost.is_private == False),  # noqa: E712
-            )
-            .filter(models.User.handle.isnot(None))
-            .group_by(models.User.id)
-            .order_by(func.count(models.BoardPost.id).desc(), func.max(models.BoardPost.created_at).desc())
-            .limit(8)
-            .all()
-        )
-    ]
+    # 오늘의 작가: 활발한 블로그 (로그인하면 본인·이미 팔로우한 블로그는 빼고)
+    featured_bloggers = get_recommended_blogs(db, current_user, limit=4)
 
     def enrich_post(post: models.BoardPost):
-        """Attach the display attributes the home cards need to a post, in place.
+        """Attach the display attributes the home sections need to a post, in place.
 
-        Sets ``preview``, ``thumbnail``, ``reading_minutes``, ``toc_count``,
-        ``series_label``, ``post_type``, ``type_label``, ``like_count``,
-        ``view_count``, ``comment_count`` (always 0), ``discussion_score``,
-        ``is_followed_category``, ``is_followed_author`` and ``card_variant``.
+        Sets ``display_title`` and ``has_own_title`` (a post without a title is
+        named after the start of its body), ``preview`` (without the title it
+        opens with; empty when the title was made from it), ``thumbnail``,
+        ``page_count`` (0 unless it is a magazine), ``reading_minutes``,
+        ``toc_count``, ``series_label``, ``post_type``, ``type_label``,
+        ``like_count``, ``view_count``, ``comment_count`` (always 0),
+        ``discussion_score``, ``is_followed_category`` and ``is_followed_author``.
 
         Args:
             post: The post to decorate.
@@ -525,7 +543,12 @@ def read_index(
         key_sentence = extract_key_sentence(source)
         toc_count = count_toc_headings(source)
 
-        post.preview = key_sentence if len(preview) > 170 and key_sentence else preview
+        preview = key_sentence if len(preview) > 170 and key_sentence else preview
+        title = own_title(post.title, post.show_title)
+        post.has_own_title = title is not None
+        post.display_title = title or fallback_title(preview)
+        post.preview = strip_leading_title(preview, title) if title else ""
+        post.page_count = page_count(post.content_blocks)
         post.thumbnail = extract_first_image(source)
         post.reading_minutes = estimate_reading_minutes(source)
         post.toc_count = toc_count
@@ -547,58 +570,15 @@ def read_index(
             and post.user_id in followed_author_ids
             and post.user_id != current_user.id
         )
-        if not post.thumbnail:
-            post.card_variant = f"thumbless-{post.post_type}"
-        else:
-            post.card_variant = "with-thumb"
 
-    seen_ids = set()
-    for item in posts + board_posts + featured_posts:
-        if item.id in seen_ids:
-            continue
+    # 같은 글은 세션 안에서 같은 객체라 한 번만 꾸미면 된다
+    for item in {p.id: p for p in posts + most_read + magazine_posts}.values():
         enrich_post(item)
-        seen_ids.add(item.id)
 
-    viewer_key = str(current_user.id) if current_user else (request.client.host if request.client else "anon")
-    available_layout_strategies = {
-        "random": HOME_LAYOUT_STRATEGY_PER_REQUEST_RANDOM,
-        "stable": HOME_LAYOUT_STRATEGY_DAILY_STABLE_BY_VIEWER,
-    }
-    # 기본을 stable 로: 새로고침마다 카드 배치가 바뀌는 산만함 제거 (?layout=random 로 복귀 가능)
-    layout_mode = request.query_params.get("layout", "stable").strip().lower()
-    if layout_mode not in available_layout_strategies:
-        layout_mode = "random"
-    layout_strategy = available_layout_strategies[layout_mode]
-    card_sizes = select_home_card_sizes(
-        posts_count=len(posts),
-        strategy=layout_strategy,
-        viewer_key=viewer_key,
-    )
+    showcase = pick_showcase(most_read, magazine_posts) if show_showcase else HomeShowcase()
+    posts = list_posts(posts, showcase.shown_ids, HOME_LIMIT)
 
-    category_rows = (
-        visible_posts_query(with_options=False)
-        .with_entities(models.BoardPost.category_id, func.count(models.BoardPost.id))
-        .filter(models.BoardPost.category_id.isnot(None))
-        .group_by(models.BoardPost.category_id)
-        .all()
-    )
-    direct_category_counts = {cid: cnt for cid, cnt in category_rows}
-    category_counts = rollup_category_counts(categories, direct_category_counts)
-    ordered_categories, category_depths = order_categories_parent_first(categories)
-    tone_names = ["sea", "forest", "sunset", "rose", "violet", "amber"]
-    category_tones = {cat.id: tone_names[cat.id % len(tone_names)] for cat in categories}
-
-    trending_topics = [
-        {
-            "id": cat.id,
-            "name": cat.name,
-            "count": category_counts.get(cat.id, 0),
-            "depth": category_depths.get(cat.id, 0),
-        }
-        for cat in ordered_categories
-    ]
-    # 포털 내부 추천: 활발한 다른 블로그 + 전역 인기 태그
-    recommended_blogs = get_recommended_blogs(db, current_user, limit=5)
+    # 사이드바 토픽: 전역 인기 태그
     popular_tags = (
         db.query(models.Tag)
         .filter(models.Tag.count > 0)
@@ -614,31 +594,21 @@ def read_index(
             "request": request,
             "jsonld": website_jsonld(request),
             "posts": posts,
-            "board_posts": board_posts,
-            "featured_posts": featured_posts,
+            "covers": showcase.covers,
+            "popular": showcase.popular,
+            "magazines": showcase.magazines,
             "featured_bloggers": featured_bloggers,
-            "today": datetime.now(),
             "blogger_count": blogger_count,
-            "tag_total": tag_total,
-            "categories": categories,
-            "ordered_categories": ordered_categories,
-            "category_depths": category_depths,
             "current_user": current_user,
-            "card_sizes": card_sizes,
             "visible_post_total": visible_post_total,
-            "category_counts": category_counts,
-            "category_tones": category_tones,
             "selected_feed": feed_mode,
             "selected_sort": sort_mode,
             "search_query": q or "",
             "selected_category_id": category_id,
             "following_requires_login": following_requires_login,
             "following_empty": following_empty,
-            "followed_category_ids": followed_category_ids,
             "followed_author_ids": followed_author_ids,
-            "recommended_blogs": recommended_blogs,
             "popular_tags": popular_tags,
-            "trending_topics": trending_topics,
         },
     )
 

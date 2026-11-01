@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 from app import models
 from app.database import get_db
 from app.auth_utils import get_current_user
+from app.services.static_assets import asset_version
 
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals["asset_ver"] = asset_version
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
