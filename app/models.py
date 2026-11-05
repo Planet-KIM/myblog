@@ -176,9 +176,14 @@ class BoardPost(Base):
         tags: Tags attached through ``post_tags``.
         stats: One-to-one ``PostStats`` row.
         bookmarks, likes_rel, comments: Engagement rows; deleted with the post.
+
+    On SQLite the id is AUTOINCREMENT, so a deleted post's id is never given
+    to a new post (links, cards and leftover rows that point to it would
+    otherwise reach someone else's post).
     """
 
     __tablename__ = "board_posts"
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id = Column(Integer, primary_key=True, index=True)
 

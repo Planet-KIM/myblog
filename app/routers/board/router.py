@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app import models
 from app.auth_utils import get_current_user, get_current_user_optional
-from app.routers.upload.router import relocate_draft_files, normalize_draft_id
+from app.routers.upload.router import normalize_draft_id, prune_unused_uploads, relocate_draft_files
 from app.routers.api import parse_tag_field, process_post_tags
 from app.services.layout_quota import ensure_layout_budget, ensure_template_slot
 from app.services.profile import author_matches, public_author_name
@@ -922,7 +922,8 @@ def board_create(
 
     The title is extracted from the content according to the editor type. A
     stats row is created. When a draft id is given, files uploaded to the
-    draft are moved to the post and the draft is deleted.
+    draft are moved to the post and the draft is deleted; those the post
+    does not use are then deleted (``prune_unused_uploads``).
 
     Args:
         request: The incoming request.
@@ -1012,6 +1013,9 @@ def board_create(
         if draft:
             db.delete(draft)
             db.commit()
+
+    # 초안에 올렸지만 본문에 쓰지 않은 파일 정리
+    prune_unused_uploads(db, post)
 
     return RedirectResponse(f"/board/{post.id}", status_code=303)
 
@@ -1109,7 +1113,9 @@ def board_update(
     own falls back to the default category. ``editor_type`` and
     ``content_blocks`` are only replaced when non-empty values are sent; tags
     are replaced when the field is sent (an empty value removes all tags).
-    Files uploaded to ``draft_id`` are moved to the post.
+    Files uploaded to ``draft_id`` are moved to the post, and the post's
+    uploads that nothing saved uses any more are deleted
+    (``prune_unused_uploads``).
 
     Args:
         post_id: The post to update.
@@ -1190,6 +1196,9 @@ def board_update(
 
     if draft_id:
         relocate_draft_files(post, draft_id, db)
+
+    # 본문에서 뺐거나 편집 중 올리고 쓰지 않은 파일 정리
+    prune_unused_uploads(db, post)
 
     return RedirectResponse(f"/board/{post_id}", status_code=303)
 

@@ -8,8 +8,9 @@ Usage:
     python3 scripts/set_admin.py me@example.com            # grant
     python3 scripts/set_admin.py me@example.com --revoke   # revoke
     python3 scripts/set_admin.py --list                    # list admins
-    # Docker:
+    # Docker (stack running / not running):
     docker compose exec web python3 scripts/set_admin.py me@example.com
+    docker compose run --rm --no-deps -e RUN_MIGRATIONS=0 web python3 scripts/set_admin.py me@example.com
 """
 from __future__ import annotations
 

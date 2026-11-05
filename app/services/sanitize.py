@@ -14,12 +14,16 @@ HTML 정제 (XSS 방어)
   - 허용 목록(allowlist) 방식: 모르는 것은 전부 제거(strip=True)
   - 인라인 스타일은 CSSSanitizer로 색상/레이아웃 속성만 허용 (url()/behavior 등 제거)
   - 링크/이미지 URL은 http(s)/상대경로/mailto/tel 만 허용 (javascript:/data: 차단)
+  - data-* 는 에디터가 만드는 것만, 사이트 요소가 쓰는 id 는 제거
+    (본문이 같은 문서의 페이지 요소·JS 동작 훅을 흉내 내지 못하게)
 """
 from __future__ import annotations
 
 import logging
 import math
 import re
+from functools import lru_cache
+from pathlib import Path
 
 import bleach
 from bleach.css_sanitizer import CSSSanitizer
@@ -72,17 +76,73 @@ _TAG_ATTRS = {
     "th": {"colspan", "rowspan", "scope"},
 }
 
+# 본문에 남기는 data-* 속성: 에디터(Milkdown/TipTap 번들, frontend/plugins)가 실제로 만드는 것만.
+# 사이트 JS 는 data-* 를 동작 훅으로 쓰므로(data-detail-action, data-img-fallback-scope,
+# data-confirm, data-src …) 모르는 data-* 는 본문에서 지운다.
+_CONTENT_DATA_ATTRS = {
+    "data-type", "data-show", "data-pm-slice", "data-spread", "data-role", "data-label",
+    "data-index", "data-checked", "data-language", "data-tiptap-style", "data-text-color",
+    "data-color", "data-list-type", "data-item-type", "data-is-header", "data-display-type",
+    "data-content-dom", "data-colwidth", "data-value", "data-is-inline", "data-expanded",
+    "data-direction", "data-placeholder", "data-page", "data-page-count", "data-height",
+}
+
+# 사이트가 쓰는 id 를 찾는 곳: 템플릿의 id="…", JS 의 getElementById('…')·querySelector('#…')
+_APP_DIR = Path(__file__).resolve().parent.parent
+_TEMPLATE_ID_RE = re.compile(r'\bid="([^"{}\s]+)"')
+_SCRIPT_ID_RE = re.compile(
+    r"""getElementById\(\s*['"]([^'"]+)['"]|querySelector(?:All)?\(\s*['"][^'"]*#([A-Za-z][\w-]*)"""
+)
+
 # URL 값에 들어가면 속성 경계를 깨거나 스킴 위장에 쓰일 수 있는 문자
 _UNSAFE_URL_CHARS = set("\"'<>` \t\r\n")
 
 
+@lru_cache(maxsize=1)
+def page_ids() -> frozenset[str]:
+    """Return the element ids the site's own templates and scripts use.
+
+    A post body is rendered in the same document as the page, so a body
+    element with one of these ids could stand in for the page's element
+    (``getElementById`` returns the first match). The set is read from
+    ``app/templates`` and ``app/static/js`` once, so it follows the code.
+
+    Returns:
+        The ids, as written in the sources.
+    """
+    ids: set[str] = set()
+    for path in (_APP_DIR / "templates").rglob("*.html"):
+        ids.update(_TEMPLATE_ID_RE.findall(path.read_text(encoding="utf-8", errors="ignore")))
+    for path in (_APP_DIR / "static" / "js").glob("*.js"):
+        for by_id, by_selector in _SCRIPT_ID_RE.findall(path.read_text(encoding="utf-8", errors="ignore")):
+            ids.add(by_id or by_selector)
+    return frozenset(ids)
+
+
 def _allow_attribute(tag: str, name: str, value: str) -> bool:
-    """bleach attributes 콜백: 전역 속성 + data-* + 태그별 속성만 허용."""
+    """Decide whether bleach keeps an attribute (its ``attributes`` callback).
+
+    Keeps the global attributes, the tag's own attributes and the ``data-*``
+    attributes the editors write (``_CONTENT_DATA_ATTRS``). Other ``data-*``
+    attributes are dropped because the site's scripts use them as behavior
+    hooks, and so is an ``id`` that one of the site's own elements uses
+    (:func:`page_ids`).
+
+    Args:
+        tag: The element name.
+        name: The attribute name.
+        value: The attribute value.
+
+    Returns:
+        True to keep the attribute.
+    """
     name = name.lower()
+    if name == "id":
+        return value not in page_ids()
     if name in _GLOBAL_ATTRS:
         return True
     if name.startswith("data-"):
-        return True
+        return name in _CONTENT_DATA_ATTRS
     return name in _TAG_ATTRS.get(tag, set())
 
 

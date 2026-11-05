@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from PIL import Image, ImageOps
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from starlette import status
 
@@ -393,6 +394,144 @@ async def upload_image_compat(
 
 
 # ============================================================
+# ★ 본문이 쓰는 업로드 판별 / 안 쓰는 업로드 정리
+# ============================================================
+def _post_text(post: models.BoardPost) -> str:
+    """Return everything a saved post shows: its Markdown, HTML and layout JSON, joined."""
+    return "\n".join((post.content or "", post.content_html or "", post.content_blocks or ""))
+
+
+def _mentioned_in(record: models.UploadedFile, text: str) -> bool:
+    """Return True if ``text`` mentions the uploaded file.
+
+    Matches the stored file name (a random hex name plus extension), which
+    stays the same when a draft's files move to the post's folder, so a
+    body that still holds the draft path counts too.
+
+    Args:
+        record: The upload record.
+        text: Post or template text to search.
+
+    Returns:
+        Whether the stored name appears in ``text``.
+    """
+    return bool(record.stored_name) and record.stored_name in text
+
+
+def _used_elsewhere(db: Session, record: models.UploadedFile, post_id: int) -> bool:
+    """Return True if another post (any author, hidden ones too) or a saved template uses the file.
+
+    Saving a layout as a template, or starting a post from one, copies the
+    layout with its image URLs, so those copies must keep the file.
+
+    Args:
+        db: Database session.
+        record: The upload record.
+        post_id: The post the file belongs to (not searched).
+
+    Returns:
+        Whether some other saved content mentions the stored file name.
+    """
+    pattern = f"%{record.stored_name}%"   # uuid hex + 확장자: LIKE 특수문자(%, _) 없음
+    other_post = (
+        db.query(models.BoardPost.id)
+        .execution_options(include_hidden=True)
+        .filter(
+            models.BoardPost.id != post_id,
+            or_(
+                models.BoardPost.content.like(pattern),
+                models.BoardPost.content_html.like(pattern),
+                models.BoardPost.content_blocks.like(pattern),
+            ),
+        )
+        .first()
+    )
+    if other_post:
+        return True
+    return db.query(models.LayoutTemplate.id).filter(models.LayoutTemplate.content_blocks.like(pattern)).first() is not None
+
+
+def find_unused_uploads(db: Session, post: models.BoardPost) -> list:
+    """List the post's uploads that nothing saved uses any more.
+
+    That is files uploaded for the post (in the editor, or to its draft
+    before publishing) that the saved post does not show and no other post
+    or template mentions.
+
+    Args:
+        db: Database session.
+        post: The saved post.
+
+    Returns:
+        The unused ``UploadedFile`` records.
+    """
+    body = _post_text(post)
+    records = db.query(models.UploadedFile).filter(models.UploadedFile.post_id == post.id).all()
+    return [
+        r for r in records
+        if r.stored_name and not _mentioned_in(r, body) and not _used_elsewhere(db, r, post.id)
+    ]
+
+
+def upload_disk_path(record: models.UploadedFile) -> Optional[Path]:
+    """Return where an uploaded file is on this machine, or None.
+
+    The path comes from the public URL (``/static/uploads/<rest>`` maps to
+    ``UPLOAD_ROOT/<rest>``), because the recorded ``file_path`` is absolute
+    and points elsewhere when the file was uploaded outside the container
+    (or on another machine). ``file_path`` is the fallback.
+
+    Args:
+        record: The upload record.
+
+    Returns:
+        A path inside ``UPLOAD_ROOT``, or None when neither source gives one.
+    """
+    prefix = "/static/uploads/"
+    candidates = []
+    if (record.url or "").startswith(prefix):
+        candidates.append(UPLOAD_ROOT / record.url[len(prefix):])
+    if record.file_path:
+        candidates.append(Path(record.file_path))
+    for path in candidates:
+        if _is_within_upload_root(path):
+            return path
+    return None
+
+
+def delete_uploads(db: Session, records: list) -> None:
+    """Delete upload records and their files on disk, then commit.
+
+    Only files inside the upload folder are unlinked (see
+    :func:`upload_disk_path`).
+
+    Args:
+        db: Database session.
+        records: ``UploadedFile`` records to delete.
+    """
+    for record in records:
+        path = upload_disk_path(record)
+        if path is not None and path.is_file():
+            path.unlink()
+        db.delete(record)
+    if records:
+        db.commit()
+
+
+def prune_unused_uploads(db: Session, post: models.BoardPost) -> None:
+    """Delete the post's uploads that nothing saved uses (called after each save).
+
+    Removing an image from a post then also takes it off the server, so its
+    URL stops working for anyone who saw it before.
+
+    Args:
+        db: Database session.
+        post: The post that was just saved.
+    """
+    delete_uploads(db, find_unused_uploads(db, post))
+
+
+# ============================================================
 # ★ 게시글 첨부파일 목록 조회
 # ============================================================
 @router.get("/files/{post_id}")
@@ -435,8 +574,8 @@ def get_post_files(
         .all()
     )
     if not is_owner:
-        body = "\n".join((post.content or "", post.content_html or "", post.content_blocks or ""))
-        files = [f for f in files if f.url and f.url in body]
+        body = _post_text(post)
+        files = [f for f in files if _mentioned_in(f, body)]
     return [
         {
             "id": f.id,
@@ -460,7 +599,19 @@ def delete_file(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """파일을 디스크와 DB에서 모두 삭제합니다. 본인 파일만 삭제 가능합니다."""
+    """Delete one of the user's uploaded files from disk and the database.
+
+    Args:
+        file_id: The upload record.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        ``{"status": "deleted", "file_id": file_id}``.
+
+    Raises:
+        HTTPException: 404 if the file does not exist or is not the user's.
+    """
     record = (
         db.query(models.UploadedFile)
         .filter(
@@ -472,13 +623,7 @@ def delete_file(
     if not record:
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
 
-    # 디스크에서 삭제
-    path = Path(record.file_path)
-    if path.exists():
-        path.unlink()
-
-    db.delete(record)
-    db.commit()
+    delete_uploads(db, [record])
     return {"status": "deleted", "file_id": file_id}
 
 

@@ -7,6 +7,8 @@ parsing is quadratic in the number of ``[`` characters (16,000 of them took
 below leaves its own delimiters out of its character classes, so a failed
 match stops at the next delimiter instead of rescanning the rest of the text.
 """
+from __future__ import annotations   # ``int | None`` 표기를 Python 3.9 에서도 import 가능하게
+
 import functools
 import html as html_module
 import re
