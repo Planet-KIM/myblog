@@ -70,7 +70,8 @@ myblog/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── nginx.conf
-├── requirements.txt
+├── requirements.txt          # 직접 의존성 (버전 고정)
+├── constraints.txt           # 간접 의존성까지 전체 버전 (Docker 이미지와 같은 조합)
 └── .env.example
 ```
 
@@ -104,9 +105,10 @@ cp .env.example .env
 ### 7.1 의존성 설치
 
 ```bash
-python -m venv .venv
+# Docker 이미지와 같은 Python 3.11 을 쓴다 (3.9 등 오래된 Python 에서는 설치·실행이 안 될 수 있음)
+python3.11 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c constraints.txt
 ```
 
 ### 7.2 프론트 빌드

@@ -1,33 +1,37 @@
-fastapi
-starlette
-uvicorn[standard]
-gunicorn
-uvicorn-worker
-sqlalchemy
-alembic
-jinja2
-itsdangerous
-python-dotenv
-python-multipart
-pydantic>=2
-pydantic-settings
-celery
-redis
-markdown
-bleach[css]
-passlib[bcrypt]
+# 직접 쓰는 패키지 — 테스트한 버전으로 고정 (빌드할 때마다 버전이 바뀌지 않도록).
+# 간접 의존성까지의 전체 버전은 constraints.txt 에 있다 (Dockerfile 이 함께 사용).
+# 올릴 때: 여기 버전을 바꾸고 이미지를 빌드·테스트한 뒤 constraints.txt 를 다시 뽑는다:
+#   docker run --rm --entrypoint pip myblog-web:latest freeze > constraints.txt
+fastapi==0.162.0
+starlette==1.10.0
+uvicorn[standard]==0.54.0
+gunicorn==26.2.0
+uvicorn-worker==0.4.0
+sqlalchemy==2.1.8
+alembic==1.20.1
+jinja2==3.1.6
+itsdangerous==2.2.0
+python-dotenv==1.2.4
+python-multipart==0.0.33
+pydantic==2.14.2
+pydantic-settings==2.16.2
+celery==5.6.3
+redis==8.1.0
+markdown==3.11.2
+bleach[css]==6.4.0
+passlib[bcrypt]==1.7.4
 # ── 글별 동적 OG 이미지(공유 썸네일) 생성 ──
-Pillow>=10,<12
-fonttools>=4.40
+Pillow==11.3.0
+fonttools==4.68.0
 # ── 맞춤법 검사 ──
-transformers>=4.40.0
-torch>=2.0.0
-sentencepiece
-tiktoken
-protobuf
-safetensors
-accelerate
-tokenizers
+transformers==5.22.1
+torch==2.15.0
+sentencepiece==0.2.2
+tiktoken==0.14.0
+protobuf==7.36.2
+safetensors==0.8.0
+accelerate==1.15.0
+tokenizers==0.23.3
 # ── 맞춤법 모델 학습 (선택) ──
-datasets>=2.14.0
-beautifulsoup4>=4.12.0
+datasets==5.1.0
+beautifulsoup4==4.15.0
