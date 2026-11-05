@@ -24,7 +24,7 @@ sys.path.insert(0, os.getcwd())
 
 from app.database import SessionLocal  # noqa: E402
 from app import models  # noqa: E402
-from app.routers.api import process_post_tags  # noqa: E402
+from app.routers.api import MAX_TAG_LENGTH, process_post_tags  # noqa: E402
 
 GENERIC_CATEGORIES = {"normal", "일반", "기타", "etc", "uncategorized", "미분류", "default"}
 HASHTAG_RE = re.compile(r"#([0-9A-Za-z가-힣_]{2,30})")
@@ -36,7 +36,8 @@ def candidate_tags(post, category_name: str | None) -> list[str]:
     """Infer tags for a post from its category and the hashtags in its body.
 
     The category name (lower-cased) comes first unless it is a generic name
-    from ``GENERIC_CATEGORIES``. Then come ``#hashtags`` found in ``content``
+    from ``GENERIC_CATEGORIES`` or longer than a tag may be
+    (``MAX_TAG_LENGTH``). Then come ``#hashtags`` found in ``content``
     and ``content_html``, skipping ones that look like hex colour codes or are
     all digits. Duplicates are dropped.
 
@@ -51,7 +52,7 @@ def candidate_tags(post, category_name: str | None) -> list[str]:
     # 1) 의미 있는 카테고리명
     if category_name:
         name = category_name.strip().lower()
-        if name and name not in GENERIC_CATEGORIES:
+        if name and name not in GENERIC_CATEGORIES and len(name) <= MAX_TAG_LENGTH:
             tags.append(name)
     # 2) 본문 속 진짜 해시태그 (색상코드/숫자 제외)
     source = (post.content or "") + " " + (post.content_html or "")

@@ -70,18 +70,26 @@ def _allow(key: str, limit: int, window: int) -> bool:
 def client_ip(request: Request) -> str:
     """Return the caller's IP address for rate-limit keys.
 
-    Prefers the first address in ``X-Forwarded-For`` (set by the reverse
-    proxy), then the socket peer address.
+    nginx appends the address it sees to ``X-Forwarded-For``, so the last
+    entry is the only one a client cannot choose. When
+    ``settings.TRUSTED_PROXY_HOPS`` proxies sit in front of nginx, each
+    appending the address it saw, the caller is that many entries before the
+    last. Entries further left are whatever the client sent and are never
+    used. ``request.client`` is not used while the header is present, because
+    gunicorn's ``--forwarded-allow-ips "*"`` sets it from the leftmost entry.
 
     Args:
         request: The incoming request.
 
     Returns:
-        The IP address string, or ``"unknown"`` if none is available.
+        The IP address string: from ``X-Forwarded-For`` when present (the
+        leftmost entry when the header is shorter than the trusted hops),
+        else the socket peer, else ``"unknown"``.
     """
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
+    xff = request.headers.get("x-forwarded-for") or ""
+    entries = [entry.strip() for entry in xff.split(",") if entry.strip()]
+    if entries:
+        return entries[max(len(entries) - 1 - settings.TRUSTED_PROXY_HOPS, 0)]
     return request.client.host if request.client else "unknown"
 
 

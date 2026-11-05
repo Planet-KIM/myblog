@@ -10,11 +10,37 @@ from __future__ import annotations
 import hashlib
 import hmac
 import html
+import re
 import smtplib
 import time
 from email.message import EmailMessage
 
 from app.config import settings
+
+# 주소 하나(addr-spec)만 허용: 쉼표·세미콜론·꺾쇠·따옴표·공백이 있으면 여러 수신자가 될 수 있다
+_SINGLE_EMAIL_RE = re.compile(
+    r"[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+"
+)
+_MAX_EMAIL_LENGTH = 254
+
+
+def normalize_single_email(raw: str | None) -> str | None:
+    """Return one lower-cased email address, or None when ``raw`` is not exactly one.
+
+    Address lists, display names (``Name <a@b>``), quotes, whitespace inside
+    the address and anything longer than 254 characters are rejected, so an
+    address can never expand into several SMTP recipients.
+
+    Args:
+        raw: The address as typed; surrounding whitespace is ignored.
+
+    Returns:
+        The normalized address, or None.
+    """
+    email = (raw or "").strip().lower()
+    if len(email) > _MAX_EMAIL_LENGTH or not _SINGLE_EMAIL_RE.fullmatch(email):
+        return None
+    return email
 
 
 def _normalized_email(email: str) -> str:
@@ -87,6 +113,10 @@ def _send_email(subject: str, to_email: str, text_body: str, html_body: str | No
 
     Uses implicit SSL or plain SMTP with optional STARTTLS, and logs in only
     when a username is configured. Errors are caught and reported, never raised.
+    The recipient must be exactly one address (see
+    :func:`normalize_single_email`), and the SMTP envelope is given that one
+    address explicitly, so the mail cannot fan out to a list. This blocks for
+    the whole SMTP exchange; async code must call it off the event loop.
 
     Args:
         subject: Subject line.
@@ -96,16 +126,20 @@ def _send_email(subject: str, to_email: str, text_body: str, html_body: str | No
 
     Returns:
         A ``(ok, info)`` pair: ``(True, "SENT")`` on success,
-        ``(False, "SMTP_NOT_CONFIGURED")`` when SMTP is not set up, or
-        ``(False, "SEND_FAILED:<error>")`` when sending failed.
+        ``(False, "SMTP_NOT_CONFIGURED")`` when SMTP is not set up,
+        ``(False, "INVALID_RECIPIENT")`` when ``to_email`` is not exactly one
+        address, or ``(False, "SEND_FAILED:<error>")`` when sending failed.
     """
     if not _smtp_config_ready():
         return False, "SMTP_NOT_CONFIGURED"
+    recipient = normalize_single_email(to_email)
+    if not recipient:
+        return False, "INVALID_RECIPIENT"
 
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = f"{settings.NEWSLETTER_FROM_NAME} <{settings.NEWSLETTER_FROM_EMAIL}>"
-    msg["To"] = to_email
+    msg["To"] = recipient
     msg.set_content(text_body)
 
     if html_body:
@@ -122,14 +156,14 @@ def _send_email(subject: str, to_email: str, text_body: str, html_body: str | No
             with smtplib.SMTP_SSL(host=host, port=port, timeout=timeout) as server:
                 if username:
                     server.login(username, password)
-                server.send_message(msg)
+                server.send_message(msg, to_addrs=[recipient])
         else:
             with smtplib.SMTP(host=host, port=port, timeout=timeout) as server:
                 if settings.NEWSLETTER_SMTP_USE_TLS:
                     server.starttls()
                 if username:
                     server.login(username, password)
-                server.send_message(msg)
+                server.send_message(msg, to_addrs=[recipient])
         return True, "SENT"
     except Exception as exc:
         return False, f"SEND_FAILED:{exc}"

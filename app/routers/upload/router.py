@@ -15,18 +15,22 @@ Upload Router - 통합 파일 업로드 시스템
   DELETE /api/files/{file_id}  - 파일 개별 삭제
 """
 
+import io
 import shutil
 from pathlib import Path
 from typing import Optional, Tuple
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
+from PIL import Image, ImageOps
 from sqlalchemy.orm import Session
 from starlette import status
 
 from app.auth_utils import get_current_user, get_current_user_optional
 from app import models
+from app.config import settings
 from app.database import get_db
 
 router = APIRouter(prefix="/api", tags=["upload"])
@@ -35,11 +39,6 @@ router = APIRouter(prefix="/api", tags=["upload"])
 BASE_DIR   = Path(__file__).resolve().parent.parent.parent   # app/
 STATIC_DIR = BASE_DIR / "static"
 UPLOAD_ROOT = STATIC_DIR / "uploads"
-
-# ── 보안: 동일 출처에서 스크립트가 실행될 수 있는 액티브 콘텐츠 차단 ──
-# svg/html/xml 등은 브라우저가 문서로 렌더링하며 인라인 스크립트를 담을 수 있어
-# 업로드 자체를 거부한다. (추후 정제 + attachment 서빙으로 완화 가능)
-BLOCKED_EXTENSIONS = {".svg", ".html", ".htm", ".xhtml", ".xml", ".shtml"}
 
 
 def normalize_draft_id(draft_id: Optional[str]) -> Optional[str]:
@@ -65,7 +64,9 @@ def _is_within_upload_root(path: Path) -> bool:
     except (OSError, ValueError):
         return False
 
-# ── 파일 타입 분류 테이블 ──────────────────────────────────
+# ── 파일 타입 분류 테이블 = 업로드 허용 목록 ───────────────
+# 여기 없는 확장자는 거부한다. svg/html/xml/xsl 처럼 브라우저가 문서로 열어
+# 스크립트를 실행할 수 있는 형식은 넣지 않는다.
 # key        : 파일 타입명 (UploadedFile.file_type 에 저장)
 # extensions : 허용 확장자 (소문자)
 # max_mb     : 최대 파일 크기
@@ -82,7 +83,7 @@ FILE_TYPES = {
         "folder": "documents",
     },
     "text": {
-        "extensions": {".txt", ".md", ".csv", ".json", ".xml", ".yaml", ".yml", ".toml"},
+        "extensions": {".txt", ".md", ".csv", ".json", ".yaml", ".yml", ".toml"},
         "max_mb": 5,
         "folder": "files",
     },
@@ -111,15 +112,31 @@ FILE_TYPES = {
     },
 }
 
-OTHER_CONFIG = {"max_mb": 20, "folder": "files"}
+# 업로드 폴더에서 브라우저가 바로 보여 줘도 되는 형식. 나머지는 내려받기로만 제공
+# (app/services/upload_static.py, nginx.conf 의 /static/uploads/ 와 같은 목록)
+INLINE_MEDIA_EXTENSIONS = (
+    FILE_TYPES["image"]["extensions"]
+    | FILE_TYPES["video"]["extensions"]
+    | FILE_TYPES["audio"]["extensions"]
+)
 
 
 def _classify_file(suffix: str):
-    """확장자로 파일 타입과 설정을 반환합니다."""
+    """Return the file type and its settings for an allowed extension.
+
+    Args:
+        suffix: The lower-cased extension, with the dot.
+
+    Returns:
+        ``(type_name, config)`` from ``FILE_TYPES``.
+
+    Raises:
+        HTTPException: 400 for an extension that is not in ``FILE_TYPES``.
+    """
     for type_name, config in FILE_TYPES.items():
         if suffix in config["extensions"]:
             return type_name, config
-    return "other", OTHER_CONFIG
+    raise HTTPException(status_code=400, detail="업로드할 수 없는 파일 형식입니다.")
 
 
 def _get_upload_dir(
@@ -151,18 +168,55 @@ def _get_upload_dir(
 # ============================================================
 # ★ 통합 파일 업로드
 # ============================================================
-def _optimize_image(content: bytes, suffix: str) -> Tuple[bytes, str, Optional[str]]:
-    """이미지를 최대폭 리사이즈 + WebP 변환해 용량을 줄인다.
-    반환: (바이트, 확장자, mime) — 부적합/실패/더 커지면 원본 그대로(mime=None).
-    - GIF/AVIF(움직이는 이미지 가능)는 변환하지 않음
-    - EXIF 회전 보정, 알파 보존
+def _check_image_pixels(content: bytes) -> None:
+    """Reject an image whose header declares too many pixels, before any decode.
+
+    A small compressed file can declare a huge raster, so the byte size limit
+    does not bound decoding. ``Image.open`` reads only the header.
+
+    Args:
+        content: The uploaded bytes.
+
+    Raises:
+        HTTPException: 413 when width × height exceeds
+            ``settings.UPLOAD_MAX_IMAGE_PIXELS`` (or Pillow's own bomb check
+            fires). Content Pillow cannot read passes: it is stored as is and
+            never decoded here.
     """
+    too_large = HTTPException(status_code=413, detail="이미지 해상도가 너무 큽니다.")
+    try:
+        with Image.open(io.BytesIO(content)) as probe:
+            width, height = probe.size
+    except Image.DecompressionBombError:
+        raise too_large
+    except Exception:  # noqa: BLE001 — 읽을 수 없는 파일은 디코딩하지 않으므로 통과
+        return
+    if width * height > settings.UPLOAD_MAX_IMAGE_PIXELS:
+        raise too_large
+
+
+def _optimize_image(content: bytes, suffix: str) -> Tuple[bytes, str, Optional[str]]:
+    """Shrink an uploaded image: resize to at most 1600 px wide and convert to WebP.
+
+    GIF and AVIF (possibly animated) and animated images are kept as they
+    are; EXIF rotation is applied and alpha is kept. CPU-bound: async callers
+    run it in a worker thread.
+
+    Args:
+        content: The uploaded bytes.
+        suffix: The lower-cased extension, with the dot.
+
+    Returns:
+        ``(bytes, extension, mime)``; the original with mime None when the
+        image is not converted, conversion fails or the result is not smaller.
+
+    Raises:
+        HTTPException: 413 from :func:`_check_image_pixels`.
+    """
+    _check_image_pixels(content)
     if suffix.lower() in (".gif", ".avif"):
         return content, suffix, None
     try:
-        import io
-        from PIL import Image, ImageOps
-
         im = Image.open(io.BytesIO(content))
         if getattr(im, "is_animated", False):
             return content, suffix, None
@@ -189,11 +243,26 @@ async def upload_file(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    모든 파일 타입을 처리하는 통합 업로드 엔드포인트.
-    - 파일 타입을 자동 감지하여 적절한 폴더에 저장합니다.
-    - 업로드 기록을 DB(uploaded_files)에 저장합니다.
-    - 응답: {"url": "...", "file_type": "...", "size_bytes": ...}
+    """Store an uploaded file and record it.
+
+    Only extensions in ``FILE_TYPES`` are accepted. Images are checked for
+    their pixel count and shrunk to WebP in a worker thread.
+
+    Args:
+        file: The uploaded file.
+        post_id: One of the user's posts to attach the file to.
+        draft_id: UUID of the editing session's draft.
+        current_user: The logged-in user.
+        db: Database session.
+
+    Returns:
+        ``{"url", "file_type", "size_bytes", "file_id"}``.
+
+    Raises:
+        HTTPException: 400 for a disallowed extension, an empty file or a bad
+            ``draft_id``; 403/404 for a post that is not the user's; 413 for
+            a file over its type's size limit or an image with too many
+            pixels.
     """
     draft_id = normalize_draft_id(draft_id)
 
@@ -210,11 +279,6 @@ async def upload_file(
             raise HTTPException(status_code=403, detail="본인 게시글에만 업로드할 수 있습니다.")
 
     suffix = Path(file.filename or "unknown").suffix.lower()
-    if suffix in BLOCKED_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail="보안상 업로드할 수 없는 파일 형식입니다.",
-        )
     file_type, type_config = _classify_file(suffix)
 
     # 파일 내용 읽기 (크기 검사 포함)
@@ -237,7 +301,7 @@ async def upload_file(
     # 이미지 최적화: 최대폭 리사이즈 + WebP 변환 (원본이 더 작으면 그대로)
     mime_type = file.content_type or "application/octet-stream"
     if file_type == "image":
-        content, suffix, webp_mime = _optimize_image(content, suffix)
+        content, suffix, webp_mime = await run_in_threadpool(_optimize_image, content, suffix)
         size_bytes = len(content)
         if webp_mime:
             mime_type = webp_mime
@@ -337,9 +401,31 @@ def get_post_files(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    """게시글에 첨부된 모든 파일 목록을 반환합니다. 비공개 글은 작성자만."""
+    """List the files attached to a post.
+
+    The author sees every file uploaded for the post. Everyone else sees only
+    the files the saved post actually uses (its URL appears in the content,
+    HTML or layout): uploads that were removed from the body, or made while
+    editing and never saved, stay private.
+
+    Args:
+        post_id: The post.
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        One dict per file: id, original name, URL, type, size, MIME type and
+        upload time.
+
+    Raises:
+        HTTPException: 404 if the post does not exist or is hidden by a
+            moderator, 403 if it is private and the caller is not its author.
+    """
     post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
-    if post and post.is_private and (not current_user or post.user_id != current_user.id):
+    if not post:
+        raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
+    is_owner = current_user is not None and post.user_id == current_user.id
+    if post.is_private and not is_owner:
         raise HTTPException(status_code=403, detail="비공개 게시글의 첨부는 볼 수 없습니다.")
 
     files = (
@@ -348,6 +434,9 @@ def get_post_files(
         .order_by(models.UploadedFile.created_at.asc())
         .all()
     )
+    if not is_owner:
+        body = "\n".join((post.content or "", post.content_html or "", post.content_blocks or ""))
+        files = [f for f in files if f.url and f.url in body]
     return [
         {
             "id": f.id,

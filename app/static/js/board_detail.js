@@ -8,13 +8,53 @@
  *   { postId: number, shareTitle: string, recentTitle: string, recentDate: string }
  * Buttons opt in with data-detail-action="like|bookmark|copy-link|print|share-x|scroll-top".
  *
+ * The post body sits in the same document and may carry any id or data-*
+ * attribute, so the data is looked up as a <script> element (a body cannot
+ * contain one) and its postId must be a positive integer, and only controls
+ * outside the post body are used.
+ *
  * Load it WITHOUT defer, after the action bar and the scroll-to-top button and
  * before the page's own script, so its DOMContentLoaded work runs first (the
  * order the old inline script had).
  */
 (function initBoardDetail() {
-  /** @type {{postId: number, shareTitle: string, recentTitle: string, recentDate: string}} */
-  const POST = JSON.parse(document.getElementById('board-detail-data').textContent);
+  /** The page's data block; a <script> element, which post bodies cannot contain. */
+  const DATA_SELECTOR = 'script#board-detail-data[type="application/json"]';
+
+  /** Containers of the author's content; nothing inside them is a page control. */
+  const USER_CONTENT = '.article-content, .magazine-content';
+
+  /**
+   * Read and check the page's post data.
+   *
+   * @returns {?{postId: number, shareTitle: string, recentTitle: string, recentDate: string}}
+   *   The data, or null when the block is missing or postId is not a positive integer.
+   */
+  function readPostData() {
+    const block = document.querySelector(DATA_SELECTOR);
+    if (!block) return null;
+    let data;
+    try {
+      data = JSON.parse(block.textContent);
+    } catch (e) {
+      return null;
+    }
+    return data && Number.isSafeInteger(data.postId) && data.postId > 0 ? data : null;
+  }
+
+  /**
+   * The page's own elements matching a selector, leaving out any inside the
+   * post body.
+   *
+   * @param {string} selector - CSS selector.
+   * @returns {Element[]} Matching elements outside USER_CONTENT.
+   */
+  function pageControls(selector) {
+    return Array.from(document.querySelectorAll(selector)).filter((el) => !el.closest(USER_CONTENT));
+  }
+
+  const POST = readPostData();
+  if (!POST) return;
 
   /** Radius of the progress ring's circles (r="16" in the markup). */
   const RING_RADIUS = 16;
@@ -68,28 +108,30 @@
   }
 
   /**
-   * Toggle the like on this post and update the count and icon.
+   * Toggle the like on this post and update the button's count and icon.
    *
+   * @param {HTMLElement} button - The like button that was clicked.
    * @returns {Promise<void>}
    */
-  async function toggleDetailLike() {
+  async function toggleDetailLike(button) {
     const result = await postAction(`/api/posts/${POST.postId}/like`);
     if (!result) return;
-    const likeCount = document.getElementById('detail-like-count');
-    const icon = document.querySelector('#detail-like-btn i');
+    const likeCount = button.querySelector('#detail-like-count');
+    const icon = button.querySelector('i');
     if (likeCount) likeCount.textContent = String(result.likes ?? 0);
     if (icon) icon.className = result.active ? 'bi bi-hand-thumbs-up-fill' : 'bi bi-hand-thumbs-up';
   }
 
   /**
-   * Toggle the bookmark on this post and update the icon.
+   * Toggle the bookmark on this post and update the button's icon.
    *
+   * @param {HTMLElement} button - The bookmark button that was clicked.
    * @returns {Promise<void>}
    */
-  async function toggleDetailBookmark() {
+  async function toggleDetailBookmark(button) {
     const result = await postAction(`/api/posts/${POST.postId}/bookmark`);
     if (!result) return;
-    const icon = document.querySelector('#detail-bookmark-btn i');
+    const icon = button.querySelector('i');
     if (icon) icon.className = result.active ? 'bi bi-bookmark-check-fill' : 'bi bi-bookmark';
   }
 
@@ -134,8 +176,8 @@
    * @returns {void}
    */
   function initScrollProgress() {
-    const scrollBtn = document.getElementById('scroll-to-top');
-    const ring = document.getElementById('scrollProgressRing');
+    const scrollBtn = pageControls('#scroll-to-top')[0];
+    const ring = scrollBtn && scrollBtn.querySelector('#scrollProgressRing');
     if (!scrollBtn || !ring) return;
 
     const circumference = 2 * Math.PI * RING_RADIUS;
@@ -164,9 +206,10 @@
   }
 
   /**
-   * What each data-detail-action button does when clicked.
+   * What each data-detail-action button does when clicked; each gets the
+   * clicked button.
    *
-   * @type {Object<string, function(): void>}
+   * @type {Object<string, function(HTMLElement): void>}
    */
   const ACTIONS = {
     like: toggleDetailLike,
@@ -177,9 +220,9 @@
     'scroll-top': scrollToTop
   };
 
-  document.querySelectorAll('[data-detail-action]').forEach((button) => {
+  pageControls('[data-detail-action]').forEach((button) => {
     const action = ACTIONS[button.dataset.detailAction];
-    if (action) button.addEventListener('click', () => { action(); });
+    if (action) button.addEventListener('click', () => { action(button); });
   });
 
   document.addEventListener('DOMContentLoaded', () => {

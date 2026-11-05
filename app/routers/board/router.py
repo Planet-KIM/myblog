@@ -29,6 +29,9 @@ from app.database import get_db
 from app import models
 from app.auth_utils import get_current_user, get_current_user_optional
 from app.routers.upload.router import relocate_draft_files, normalize_draft_id
+from app.routers.api import parse_tag_field, process_post_tags
+from app.services.layout_quota import ensure_layout_budget, ensure_template_slot
+from app.services.profile import author_matches, public_author_name
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
 from app.services.ratelimit import enforce
 from app.services.seo import post_jsonld, breadcrumb_jsonld, post_meta
@@ -941,11 +944,14 @@ def board_create(
 
     Raises:
         HTTPException: 401 if not logged in; 400 if ``draft_id`` is not a UUID,
-            ``category_id`` is not an integer, or the category is not the
-            user's.
+            ``category_id`` is not an integer, the category is not the
+            user's, or the tags break the tag limits; 413 if the layout would
+            exceed the user's layout storage budget.
     """
-    # draft_id는 DB 기록 전에 검증 (잘못된 값이면 글 생성 전 400)
+    # draft_id·태그는 DB 기록 전에 검증 (잘못된 값이면 글 생성 전 400)
     draft_id = normalize_draft_id(draft_id)
+    tag_names = parse_tag_field(tags)
+    ensure_layout_budget(db, current_user.id, len(content_blocks or ""))
 
     normal = ensure_default_category(db, current_user)
 
@@ -978,7 +984,7 @@ def board_create(
         content_blocks=content_blocks,
         is_private=is_private,
         show_title=show_title,
-        author=current_user.email,
+        author=public_author_name(current_user),
         user_id=current_user.id,
         category_id=category_id_int,
     )
@@ -986,11 +992,8 @@ def board_create(
     db.commit()
     db.refresh(post)
 
-    # Process tags if provided
-    if tags:
-        from ..api import process_post_tags
-        tag_list = [t.strip() for t in tags.split(',') if t.strip()]
-        process_post_tags(db, post, tag_list)
+    if tag_names:
+        process_post_tags(db, post, tag_names)
 
     # Create initial statistics record
     stats = models.PostStats(post_id=post.id, views=0, likes=0)
@@ -1128,11 +1131,14 @@ def board_update(
         A 303 redirect to the post.
 
     Raises:
-        HTTPException: 401 if not logged in; 400 if ``draft_id`` is not a UUID
-            or ``category_id`` is not an integer; 404 if the post does not
-            exist; 403 if it belongs to another user.
+        HTTPException: 401 if not logged in; 400 if ``draft_id`` is not a UUID,
+            ``category_id`` is not an integer or the tags break the tag
+            limits; 404 if the post does not exist; 403 if it belongs to
+            another user; 413 if a new layout would exceed the user's layout
+            storage budget.
     """
     draft_id = normalize_draft_id(draft_id)
+    tag_names = parse_tag_field(tags) if tags is not None else None
 
     normal = ensure_default_category(db, current_user)
 
@@ -1142,6 +1148,11 @@ def board_update(
 
     if post.user_id != current_user.id:
         raise HTTPException(403, "Not authorized")
+
+    if content_blocks:
+        ensure_layout_budget(
+            db, current_user.id, len(content_blocks) - len(post.content_blocks or "")
+        )
 
     try:
         category_id_int = int(category_id) if category_id not in (None, "", "0") else normal.id
@@ -1174,10 +1185,8 @@ def board_update(
     db.commit()
 
     # 태그 갱신 (제출된 경우에만; 빈 문자열이면 전체 해제)
-    if tags is not None:
-        from ..api import process_post_tags
-        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-        process_post_tags(db, post, tag_list)
+    if tag_names is not None:
+        process_post_tags(db, post, tag_names)
 
     if draft_id:
         relocate_draft_files(post, draft_id, db)
@@ -1188,15 +1197,50 @@ def board_update(
 # ============================================================
 # ★ 게시글 삭제
 # ============================================================
+def _delete_post_references(db: Session, post_id: int) -> None:
+    """Delete the rows that point to a post, without committing.
+
+    That is its notifications, all of its comments (moderator-hidden ones
+    too: a bulk delete is not a SELECT, so the hidden-content filter does
+    not apply) and the reports against the post or those comments.
+
+    Args:
+        db: Database session; the caller commits.
+        post_id: The post about to be deleted.
+    """
+    comment_ids = [
+        cid for (cid,) in db.query(models.Comment.id)
+        .execution_options(include_hidden=True)
+        .filter(models.Comment.post_id == post_id)
+        .all()
+    ]
+    db.query(models.Notification).filter(
+        models.Notification.post_id == post_id
+    ).delete(synchronize_session=False)
+    db.query(models.Report).filter(
+        or_(
+            (models.Report.target_type == "post") & (models.Report.target_id == post_id),
+            (models.Report.target_type == "comment") & models.Report.target_id.in_(comment_ids),
+        )
+    ).delete(synchronize_session=False)
+    db.query(models.Comment).filter(
+        models.Comment.post_id == post_id
+    ).delete(synchronize_session=False)
+
+
 @router.post("/{post_id}/delete")
 def board_delete(
     post_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Delete one of the user's posts together with its uploaded files.
+    """Delete one of the user's posts together with everything that points to it.
 
-    Removes the post's upload records and its upload folder on disk.
+    Removes the post's upload records and its upload folder on disk, and its
+    notifications, comments (hidden ones too) and reports. SQLite does not
+    enforce the foreign keys' ON DELETE CASCADE here, and it may give the
+    freed id to the next post, so a row left behind would point at someone
+    else's post.
 
     Args:
         post_id: The post to delete.
@@ -1230,6 +1274,7 @@ def board_delete(
     if post_folder.exists():
         shutil.rmtree(post_folder, ignore_errors=True)
 
+    _delete_post_references(db, post_id)
     db.delete(post)
     db.commit()
 
@@ -1323,7 +1368,7 @@ def board_list(
                 models.BoardPost.title.ilike(f"%{q}%"),
                 models.BoardPost.content.ilike(f"%{q}%"),
                 models.BoardPost.content_html.ilike(f"%{q}%"),
-                models.BoardPost.author.ilike(f"%{q}%"),
+                author_matches(q),
             )
         )
 
@@ -1867,7 +1912,9 @@ def board_save_template(
 
     Raises:
         HTTPException: 401 if not logged in, 404 if the post does not exist,
-            403 if it belongs to another user, 400 if it has no layout.
+            403 if it belongs to another user, 400 if it has no layout, 409
+            if the user has the maximum number of templates, 413 or 429 from
+            :func:`_guard_layout_copy`.
     """
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
     if not post:
@@ -1876,6 +1923,8 @@ def board_save_template(
         raise HTTPException(403, "Not authorized")
     if not post.content_blocks:
         raise HTTPException(400, "저장할 레이아웃이 없습니다 (매거진 글만 가능).")
+    ensure_template_slot(db, current_user.id)
+    _guard_layout_copy(request, db, current_user, post.content_blocks)
     tpl = models.LayoutTemplate(
         user_id=current_user.id,
         name=(name or "").strip()[:100] or (post.title or "내 레이아웃")[:100],
@@ -1906,11 +1955,12 @@ def board_from_template(
 
     Raises:
         HTTPException: 401 if not logged in, 404 if the template is not the
-            user's.
+            user's, 413 or 429 from :func:`_guard_layout_copy`.
     """
     tpl = db.query(models.LayoutTemplate).filter_by(id=template_id, user_id=current_user.id).first()
     if not tpl:
         raise HTTPException(404, "템플릿을 찾을 수 없습니다.")
+    _guard_layout_copy(request, db, current_user, tpl.content_blocks)
     return _create_draft_from_blocks(db, current_user, tpl.content_blocks)
 
 
@@ -1933,13 +1983,37 @@ def board_from_starter(
         A 303 redirect to the new draft's editor.
 
     Raises:
-        HTTPException: 401 if not logged in, 404 if the key is unknown.
+        HTTPException: 401 if not logged in, 404 if the key is unknown, 413 or
+            429 from :func:`_guard_layout_copy`.
     """
     from app.services.starter_templates import get_starter_blocks
     blocks = get_starter_blocks(key)
     if not blocks:
         raise HTTPException(404, "시작 템플릿을 찾을 수 없습니다.")
+    _guard_layout_copy(request, db, current_user, blocks)
     return _create_draft_from_blocks(db, current_user, blocks)
+
+
+def _guard_layout_copy(request: Request, db: Session, user: models.User, content_blocks: str) -> None:
+    """Check that the user may have the server store one more copy of a layout.
+
+    Each copy is a small request that stores a whole layout, so copies are
+    rate-limited per user (not per IP) and count against the user's layout
+    storage budget.
+
+    Args:
+        request: The incoming request.
+        db: Database session.
+        user: The logged-in user.
+        content_blocks: The layout JSON about to be copied.
+
+    Raises:
+        HTTPException: 429 when the user made too many copies recently, 413
+            when the copy would exceed the layout storage budget.
+    """
+    enforce(request, "layout-copy", settings.LAYOUT_COPY_RATE_LIMIT, settings.LAYOUT_COPY_RATE_WINDOW,
+            subject=str(user.id), message="레이아웃 복사가 너무 많습니다. 잠시 후 다시 시도해주세요.")
+    ensure_layout_budget(db, user.id, len(content_blocks or ""))
 
 
 def _create_draft_from_blocks(db, current_user, content_blocks):
@@ -1966,7 +2040,7 @@ def _create_draft_from_blocks(db, current_user, content_blocks):
         is_private=True,   # 초안: 발행 전까지 비공개
         show_title=True,
         user_id=current_user.id,
-        author=current_user.email,
+        author=public_author_name(current_user),
         category_id=normal.id,
     )
     db.add(post)

@@ -18,7 +18,7 @@ Nginx + Gunicorn + Celery + Redis 조합으로 운영 가능한 구조를 갖추
   - `/auth/signup`
   - `/auth/login`
   - `/auth/logout`
-- 관리자 페이지: `/admin/`
+- 관리자 페이지: `/admin/` (권한 부여는 서버에서 `python3 scripts/set_admin.py <가입한 이메일>`)
 - API:
   - 좋아요/북마크/팔로우
   - 태그 추천/인기 태그

@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from typing import Optional, Tuple
 
+from sqlalchemy import or_
+
 from app import models
 from app.services.sanitize import safe_url
 
@@ -60,6 +62,39 @@ def validate_avatar_url(raw: Optional[str]) -> Tuple[Optional[str], Optional[str
     if not safe:
         return None, "이미지 URL이 올바르지 않습니다. (http/https 또는 내부 경로만 허용)"
     return safe, None
+
+
+def public_author_name(user) -> str:
+    """Return the name to store in a post's public ``author`` field.
+
+    That field is printed on post pages and searched by guests, so it must
+    never hold the account email.
+
+    Args:
+        user: The writing ``models.User``.
+
+    Returns:
+        The user's handle, else the part of the email before ``@``, else "user".
+    """
+    return user.handle or (user.email or "").split("@")[0] or "user"
+
+
+def author_matches(q: str):
+    """Return a SQL condition: the post's author handle or display name contains ``q``.
+
+    Post search uses this instead of the ``author`` column, which older posts
+    filled with the account email.
+
+    Args:
+        q: The search text.
+
+    Returns:
+        A condition for ``BoardPost`` queries.
+    """
+    pattern = f"%{q}%"
+    return models.BoardPost.user.has(
+        or_(models.User.handle.ilike(pattern), models.User.display_name.ilike(pattern))
+    )
 
 
 def generate_unique_handle(db, email: Optional[str]) -> str:

@@ -26,7 +26,7 @@ from app import models
 from app.config import settings
 from app.database import get_db
 from app.auth_utils import get_current_user, get_current_user_optional
-from app.services.profile import validate_handle, validate_avatar_url, validate_accent_color
+from app.services.profile import author_matches, validate_handle, validate_avatar_url, validate_accent_color
 from app.services.seo import website_jsonld, blog_jsonld
 from app.services.plain_text import markdown_to_plain
 from app.services.post_media import extract_first_image
@@ -100,6 +100,9 @@ templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["asset_ver"] = asset_version
 
 router = APIRouter(tags=["blog"])
+
+# sitemap.xml 에 넣는 태그 피드 최대 수 (태그는 누구나 만들 수 있어 상한이 필요)
+SITEMAP_TAG_LIMIT = 1000
 
 
 def build_approved_api_catalog() -> List[Dict[str, str]]:
@@ -388,7 +391,7 @@ def read_index(
                     models.BoardPost.title.ilike(f"%{q}%"),
                     models.BoardPost.content.ilike(f"%{q}%"),
                     models.BoardPost.content_html.ilike(f"%{q}%"),
-                    models.BoardPost.author.ilike(f"%{q}%"),
+                    author_matches(q),
                 )
             )
         if selected_category_ids:
@@ -771,7 +774,7 @@ def my_page(
                 models.BoardPost.title.ilike(f"%{q}%"),
                 models.BoardPost.content.ilike(f"%{q}%"),
                 models.BoardPost.content_html.ilike(f"%{q}%"),
-                models.BoardPost.author.ilike(f"%{q}%"),
+                author_matches(q),
             )
         )
 
@@ -1407,7 +1410,9 @@ def notifications_page(
 
     Each item gets a message and a link (the follower's blog for follows, the
     post's comments for comments). Unread notifications shown are marked as
-    read once the page is built.
+    read once the page is built. A comment notification is always about one of
+    the user's own posts, so only those posts are looked up: a stale post id
+    that SQLite gave to someone else's new post shows no title.
 
     Args:
         request: The incoming request.
@@ -1434,7 +1439,10 @@ def notifications_page(
         rows = (
             db.query(models.BoardPost)
             .execution_options(include_hidden=True)
-            .filter(models.BoardPost.id.in_(post_ids))
+            .filter(
+                models.BoardPost.id.in_(post_ids),
+                models.BoardPost.user_id == current_user.id,
+            )
             .all()
         )
         posts = {p.id: p for p in rows}
@@ -1904,7 +1912,8 @@ def sitemap_xml(request: Request, db: Session = Depends(get_db)):
     """Serve ``sitemap.xml``.
 
     Lists the home and explore pages, up to 2,000 public posts (with their
-    last update date), every blog home and the feeds of tags in use.
+    last update date), every blog home and the feeds of up to
+    ``SITEMAP_TAG_LIMIT`` tags in use, most used first.
 
     Args:
         request: The incoming request, used for absolute URLs.
@@ -1949,8 +1958,14 @@ def sitemap_xml(request: Request, db: Session = Depends(get_db)):
     handles = db.query(models.User.handle).filter(models.User.handle.isnot(None)).all()
     parts += [entry(f"{base}/@{h}") for (h,) in handles if h]
 
-    # 실제 사용 중인 태그 피드
-    tags = db.query(models.Tag.slug).filter(models.Tag.count > 0).order_by(models.Tag.count.desc()).all()
+    # 실제 사용 중인 태그 피드 (많이 쓰인 순, 상한 있음)
+    tags = (
+        db.query(models.Tag.slug)
+        .filter(models.Tag.count > 0)
+        .order_by(models.Tag.count.desc())
+        .limit(SITEMAP_TAG_LIMIT)
+        .all()
+    )
     parts += [entry(f"{base}/tags/{slug}") for (slug,) in tags if slug]
 
     body = '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -1966,40 +1981,18 @@ def legacy_posts_new_redirect():
     return RedirectResponse("/board/new", status_code=307)
 
 
-@router.get("/posts/{post_id}", response_class=HTMLResponse)
-def read_post(
-    request: Request,
-    post_id: int,
-    db: Session = Depends(get_db),
-    current_user: Optional[models.User] = Depends(get_current_user_optional),
-):
-    """Render a post at the legacy ``/posts/{post_id}`` URL.
+@router.get("/posts/{post_id}")
+def read_post(post_id: int):
+    """Redirect the legacy ``/posts/{post_id}`` URL to ``/board/{post_id}`` (301).
+
+    The old page printed the stored ``author`` field, which held the
+    account email; the current post page applies the visibility and
+    moderation checks itself.
 
     Args:
-        request: The incoming request.
         post_id: Id of the post.
-        db: Database session.
-        current_user: The logged-in user, or None.
 
     Returns:
-        The ``post_detail.html`` page; a 302 redirect home if the post does not
-        exist, or a 303 redirect home if it is private and the viewer is not
-        its author.
+        A permanent redirect to the post page.
     """
-    post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
-    if not post:
-        return RedirectResponse("/", status_code=302)
-
-    if post.is_private:
-        if not current_user or post.user_id != current_user.id:
-            return RedirectResponse("/", status_code=303)
-
-    return templates.TemplateResponse(
-        request,
-        "post_detail.html",
-        {
-            "request": request,
-            "post": post,
-            "current_user": current_user,
-        },
-    )
+    return RedirectResponse(f"/board/{post_id}", status_code=301)

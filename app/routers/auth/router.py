@@ -1,8 +1,8 @@
 """Authentication pages: signup, login and logout.
 
 Login state is the ``user_id`` stored in the signed session cookie. Signup
-and login are rate-limited per client IP, and accounts listed in
-``ADMIN_EMAILS`` are promoted to admin when they sign up or log in.
+and login are rate-limited per client IP, and login also per account. Admin
+rights are never granted here; operators use ``scripts/set_admin.py``.
 """
 from typing import Optional
 
@@ -47,22 +47,6 @@ def safe_next_url(next_url: Optional[str], default: str = "/board/") -> str:
     if parsed.scheme or parsed.netloc:
         return default
     return next_url
-
-
-def _admin_emails() -> set[str]:
-    """Return the configured admin emails, lower-cased.
-
-    Returns:
-        The set of non-empty addresses from ``settings.ADMIN_EMAILS``.
-    """
-    return {e.strip().lower() for e in (settings.ADMIN_EMAILS or "").split(",") if e.strip()}
-
-
-def maybe_promote_admin(user: models.User, db: Session) -> None:
-    """ADMIN_EMAILS에 포함된 계정을 로그인 시 is_admin으로 승격."""
-    if user.email.lower() in _admin_emails() and not user.is_admin:
-        user.is_admin = True
-        db.commit()
 
 
 # ─────────────────────────────────────
@@ -116,8 +100,8 @@ def signup(
     """Create an account, log it in and redirect.
 
     The email is trimmed and lower-cased. On success the user gets an
-    auto-generated blog handle, is promoted to admin if listed in
-    ``ADMIN_EMAILS``, and is logged in.
+    auto-generated blog handle and is logged in. The email is not verified,
+    so it never grants anything (admin rights included).
 
     Args:
         request: The incoming request.
@@ -198,9 +182,6 @@ def signup(
     user.handle = generate_unique_handle(db, user.email)
     db.commit()
 
-    # ADMIN_EMAILS에 해당하면 관리자 승격
-    maybe_promote_admin(user, db)
-
     # 가입 후 자동 로그인
     request.session["user_id"] = user.id
 
@@ -255,6 +236,9 @@ def login(
 ):
     """Check the credentials and log the user in.
 
+    Attempts are limited per client IP and, so that changing IPs does not
+    help, per account email as well.
+
     Args:
         request: The incoming request.
         email: Email address; trimmed and lower-cased before lookup.
@@ -268,11 +252,14 @@ def login(
         password is wrong.
 
     Raises:
-        HTTPException: 429 when the login rate limit is exceeded.
+        HTTPException: 429 when the IP or the account login limit is exceeded.
     """
     enforce(request, "login", settings.LOGIN_RATE_LIMIT, settings.LOGIN_RATE_WINDOW,
             message="로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.")
     email = email.strip().lower()
+    enforce(request, "login-account", settings.LOGIN_ACCOUNT_RATE_LIMIT,
+            settings.LOGIN_ACCOUNT_RATE_WINDOW, subject=email,
+            message="이 계정의 로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.")
 
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user or not verify_password(password, user.password_hash):
@@ -287,9 +274,6 @@ def login(
             },
             status_code=400,
         )
-
-    # ADMIN_EMAILS에 포함된 계정이면 관리자로 승격
-    maybe_promote_admin(user, db)
 
     # 세션에 user_id 저장
     request.session["user_id"] = user.id

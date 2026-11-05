@@ -25,7 +25,8 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -36,17 +37,27 @@ from app.auth_utils import get_current_user, get_current_user_optional
 from app.config import settings
 from app.services.newsletter import (
     build_unsubscribe_token,
+    normalize_single_email,
     send_subscription_confirmed_email,
     send_verification_email,
     verify_unsubscribe_token,
 )
+from app.services.ratelimit import enforce
 from app.services.recommendations import get_curated_home_recommendations
 from app.services.post_links import search_link_targets
 
 # 맞춤법 전용 스레드풀 (Celery 없이 직접 추론할 때 사용)
 _spellcheck_executor = ThreadPoolExecutor(max_workers=2)
+# 뉴스레터 메일 전용 스레드풀: SMTP 대기가 이벤트 루프·공용 스레드풀을 막지 않게
+_mail_executor = ThreadPoolExecutor(max_workers=2)
 _SPELLCHECK_TASK_MAX_ATTEMPTS = 2
 logger = logging.getLogger(__name__)
+
+# 태그 한도: 글당 개수, 태그 길이(models.Tag.name 컬럼 길이와 같음), 폼 필드 길이, 목록 API 최대 개수
+MAX_TAGS_PER_POST = 20
+MAX_TAG_LENGTH = 50
+MAX_TAG_FIELD_CHARS = 4096
+MAX_TAG_LIST_LIMIT = 50
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -472,12 +483,16 @@ async def save_draft(
 # ─────────────────────────────────────────────
 
 @router.get("/tags/suggest", response_model=List[TagResponse])
-async def suggest_tags(query: str, limit: int = 10, db: Session = Depends(get_db)):
+async def suggest_tags(
+    query: str = Query(..., max_length=MAX_TAG_LENGTH),
+    limit: int = Query(10, ge=1, le=MAX_TAG_LIST_LIMIT),
+    db: Session = Depends(get_db),
+):
     """Suggest tags whose name contains the query, most used first.
 
     Args:
-        query: Substring to match in tag names.
-        limit: Maximum number of tags to return.
+        query: Substring to match in tag names (at most a tag's length).
+        limit: Maximum number of tags to return (1 to ``MAX_TAG_LIST_LIMIT``).
         db: Database session.
 
     Returns:
@@ -490,11 +505,14 @@ async def suggest_tags(query: str, limit: int = 10, db: Session = Depends(get_db
 
 
 @router.get("/tags/popular", response_model=List[TagResponse])
-async def get_popular_tags(limit: int = 20, db: Session = Depends(get_db)):
+async def get_popular_tags(
+    limit: int = Query(20, ge=1, le=MAX_TAG_LIST_LIMIT),
+    db: Session = Depends(get_db),
+):
     """List the most used tags.
 
     Args:
-        limit: Maximum number of tags to return.
+        limit: Maximum number of tags to return (1 to ``MAX_TAG_LIST_LIMIT``).
         db: Database session.
 
     Returns:
@@ -848,6 +866,31 @@ async def notifications_unread_count(
     return {"count": count}
 
 
+async def _send_mail_with_deadline(send, *args) -> tuple:
+    """Run a blocking newsletter send on the mail thread pool and wait for it.
+
+    SMTP can stall for the socket timeout at every step, so the send never
+    runs on the event loop or on the thread pool that sync dependencies
+    share, and the caller waits at most
+    ``settings.NEWSLETTER_SEND_DEADLINE_SECONDS``. A send that is still
+    running then finishes in the background.
+
+    Args:
+        send: A function from ``app.services.newsletter`` returning
+            ``(ok, info)``.
+        *args: Its arguments.
+
+    Returns:
+        The function's ``(ok, info)``, or ``(False, "SEND_TIMEOUT")`` when the
+        deadline passed first.
+    """
+    future = asyncio.get_running_loop().run_in_executor(_mail_executor, send, *args)
+    try:
+        return await asyncio.wait_for(future, timeout=settings.NEWSLETTER_SEND_DEADLINE_SECONDS)
+    except asyncio.TimeoutError:
+        return False, "SEND_TIMEOUT"
+
+
 @router.post("/newsletter/subscribe", response_model=NewsletterSubscribeResponse)
 async def subscribe_newsletter(
     payload: NewsletterSubscribeRequest,
@@ -856,11 +899,13 @@ async def subscribe_newsletter(
 ):
     """Start a double opt-in newsletter subscription.
 
-    The email is trimmed and lower-cased. An already confirmed address is
-    reported as such and left unchanged. Otherwise the subscriber is set to
-    ``"pending"`` with a fresh verification token, and a confirmation email is
-    sent. When the email cannot be sent (no SMTP or a send error), the
-    confirmation link is returned in the response instead.
+    The email must be exactly one address (no lists or display names), and
+    requests are limited per client and per address. An already confirmed
+    address is reported as such and left unchanged. Otherwise the subscriber
+    is set to ``"pending"`` with a fresh verification token, and a
+    confirmation email is sent off the event loop. When the email cannot be
+    sent (no SMTP or a send error), the confirmation link is returned in the
+    response instead; when sending is only slow, it is not.
 
     Args:
         payload: The email address and signup source.
@@ -871,11 +916,22 @@ async def subscribe_newsletter(
         The subscription status and a message for the user.
 
     Raises:
-        HTTPException: 400 if the email is obviously malformed.
+        HTTPException: 400 if the email is not exactly one address, 429 when
+            the client or the address made too many requests.
     """
-    email = payload.email.strip().lower()
-    if "@" not in email or "." not in email.split("@")[-1]:
+    email = normalize_single_email(payload.email)
+    if not email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+    await run_in_threadpool(
+        enforce, http_request, "newsletter-subscribe",
+        settings.NEWSLETTER_SUBSCRIBE_RATE_LIMIT, settings.NEWSLETTER_SUBSCRIBE_RATE_WINDOW,
+        message="구독 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+    )
+    await run_in_threadpool(
+        enforce, http_request, "newsletter-address",
+        settings.NEWSLETTER_ADDRESS_RATE_LIMIT, settings.NEWSLETTER_SUBSCRIBE_RATE_WINDOW,
+        subject=email, message="이 주소로 보낸 구독 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+    )
 
     subscriber = (
         db.query(models.NewsletterSubscriber)
@@ -911,11 +967,15 @@ async def subscribe_newsletter(
     db.commit()
 
     verify_url = f"{http_request.url_for('verify_newsletter')}?token={token}"
-    mail_sent, send_state = send_verification_email(email, verify_url)
+    mail_sent, send_state = await _send_mail_with_deadline(send_verification_email, email, verify_url)
 
     if mail_sent:
         response_verify_url = None
         response_message = "확인 이메일을 발송했습니다. 메일함(스팸함 포함)을 확인해주세요."
+    elif send_state == "SEND_TIMEOUT":
+        # 발송이 늦을 뿐 실패한 것은 아니므로 확인 링크를 화면에 내주지 않는다
+        response_verify_url = None
+        response_message = "확인 이메일을 보내는 중입니다. 잠시 후 메일함(스팸함 포함)을 확인해주세요."
     else:
         # 메일 서버가 없거나 발송 실패 시 개발/로컬 환경 fallback
         response_verify_url = verify_url
@@ -940,7 +1000,8 @@ async def verify_newsletter(token: str, http_request: Request, db: Session = Dep
 
     On success the subscriber becomes ``"confirmed"``, the token is cleared,
     and a best-effort "subscription confirmed" email with a signed
-    unsubscribe link is sent.
+    unsubscribe link is queued on the mail thread pool (the response does not
+    wait for it).
 
     Args:
         token: Verification token from the confirmation link.
@@ -991,10 +1052,9 @@ async def verify_newsletter(token: str, http_request: Request, db: Session = Dep
     unsubscribe_url = (
         f"{http_request.url_for('unsubscribe_newsletter')}?{unsubscribe_query}"
     )
-    # 확인 완료 메일은 실패해도 주 흐름을 깨지 않도록 best-effort
-    send_subscription_confirmed_email(
-        subscriber.email,
-        unsubscribe_url=unsubscribe_url,
+    # 확인 완료 메일은 best-effort: 메일 스레드풀에 맡기고 기다리지 않는다
+    asyncio.get_running_loop().run_in_executor(
+        _mail_executor, send_subscription_confirmed_email, subscriber.email, unsubscribe_url
     )
 
     return {"email": subscriber.email, "status": "confirmed", "message": "뉴스레터 구독이 완료되었습니다."}
@@ -1182,8 +1242,65 @@ async def check_spelling(
 # Tag Helpers (내부 함수)
 # ─────────────────────────────────────────────
 
+def normalize_tag_names(tag_names: List[str]) -> List[str]:
+    """Trim, lower-case and de-duplicate tag names, enforcing the limits.
+
+    Args:
+        tag_names: Raw names; empty ones are skipped.
+
+    Returns:
+        The distinct names in their first-seen order.
+
+    Raises:
+        ValueError: More than ``MAX_TAGS_PER_POST`` names, or one longer than
+            ``MAX_TAG_LENGTH`` characters (rejected rather than cut, so two
+            long names cannot merge into one tag). The message is shown to
+            the user.
+    """
+    names: List[str] = []
+    for raw in tag_names:
+        name = (raw or "").strip().lower()
+        if not name or name in names:
+            continue
+        if len(name) > MAX_TAG_LENGTH:
+            raise ValueError(f"태그는 {MAX_TAG_LENGTH}자까지 쓸 수 있습니다.")
+        names.append(name)
+    if len(names) > MAX_TAGS_PER_POST:
+        raise ValueError(f"태그는 글 하나에 {MAX_TAGS_PER_POST}개까지 달 수 있습니다.")
+    return names
+
+
+def parse_tag_field(raw: Optional[str]) -> List[str]:
+    """Read the comma-separated tags field of the post form.
+
+    Routes call this before they write anything, so a bad field leaves the
+    post untouched.
+
+    Args:
+        raw: The submitted field; None or "" means no tags.
+
+    Returns:
+        The tag names, as :func:`normalize_tag_names` returns them.
+
+    Raises:
+        HTTPException: 400 when the field is longer than
+            ``MAX_TAG_FIELD_CHARS`` or breaks the tag limits.
+    """
+    if not raw:
+        return []
+    if len(raw) > MAX_TAG_FIELD_CHARS:
+        raise HTTPException(status_code=400, detail="태그 입력이 너무 깁니다.")
+    try:
+        return normalize_tag_names(raw.split(","))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 def get_or_create_tag(db: Session, tag_name: str) -> models.Tag:
-    """Return the tag with this name, creating and committing it if missing.
+    """Return the tag with this name, adding it to the session if missing.
+
+    A new tag is flushed (so it has an id) but not committed; the caller
+    commits.
 
     Args:
         db: Database session.
@@ -1199,34 +1316,41 @@ def get_or_create_tag(db: Session, tag_name: str) -> models.Tag:
     if not tag:
         tag = models.Tag(name=tag_name, slug=tag_slug, count=0)
         db.add(tag)
-        db.commit()
-        db.refresh(tag)
+        db.flush()
     return tag
 
 
 def process_post_tags(db: Session, post: models.BoardPost, tag_names: List[str]):
-    """게시글 태그를 교체하고 영향받은 태그의 count를 정확히 유지한다.
+    """Replace a post's tags and keep the affected tags' counts exact.
 
-    count는 연관(post_tags)을 커밋한 뒤 재계산해야 새로 추가된 링크가 반영된다.
-    제거된 태그도 다시 세어 untag 시 수치가 과대 계상되지 않도록 한다.
+    The names are checked again with :func:`normalize_tag_names` (routes check
+    the form field first; maintenance scripts call this directly). The counts
+    of every added or removed tag are recomputed in one grouped query that
+    leaves out moderator-hidden posts, and everything is committed once.
+
+    Args:
+        db: Database session.
+        post: The post whose tags are replaced.
+        tag_names: The new tag names.
+
+    Raises:
+        ValueError: The names break the tag limits.
     """
+    names = normalize_tag_names(tag_names)
     previous = set(post.tags)
-    new_tags = []
-    seen = set()
-    for tag_name in tag_names:
-        name = (tag_name or "").strip().lower()
-        if not name or name in seen:
-            continue
-        seen.add(name)
-        new_tags.append(get_or_create_tag(db, name))
+    post.tags = [get_or_create_tag(db, name) for name in names]
+    db.flush()
 
-    post.tags = new_tags
-    db.commit()  # 먼저 연관을 반영
-
-    for tag in set(new_tags) | previous:
-        tag.count = (
-            db.query(models.BoardPost)
-            .filter(models.BoardPost.tags.contains(tag))
-            .count()
+    affected = previous | set(post.tags)
+    counts = {}
+    if affected:
+        counts = dict(
+            db.query(models.PostTag.tag_id, func.count(models.BoardPost.id))
+            .join(models.BoardPost, models.BoardPost.id == models.PostTag.post_id)
+            .filter(models.PostTag.tag_id.in_([tag.id for tag in affected]))
+            .group_by(models.PostTag.tag_id)
+            .all()
         )
+    for tag in affected:
+        tag.count = counts.get(tag.id, 0)
     db.commit()

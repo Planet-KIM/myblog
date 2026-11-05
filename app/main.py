@@ -12,7 +12,6 @@ from urllib.parse import quote
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .routers import blog, board, admin, auth, upload, api
 from .services.static_assets import asset_version
+from .services.upload_static import UploadSafeStaticFiles
 
 # DB 스키마는 Alembic이 단일 소스로 관리합니다 (create_all 제거: alembic 마이그레이션과의 충돌 방지).
 #   신규 설치:  alembic upgrade head
@@ -125,7 +125,8 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# 업로드 폴더(static/uploads)의 파일은 샌드박스 CSP·nosniff, 미디어가 아니면 내려받기로 서빙
+app.mount("/static", UploadSafeStaticFiles(directory="app/static"), name="static")
 
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["asset_ver"] = asset_version

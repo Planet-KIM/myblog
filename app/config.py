@@ -16,19 +16,34 @@ class Settings(BaseSettings):
         PROJECT_NAME: Title of the FastAPI app.
         DATABASE_URL: SQLAlchemy database URL.
         SECRET_KEY: Key that signs the session cookie (required).
-        ADMIN_EMAILS: Comma-separated emails promoted to admin on login.
+        ADMIN_EMAILS: Unused. Admin rights are granted with
+            ``scripts/set_admin.py``; the field stays so that existing
+            ``.env`` files that still set it keep loading.
+        TRUSTED_PROXY_HOPS: Number of reverse proxies in front of the
+            bundled nginx that append the client address to
+            ``X-Forwarded-For`` (0 when visitors connect to nginx directly).
         SIGNUP_RATE_LIMIT, LOGIN_RATE_LIMIT, COMMENT_RATE_LIMIT: Maximum
-            requests per sliding window for each action.
+            requests per sliding window for each action, per client IP.
         SIGNUP_RATE_WINDOW, LOGIN_RATE_WINDOW, COMMENT_RATE_WINDOW: Length of
             those windows in seconds.
+        LOGIN_ACCOUNT_RATE_LIMIT, LOGIN_ACCOUNT_RATE_WINDOW: Login attempts
+            allowed per account (email) from all IPs together, and the window.
+        LAYOUT_TEMPLATE_LIMIT: Most saved magazine templates per user.
+        LAYOUT_STORAGE_BUDGET_CHARS: Most layout JSON, in characters, a user
+            may keep in posts and templates together.
+        LAYOUT_COPY_RATE_LIMIT, LAYOUT_COPY_RATE_WINDOW: Server-side layout
+            copies (save as template, new post from a template or starter)
+            per user, and the window.
+        UPLOAD_MAX_IMAGE_PIXELS: Largest uploaded image, in pixels.
         CELERY_BROKER_URL, CELERY_RESULT_BACKEND, REDIS_URL: Redis endpoints
             for Celery and the app.
         BOARD_MAX_BODY_SIZE: Largest accepted request body in bytes.
         SPELLCHECK_*: Concurrency, rate limit, input size, default English
             model and worker memory cap for the spell checker.
-        NEWSLETTER_*: Sender identity, SMTP connection and token lifetimes
-            for newsletter mail; nothing is sent unless
-            ``NEWSLETTER_ENABLE_SEND`` is true.
+        NEWSLETTER_*: Sender identity, SMTP connection, token lifetimes,
+            the subscribe rate limits (per client and per address) and the
+            longest a subscribe request waits for its mail; nothing is sent
+            unless ``NEWSLETTER_ENABLE_SEND`` is true.
         SITE_BASE_URL: Absolute site URL used where no request exists (the
             weekly digest).
         DIGEST_ENABLE: Whether the weekly digest is sent.
@@ -40,17 +55,34 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./app.db"
     SECRET_KEY: str  # .env에서 읽어옵니다. 값이 없으면 실행 시 에러 발생
 
-    # 쉼표로 구분된 관리자 이메일 목록. 로그인 시 해당 계정을 is_admin으로 자동 승격.
-    # 예: ADMIN_EMAILS="me@example.com,admin@example.com"
+    # 더 이상 쓰지 않음: 입력한 이메일 문자열만으로 관리자가 되는 문제가 있어 제거.
+    # 관리자 지정은 scripts/set_admin.py 로 한다. 기존 .env 호환을 위해 필드만 남김.
     ADMIN_EMAILS: str = ""
+
+    # nginx 앞단 프록시 수 (Cloudflare, 호스트 nginx/Caddy 등). 없으면 0.
+    # X-Forwarded-For 에서 방문자 IP 를 읽을 위치를 정한다 (레이트리밋 키).
+    TRUSTED_PROXY_HOPS: int = 0
 
     # ── 남용 방지 레이트리밋 (IP/유저 기준 슬라이딩 윈도우) ──
     SIGNUP_RATE_LIMIT: int = 5
     SIGNUP_RATE_WINDOW: int = 3600
     LOGIN_RATE_LIMIT: int = 10
     LOGIN_RATE_WINDOW: int = 300
+    # 계정(이메일)별 로그인 시도: IP 를 바꿔 가며 한 계정을 노리는 경우 대비.
+    # IP 한도보다 넉넉히 둬서, 남이 일부러 막아도 본인이 곧 다시 시도할 수 있게 한다.
+    LOGIN_ACCOUNT_RATE_LIMIT: int = 30
+    LOGIN_ACCOUNT_RATE_WINDOW: int = 900
     COMMENT_RATE_LIMIT: int = 10
     COMMENT_RATE_WINDOW: int = 60
+
+    # ── 매거진 레이아웃 저장 한도 (사용자별) ──
+    LAYOUT_TEMPLATE_LIMIT: int = 30
+    LAYOUT_STORAGE_BUDGET_CHARS: int = 64 * 1024 * 1024  # 글자 수 (글 + 템플릿 합계)
+    LAYOUT_COPY_RATE_LIMIT: int = 30
+    LAYOUT_COPY_RATE_WINDOW: int = 3600
+
+    # 업로드 이미지 최대 픽셀 수 (가로×세로). 압축 해제 폭탄 방지
+    UPLOAD_MAX_IMAGE_PIXELS: int = 40_000_000
 
     # Redis / Celery
     # 로컬 개발: redis://localhost:6379/x
@@ -105,6 +137,12 @@ class Settings(BaseSettings):
     NEWSLETTER_SMTP_TIMEOUT_SECONDS: int = 10
     NEWSLETTER_VERIFY_TOKEN_TTL_HOURS: int = 24
     NEWSLETTER_UNSUBSCRIBE_TOKEN_TTL_HOURS: int = 24 * 30
+    # 구독 요청 한도: 클라이언트(IP)별, 주소별
+    NEWSLETTER_SUBSCRIBE_RATE_LIMIT: int = 5
+    NEWSLETTER_ADDRESS_RATE_LIMIT: int = 3
+    NEWSLETTER_SUBSCRIBE_RATE_WINDOW: int = 3600
+    # 구독 요청이 확인 메일 발송을 기다리는 최대 시간 (초). 넘으면 응답부터 보냄
+    NEWSLETTER_SEND_DEADLINE_SECONDS: int = 15
 
     # 주간 다이제스트: Celery beat(요청 없음)에서 절대 URL 생성에 사용
     SITE_BASE_URL: str = ""
