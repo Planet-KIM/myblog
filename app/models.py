@@ -50,6 +50,8 @@ class User(Base):
             ``app/services/spellcheck_access.py``).
         created_at: When the account signed up; None for accounts older
             than the column.
+        email_verified_at: When the account proved it owns its email; None
+            until then.
         handle: Unique public blog id used in ``/@handle`` URLs (optional).
         display_name, blog_title, bio, avatar_url, cover_url, accent_color:
             Public profile fields shown on the user's blog.
@@ -73,6 +75,9 @@ class User(Base):
 
     # 가입 시각 (이 컬럼이 생기기 전에 가입한 계정은 NULL)
     created_at = Column(DateTime, nullable=True, default=now_kst)
+
+    # 이메일 인증 시각 (인증 전이면 NULL). app/services/email_verification.py
+    email_verified_at = Column(DateTime, nullable=True)
 
     # ── 포털 프로필 (블로그 소유자 정보) ─────────────────
     # handle: URL에 노출되는 블로그 식별자 (/@handle). 내부 FK는 항상 id 사용.
@@ -196,7 +201,12 @@ class BoardPost(Base):
     """
 
     __tablename__ = "board_posts"
-    __table_args__ = {"sqlite_autoincrement": True}
+    __table_args__ = (
+        # 작성자별 목록 / 공개 글 목록 (손님 페이지가 남의 비공개 글까지 훑지 않도록)
+        Index("ix_board_posts_user_private_created", "user_id", "is_private", "created_at"),
+        Index("ix_board_posts_private_hidden_created", "is_private", "is_hidden", "created_at"),
+        {"sqlite_autoincrement": True},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 

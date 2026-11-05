@@ -33,6 +33,8 @@ from app.auth_utils import get_current_user, get_current_user_optional
 from app import models
 from app.config import settings
 from app.database import get_db
+from app.services.email_verification import require_verified
+from app.services.ratelimit import enforce
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
@@ -112,6 +114,11 @@ FILE_TYPES = {
         "folder": "audio",
     },
 }
+
+# 여행 지도(/api/mapimg): 입력 길이, 캐시에 없는 지도 그리기 (클라이언트당 시간당), 캐시 파일 수
+MAP_MAX_INPUT_CHARS = 2000
+MAP_RENDER_LIMIT = 30
+MAP_CACHE_MAX_FILES = 500
 
 # 업로드 폴더에서 브라우저가 바로 보여 줘도 되는 형식. 나머지는 내려받기로만 제공
 # (app/services/upload_static.py, nginx.conf 의 /static/uploads/ 와 같은 목록)
@@ -261,10 +268,12 @@ async def upload_file(
 
     Raises:
         HTTPException: 400 for a disallowed extension, an empty file or a bad
-            ``draft_id``; 403/404 for a post that is not the user's; 413 for
-            a file over its type's size limit or an image with too many
-            pixels.
+            ``draft_id``; 403 without a verified email (while verification is
+            active) or for a post that is not the user's; 404 for a missing
+            post; 413 for a file over its type's size limit or an image with
+            too many pixels.
     """
+    require_verified(current_user, "파일을 올릴")
     draft_id = normalize_draft_id(draft_id)
 
     # 업로드 대상이 게시글이면 본인 소유인지 확인 (타인 폴더 업로드 차단)
@@ -345,27 +354,62 @@ async def upload_file(
 # ★ 이미지 전용 엔드포인트 (하위 호환 유지)
 #   기존 빌드된 board_new.js / board_edit.js 가 이 경로를 사용
 # ============================================================
+def _prune_map_cache(cache_dir: Path) -> None:
+    """Delete the oldest cached map images beyond ``MAP_CACHE_MAX_FILES``.
+
+    Args:
+        cache_dir: The cache folder (``static/og_cache``).
+    """
+    maps = sorted(cache_dir.glob("map-*.png"), key=lambda f: f.stat().st_mtime)
+    for old in maps[:-MAP_CACHE_MAX_FILES]:
+        old.unlink(missing_ok=True)
+
+
 @router.get("/mapimg")
 def map_image(request: Request):
-    """여행 지도 렌더 — ?m=<장소 목록(URL 인코딩)> → OSM 정적 지도 PNG. 캐시."""
+    """Render a travel map: ``?m=<place list>`` to a static OpenStreetMap PNG.
+
+    Anyone can request it (post pages embed it), and drawing one fetches
+    tiles and geocodes places on outside servers, so: the place list is
+    bounded (``MAP_MAX_INPUT_CHARS``); the cache key is its canonical form,
+    so spacing or precision changes cannot mint new images; drawing a map
+    that is not cached is limited per client (``MAP_RENDER_LIMIT`` per
+    hour); and the cache keeps at most ``MAP_CACHE_MAX_FILES`` images.
+
+    Args:
+        request: The incoming request (``m`` query parameter).
+
+    Returns:
+        The PNG, cacheable for a week.
+
+    Raises:
+        HTTPException: 400 for an empty or too long list, 429 when drawing
+            new maps too often, 500 when drawing fails.
+    """
+    import hashlib
+
+    from app.services.staticmap import canonical_places, render_map_png
+
     m = request.query_params.get("m", "")
     if not m.strip():
         raise HTTPException(status_code=400, detail="장소가 없습니다.")
+    if len(m) > MAP_MAX_INPUT_CHARS:
+        raise HTTPException(status_code=400, detail="장소 목록이 너무 깁니다.")
 
-    import hashlib
-
-    sig = hashlib.md5(m.encode("utf-8")).hexdigest()[:12]
+    canonical = canonical_places(m)
+    sig = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
     cache = STATIC_DIR / "og_cache" / f"map-{sig}.png"
     headers = {"Cache-Control": "public, max-age=604800"}
-    try:
-        if cache.exists():
-            data = cache.read_bytes()
-        else:
-            from app.services.staticmap import render_map_png
+    if cache.exists():
+        return Response(content=cache.read_bytes(), media_type="image/png", headers=headers)
 
-            data = render_map_png(m, 640, 440)
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            cache.write_bytes(data)
+    enforce(request, "mapimg-render", MAP_RENDER_LIMIT, 3600,
+            message="지도를 너무 많이 만들었습니다. 잠시 후 다시 시도해주세요.")
+    try:
+        data = render_map_png(canonical, 640, 440)
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_bytes(data)
+        _prune_map_cache(cache.parent)
     except Exception:  # noqa: BLE001
         raise HTTPException(status_code=500, detail="지도 렌더 실패")
     return Response(content=data, media_type="image/png", headers=headers)

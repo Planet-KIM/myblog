@@ -80,7 +80,7 @@
     <h2 class="hub-subtitle">매거진 · 시리즈</h2>
     <div class="chip-row">
       {% for s in owner_series %}
-      <a href="/series/{{ s.slug|urlencode }}" class="chip">
+      <a href="/series/{{ s.slug|urlencode }}?author={{ owner.handle|urlencode }}" class="chip">
         <i class="bi bi-collection"></i>{{ s.label }}<span class="count">{{ s.count }}편</span>
       </a>
       {% endfor %}

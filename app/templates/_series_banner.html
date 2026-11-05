@@ -1,10 +1,10 @@
-{# 시리즈(series:<이름> 태그) 배너 — series_label 이 있을 때만. 스타일: writer-journey.css (.series-banner) #}
+{# 시리즈(series:<이름> 태그) 배너 — series_label 이 있을 때만. 링크는 이 글 작성자의 시리즈(?author=). 스타일: writer-journey.css (.series-banner) #}
 {% if series_label %}
 <section class="series-banner no-print">
   <span class="series-banner-text">
     <span class="eyebrow">Series</span>
     <span class="series-banner-title">{{ series_label }}</span>
   </span>
-  <a href="/series/{{ series_slug|urlencode }}" class="btn-ghost">시리즈 전체 보기 <i class="bi bi-arrow-right"></i></a>
+  <a href="/series/{{ series_slug|urlencode }}{% if post and post.user and post.user.handle %}?author={{ post.user.handle|urlencode }}{% endif %}" class="btn-ghost">시리즈 전체 보기 <i class="bi bi-arrow-right"></i></a>
 </section>
 {% endif %}

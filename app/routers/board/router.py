@@ -29,10 +29,11 @@ from app.database import get_db
 from app import models
 from app.auth_utils import get_current_user, get_current_user_optional
 from app.routers.upload.router import normalize_draft_id, prune_unused_uploads, relocate_draft_files
-from app.routers.api import parse_tag_field, process_post_tags
+from app.routers.api import parse_tag_field, process_post_tags, recount_tags
 from app.services.layout_quota import ensure_layout_budget, ensure_template_slot
 from app.services.profile import author_matches, public_author_name
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
+from app.services.email_verification import is_verified, require_verified
 from app.services.spellcheck_access import effective_level
 from app.services.ratelimit import enforce
 from app.services.seo import post_jsonld, breadcrumb_jsonld, post_meta
@@ -48,6 +49,8 @@ from app.services.post_links import (
     load_linked_posts,
     refresh_card_blocks,
     replace_card_paragraphs,
+    strip_card_block_snapshots,
+    strip_card_snapshots,
 )
 from app.services.recommendations import get_related_posts
 from app.config import settings
@@ -907,6 +910,44 @@ def board_new(
     )
 
 
+def _after_save_redirect(post_id: int, publish_held: bool) -> RedirectResponse:
+    """Redirect after saving a post: to the post, or to email verification when publishing was held.
+
+    Args:
+        post_id: The saved post.
+        publish_held: True when the user asked to publish but the post was
+            saved private because their email is not verified.
+
+    Returns:
+        A 303 redirect.
+    """
+    if publish_held:
+        return RedirectResponse(f"/auth/verify-email?reason=publish&next=/board/{post_id}", status_code=303)
+    return RedirectResponse(f"/board/{post_id}", status_code=303)
+
+
+def _without_card_snapshots(content, content_html, content_blocks):
+    """Empty the linked-post cards a magazine editor saved in a post's bodies.
+
+    The post page and the editor draw each card from its post id, so the
+    stored copy (the linked post's title and preview) is not needed; kept, it
+    would outlive the linked post turning private (search, RSS, previews).
+
+    Args:
+        content: Submitted text body (the magazine editor sends its HTML here).
+        content_html: Submitted HTML body.
+        content_blocks: Submitted layout JSON.
+
+    Returns:
+        The three values with card markup emptied (None stays None).
+    """
+    return (
+        strip_card_snapshots(content),
+        strip_card_snapshots(content_html),
+        strip_card_block_snapshots(content_blocks),
+    )
+
+
 @router.post("/new", response_class=HTMLResponse)
 def board_create(
     request: Request,
@@ -925,7 +966,9 @@ def board_create(
     """Publish a new post.
 
     The title is extracted from the content according to the editor type. A
-    stats row is created. When a draft id is given, files uploaded to the
+    stats row is created. Without a verified email (while verification is
+    active) the post is saved private and the user is sent to the
+    verification page. When a draft id is given, files uploaded to the
     draft are moved to the post and the draft is deleted; those the post
     does not use are then deleted (``prune_unused_uploads``).
 
@@ -945,7 +988,7 @@ def board_create(
         current_user: The logged-in user.
 
     Returns:
-        A 303 redirect to the new post.
+        A 303 redirect to the new post (or to email verification, see above).
 
     Raises:
         HTTPException: 401 if not logged in; 400 if ``draft_id`` is not a UUID,
@@ -956,6 +999,7 @@ def board_create(
     # draft_id·태그는 DB 기록 전에 검증 (잘못된 값이면 글 생성 전 400)
     draft_id = normalize_draft_id(draft_id)
     tag_names = parse_tag_field(tags)
+    content, content_html, content_blocks = _without_card_snapshots(content, content_html, content_blocks)
     ensure_layout_budget(db, current_user.id, len(content_blocks or ""))
 
     normal = ensure_default_category(db, current_user)
@@ -977,6 +1021,11 @@ def board_create(
     )
     if not category:
         raise HTTPException(400, "Invalid category")
+
+    # 이메일 인증 전에는 공개 발행 대신 비공개로 저장한다 (인증 뒤 공개로 바꿀 수 있다)
+    publish_held = not is_private and not is_verified(current_user)
+    if publish_held:
+        is_private = True
 
     # 에디터 타입별 제목 추출 (이중 언어는 한국어로)
     title = derive_title(editor_type, content_html, content)
@@ -1021,7 +1070,7 @@ def board_create(
     # 초안에 올렸지만 본문에 쓰지 않은 파일 정리
     prune_unused_uploads(db, post)
 
-    return RedirectResponse(f"/board/{post.id}", status_code=303)
+    return _after_save_redirect(post.id, publish_held)
 
 
 # ============================================================
@@ -1118,10 +1167,13 @@ def board_update(
     """Save changes to one of the user's posts.
 
     The title is re-extracted from the content. A category the user does not
-    own falls back to the default category. ``editor_type`` and
+    own falls back to the default category. Making a private post public
+    needs a verified email (while verification is active); otherwise it
+    stays private and the user is sent to the verification page. ``editor_type`` and
     ``content_blocks`` are only replaced when non-empty values are sent; tags
-    are replaced when the field is sent (an empty value removes all tags).
-    Files uploaded to ``draft_id`` are moved to the post, and the post's
+    are replaced when the field is sent (an empty value removes all tags),
+    and the post's tags are recounted either way (its visibility may have
+    changed). Files uploaded to ``draft_id`` are moved to the post, and the post's
     uploads that nothing saved uses any more are deleted
     (``prune_unused_uploads``).
 
@@ -1142,7 +1194,7 @@ def board_update(
         current_user: The logged-in user.
 
     Returns:
-        A 303 redirect to the post.
+        A 303 redirect to the post (or to email verification, see above).
 
     Raises:
         HTTPException: 401 if not logged in; 400 if ``draft_id`` is not a UUID,
@@ -1153,6 +1205,7 @@ def board_update(
     """
     draft_id = normalize_draft_id(draft_id)
     tag_names = parse_tag_field(tags) if tags is not None else None
+    content, content_html, content_blocks = _without_card_snapshots(content, content_html, content_blocks)
 
     normal = ensure_default_category(db, current_user)
 
@@ -1187,6 +1240,10 @@ def board_update(
 
     post.content = content
     post.content_html = content_html
+    # 비공개 → 공개 전환은 이메일 인증 뒤에만 (이미 공개된 글은 그대로)
+    publish_held = not is_private and bool(post.is_private) and not is_verified(current_user)
+    if publish_held:
+        is_private = True
     post.is_private = is_private
     post.show_title = show_title
     post.category_id = category_id_int
@@ -1198,9 +1255,13 @@ def board_update(
 
     db.commit()
 
-    # 태그 갱신 (제출된 경우에만; 빈 문자열이면 전체 해제)
+    # 태그 갱신 (제출된 경우에만; 빈 문자열이면 전체 해제). 공개 여부가 바뀌었을 수 있으므로
+    # 태그를 보내지 않았어도 이 글의 태그 수는 다시 센다
     if tag_names is not None:
         process_post_tags(db, post, tag_names)
+    else:
+        recount_tags(db, post.tags)
+        db.commit()
 
     if draft_id:
         relocate_draft_files(post, draft_id, db)
@@ -1208,7 +1269,7 @@ def board_update(
     # 본문에서 뺐거나 편집 중 올리고 쓰지 않은 파일 정리
     prune_unused_uploads(db, post)
 
-    return RedirectResponse(f"/board/{post_id}", status_code=303)
+    return _after_save_redirect(post_id, publish_held)
 
 
 # ============================================================
@@ -1257,7 +1318,7 @@ def board_delete(
     notifications, comments (hidden ones too) and reports. SQLite does not
     enforce the foreign keys' ON DELETE CASCADE here, and it may give the
     freed id to the next post, so a row left behind would point at someone
-    else's post.
+    else's post. The post's tags are recounted.
 
     Args:
         post_id: The post to delete.
@@ -1292,7 +1353,9 @@ def board_delete(
         shutil.rmtree(post_folder, ignore_errors=True)
 
     _delete_post_references(db, post_id)
+    tags = list(post.tags)
     db.delete(post)
+    recount_tags(db, tags)   # 지운 글의 태그 수를 바로잡는다
     db.commit()
 
     return RedirectResponse("/board/", status_code=303)
@@ -1834,10 +1897,12 @@ def board_comment_create(
         A 303 redirect to the post's comments.
 
     Raises:
-        HTTPException: 401 if not logged in; 429 if the user exceeds the
+        HTTPException: 401 if not logged in; 403 without a verified email
+            (while verification is active); 429 if the user exceeds the
             comment rate limit; 404 if the post does not exist; 403 if it is
             private and the user is not its author.
     """
+    require_verified(current_user, "댓글을 쓸")
     enforce(request, "comment", settings.COMMENT_RATE_LIMIT, settings.COMMENT_RATE_WINDOW,
             subject=str(current_user.id),
             message="댓글을 너무 자주 작성하고 있습니다. 잠시 후 다시 시도해주세요.")
@@ -2081,8 +2146,10 @@ def _create_report(db, request, current_user, target_type, target_id, reason):
             stored as None.
 
     Raises:
-        HTTPException: 429 if the user filed more than 20 reports in an hour.
+        HTTPException: 403 without a verified email (while verification is
+            active), 429 if the user filed more than 20 reports in an hour.
     """
+    require_verified(current_user, "신고할")
     enforce(request, "report", 20, 3600, subject=str(current_user.id),
             message="신고가 너무 많습니다. 잠시 후 다시 시도해주세요.")
     db.add(models.Report(

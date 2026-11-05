@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .routers import blog, board, admin, auth, upload, api, spellcheck
+from .services import csp
 from .services.csrf import is_cross_site
 from .services.static_assets import asset_version
 from .services.upload_static import UploadSafeStaticFiles
@@ -71,7 +72,12 @@ if _cors_origins:
 
 # same_site="lax" helps prevent CSRF by preventing the browser from sending
 # the session cookie along with cross-site POST requests.
-app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY, same_site="lax")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    same_site="lax",
+    https_only=settings.SESSION_COOKIE_SECURE,   # HTTPS 로 서비스할 때 켠다 (.env)
+)
 
 
 # ── Body 크기 제한 미들웨어 ───────────────────────────────
@@ -122,15 +128,17 @@ async def reject_cross_site_writes(request: Request, call_next):
 
 # ── 보안 응답 헤더 ────────────────────────────────────────
 # 마지막에 선언돼 스택 가장 바깥 → 에러/413 응답을 포함한 모든 응답에 적용.
-# CSP는 CDN·인라인 스크립트/스타일 사용이 많아 깨질 위험이 커 제외(후속 과제).
+# CSP 는 app/services/csp.py (업로드 파일은 자체 sandbox CSP 를 그대로 둔다).
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     """Add baseline security headers to every response.
 
     Sets ``X-Content-Type-Options``, ``X-Frame-Options``, ``Referrer-Policy``
-    and ``Permissions-Policy`` unless the handler already set them, and adds
-    ``Strict-Transport-Security`` only when the request arrived over HTTPS
-    (directly or via a proxy's ``X-Forwarded-Proto``). No CSP is sent.
+    and ``Permissions-Policy`` unless the handler already set them, the
+    Content-Security-Policy (``app/services/csp.py``) unless the response has
+    its own (uploads are sandboxed), and ``Strict-Transport-Security`` only
+    when the request arrived over HTTPS (directly or via a proxy's
+    ``X-Forwarded-Proto``).
 
     Args:
         request: The incoming request.
@@ -144,6 +152,8 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    if settings.CSP_ENABLED and "content-security-policy" not in response.headers:
+        response.headers[csp.header_name()] = csp.policy()
     # HTTPS로 제공될 때만 HSTS (Nginx 등 프록시의 X-Forwarded-Proto 도 인정)
     forwarded_proto = request.headers.get("x-forwarded-proto", "")
     if request.url.scheme == "https" or forwarded_proto == "https":

@@ -1,4 +1,4 @@
-"""Authentication pages: signup, login and logout.
+"""Authentication pages: signup, login, logout and email verification.
 
 Login state is the ``user_id`` stored in the signed session cookie. Signup
 and login are rate-limited per client IP, and login also per account. Admin
@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 from app.config import settings
 from app.database import get_db
 from app import models
+from app.services import email_verification
 from app.services.profile import generate_unique_handle
 from app.services.ratelimit import enforce
 from app.services.static_assets import asset_version
@@ -28,10 +29,14 @@ from app.auth_utils import (
     get_password_hash,
     verify_password,
     validate_password_rule,
+    get_current_user,
     get_current_user_optional,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# 로그아웃 직후 다음 페이지에서 브라우저에 남은 계정 데이터를 지우라는 표시 (app.js 가 읽고 지운다)
+LOGGED_OUT_COOKIE = "logged_out"
 
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["asset_ver"] = asset_version
@@ -100,8 +105,9 @@ def signup(
     """Create an account, log it in and redirect.
 
     The email is trimmed and lower-cased. On success the user gets an
-    auto-generated blog handle and is logged in. The email is not verified,
-    so it never grants anything (admin rights included).
+    auto-generated blog handle and is logged in, and, while email
+    verification is active, a verification mail. An unverified email never
+    grants anything (admin rights included).
 
     Args:
         request: The incoming request.
@@ -181,6 +187,10 @@ def signup(
     # 가입 시 블로그 핸들 자동 생성 (/@handle 즉시 사용 가능)
     user.handle = generate_unique_handle(db, user.email)
     db.commit()
+
+    # 인증이 켜져 있으면 인증 메일 (보내지 못해도 가입은 끝난다: 인증 화면에서 다시 보낼 수 있다)
+    if email_verification.verification_active():
+        email_verification.send_verification(user, _site_base(request))
 
     # 가입 후 자동 로그인
     request.session["user_id"] = user.id
@@ -282,11 +292,126 @@ def login(
 
 
 # ─────────────────────────────────────
+# 이메일 인증
+# ─────────────────────────────────────
+# ?reason= 로 고를 수 있는 안내 문구 (URL 의 글을 그대로 보여 주지 않는다)
+VERIFY_NOTICES = {
+    "publish": "글은 비공개로 저장했습니다. 이메일을 인증한 뒤 공개로 바꿀 수 있습니다.",
+    "sent": "인증 메일을 보냈습니다. 메일함(스팸함 포함)을 확인해주세요.",
+    "unsent": "지금은 인증 메일을 보낼 수 없습니다. 잠시 후 다시 시도해주세요.",
+}
+
+
+def _site_base(request: Request) -> str:
+    """Return the site URL for links in mails: ``SITE_BASE_URL``, else the request's base."""
+    return settings.SITE_BASE_URL.strip() or str(request.base_url)
+
+
+def _verify_page(request: Request, user, *, result: Optional[str] = None, reason: Optional[str] = None,
+                 next_url: Optional[str] = None, status_code: int = 200):
+    """Render the email verification page.
+
+    Args:
+        request: The incoming request.
+        user: The logged-in account, or None.
+        result: ``"ok"`` or ``"invalid"`` after a link was opened.
+        reason: Key of a ``VERIFY_NOTICES`` message.
+        next_url: A safe local path to offer as "go back".
+        status_code: The response status.
+
+    Returns:
+        The ``verify_email.html`` page.
+    """
+    return templates.TemplateResponse(
+        request,
+        "verify_email.html",
+        {
+            "request": request,
+            "current_user": user,
+            "active": email_verification.verification_active(),
+            "verified": email_verification.is_verified(user) if user else False,
+            "result": result,
+            "notice": VERIFY_NOTICES.get(reason or ""),
+            "next": next_url,
+        },
+        status_code=status_code,
+    )
+
+
+@router.get("/verify-email", response_class=HTMLResponse)
+def verify_email(
+    request: Request,
+    token: Optional[str] = None,
+    reason: Optional[str] = None,
+    next: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user_optional),
+):
+    """Verify an email from a mailed link, or show the account's verification status.
+
+    Opening the link works without being logged in: the signed token itself
+    proves the mail was received.
+
+    Args:
+        request: The incoming request.
+        token: The token from the mailed link, if any.
+        reason: Key of a notice to show (``VERIFY_NOTICES``).
+        next: Local path to offer as "go back".
+        db: Database session.
+        current_user: The logged-in user, or None.
+
+    Returns:
+        The verification page; 400 for an invalid or expired link, and a
+        redirect to the login page when opened without a token or a session.
+    """
+    if token:
+        user = email_verification.confirm_token(db, token)
+        return _verify_page(request, current_user or user, result="ok" if user else "invalid",
+                            status_code=200 if user else 400)
+    if current_user is None:
+        return RedirectResponse("/auth/login?next=/auth/verify-email", status_code=303)
+    return _verify_page(request, current_user, reason=reason,
+                        next_url=safe_next_url(next, default="") if next else None)
+
+
+@router.post("/verify-email/resend")
+def resend_verification(
+    request: Request,
+    current_user=Depends(get_current_user),
+):
+    """Mail the logged-in user a new verification link.
+
+    Limited per user (``EMAIL_VERIFY_RESEND_LIMIT`` per hour), so the form
+    cannot be used to flood a mailbox.
+
+    Args:
+        request: The incoming request.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the verification page with a notice.
+
+    Raises:
+        HTTPException: 401 if not logged in, 429 over the resend limit.
+    """
+    if email_verification.is_verified(current_user) or not email_verification.verification_active():
+        return RedirectResponse("/auth/verify-email", status_code=303)
+    enforce(request, "verify-resend", settings.EMAIL_VERIFY_RESEND_LIMIT, 3600, subject=str(current_user.id),
+            message="인증 메일을 너무 자주 요청했습니다. 잠시 후 다시 시도해주세요.")
+    sent, _info = email_verification.send_verification(current_user, _site_base(request))
+    return RedirectResponse(f"/auth/verify-email?reason={'sent' if sent else 'unsent'}", status_code=303)
+
+
+# ─────────────────────────────────────
 # 로그아웃
 # ─────────────────────────────────────
 @router.get("/logout")
 def logout(request: Request):
     """Log the user out by removing ``user_id`` from the session.
+
+    Also sets a short-lived ``logged_out`` cookie; ``static/js/app.js`` sees
+    it on the next page and removes what the account left in this browser
+    (recently read posts, magazine editor autosaves).
 
     Args:
         request: The incoming request.
@@ -295,4 +420,7 @@ def logout(request: Request):
         A 303 redirect to the home page.
     """
     request.session.pop("user_id", None)
-    return RedirectResponse("/", status_code=303)
+    response = RedirectResponse("/", status_code=303)
+    response.set_cookie(LOGGED_OUT_COOKIE, "1", max_age=300, path="/", samesite="lax",
+                        secure=settings.SESSION_COOKIE_SECURE)
+    return response

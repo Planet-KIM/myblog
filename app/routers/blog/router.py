@@ -1734,11 +1734,16 @@ def delete_my_template(
 def series_page(
     slug: str,
     request: Request,
+    author: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    """Render a series: the visible posts tagged ``series:<slug>``, oldest first.
+    """Render a series: one author's visible posts tagged ``series:<slug>``, oldest first.
 
+    Tags are shared by everyone, so a series belongs to one author: the one
+    named by ``author`` (links from blogs and posts pass it), else the author
+    of the oldest public post in the series. Other people's posts with the
+    same tag are not shown, so they cannot slip into someone's series.
     Magazine (TipTap) posts without an image get their generated cover as
     thumbnail; the first thumbnail becomes the series cover and Open Graph
     image.
@@ -1746,6 +1751,7 @@ def series_page(
     Args:
         slug: Series name as used in the tag; matched case-insensitively.
         request: The incoming request.
+        author: Handle of the series' author.
         db: Database session.
         current_user: The logged-in user, or None.
 
@@ -1753,7 +1759,7 @@ def series_page(
         The ``series.html`` page.
 
     Raises:
-        HTTPException: 404 if no such series tag exists.
+        HTTPException: 404 if no such series tag or author exists.
     """
     name = ("series:" + (slug or "").strip()).lower()
     tag = db.query(models.Tag).filter(func.lower(models.Tag.name) == name).first()
@@ -1762,10 +1768,22 @@ def series_page(
 
     label = tag.name.split(":", 1)[1].strip() if ":" in tag.name else tag.name
 
+    tagged = db.query(models.BoardPost).join(models.BoardPost.tags).filter(models.Tag.id == tag.id)
+    if author:
+        owner = db.query(models.User).filter(models.User.handle == author.strip().lower()).first()
+        owner_id = owner.id if owner else None
+    else:
+        first = (
+            tagged.filter(models.BoardPost.is_private == False)  # noqa: E712
+            .order_by(models.BoardPost.created_at.asc(), models.BoardPost.id.asc())
+            .first()
+        )
+        owner_id = first.user_id if first else None
+    if owner_id is None:
+        raise HTTPException(status_code=404, detail="시리즈를 찾을 수 없습니다.")
+
     query = (
-        db.query(models.BoardPost)
-        .join(models.BoardPost.tags)
-        .filter(models.Tag.id == tag.id)
+        tagged.filter(models.BoardPost.user_id == owner_id)
         .options(joinedload(models.BoardPost.user), joinedload(models.BoardPost.stats))
     )
     if current_user:

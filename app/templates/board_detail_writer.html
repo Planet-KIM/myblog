@@ -160,7 +160,8 @@
   "postId": post.id,
   "shareTitle": post.title or 'Untitled',
   "recentTitle": post.title or 'Untitled Story',
-  "recentDate": post.created_at.strftime('%m/%d')
+  "recentDate": post.created_at.strftime('%m/%d'),
+  "isPrivate": post.is_private or false
 }|tojson }}</script>
 <script src="{{ url_for('static', path='js/board_detail.js') }}"></script>
 <script src="{{ url_for('static', path='js/board_detail_writer.js') }}"></script>

@@ -5,7 +5,7 @@
  * ring, the "recent posts" history in localStorage and code highlighting.
  *
  * Post data comes from <script type="application/json" id="board-detail-data">:
- *   { postId: number, shareTitle: string, recentTitle: string, recentDate: string }
+ *   { postId: number, shareTitle: string, recentTitle: string, recentDate: string, isPrivate: boolean }
  * Buttons opt in with data-detail-action="like|bookmark|copy-link|print|share-x|scroll-top".
  *
  * The post body sits in the same document and may carry any id or data-*
@@ -147,11 +147,14 @@
   /**
    * Put this post at the front of the "recent posts" list in localStorage
    * (deduplicated by id, newest first, at most RECENT_LIMIT entries).
-   * Storage errors are ignored.
+   * Private posts are not recorded: the list outlives the session and the
+   * next person on this browser would see their titles. Storage errors are
+   * ignored.
    *
    * @returns {void}
    */
   function saveRecentPost() {
+    if (POST.isPrivate) return;
     const entry = {
       id: POST.postId,
       title: POST.recentTitle,

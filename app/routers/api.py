@@ -14,7 +14,7 @@ API 라우터
 """
 
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 import hashlib
 import logging
@@ -38,6 +38,7 @@ from app.config import settings
 from app.services.newsletter import (
     build_unsubscribe_token,
     normalize_single_email,
+    send_already_subscribed_email,
     send_subscription_confirmed_email,
     send_verification_email,
     verify_unsubscribe_token,
@@ -61,6 +62,11 @@ MAX_TAG_FIELD_CHARS = 4096
 MAX_TAG_LIST_LIMIT = 50
 
 SECONDS_PER_DAY = 24 * 60 * 60   # 맞춤법 하루 사용량 창
+
+# 팔로우: 같은 사람에게서 온 팔로우 알림은 이 기간에 한 번만, 팔로우 바꾸기는 사용자당 시간당 횟수 제한
+FOLLOW_NOTICE_WINDOW = timedelta(days=7)
+FOLLOW_TOGGLE_LIMIT = 30
+FOLLOW_TOGGLE_WINDOW = 3600
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -319,20 +325,6 @@ class TagResponse(BaseModel):
     count: int
 
 
-class StatsUpdateRequest(BaseModel):
-    """Body of a manual stats update for one post.
-
-    Attributes:
-        post_id: The post to update.
-        increment_views: Add one view when true.
-        increment_likes: Add one like when true.
-    """
-
-    post_id: int
-    increment_views: bool = False
-    increment_likes: bool = False
-
-
 class NewsletterSubscribeRequest(BaseModel):
     """Body of a newsletter signup.
 
@@ -490,7 +482,7 @@ async def suggest_tags(
     limit: int = Query(10, ge=1, le=MAX_TAG_LIST_LIMIT),
     db: Session = Depends(get_db),
 ):
-    """Suggest tags whose name contains the query, most used first.
+    """Suggest tags in use by public posts whose name contains the query, most used first.
 
     Args:
         query: Substring to match in tag names (at most a tag's length).
@@ -501,7 +493,8 @@ async def suggest_tags(
         Matching tags ordered by usage count, descending.
     """
     tags = db.query(models.Tag).filter(
-        models.Tag.name.like(f"%{query}%")
+        models.Tag.name.like(f"%{query}%"),
+        models.Tag.count > 0,   # 비공개 글에만 붙은 태그 이름은 보여 주지 않는다
     ).order_by(models.Tag.count.desc()).limit(limit).all()
     return [TagResponse(id=t.id, name=t.name, slug=t.slug, count=t.count) for t in tags]
 
@@ -511,7 +504,7 @@ async def get_popular_tags(
     limit: int = Query(20, ge=1, le=MAX_TAG_LIST_LIMIT),
     db: Session = Depends(get_db),
 ):
-    """List the most used tags.
+    """List the most used tags (those on public posts).
 
     Args:
         limit: Maximum number of tags to return (1 to ``MAX_TAG_LIST_LIMIT``).
@@ -520,58 +513,34 @@ async def get_popular_tags(
     Returns:
         Tags ordered by usage count, descending.
     """
-    tags = db.query(models.Tag).order_by(models.Tag.count.desc()).limit(limit).all()
+    tags = db.query(models.Tag).filter(models.Tag.count > 0).order_by(models.Tag.count.desc()).limit(limit).all()
     return [TagResponse(id=t.id, name=t.name, slug=t.slug, count=t.count) for t in tags]
 
 
 # ─────────────────────────────────────────────
-# Post Statistics Endpoint
+# Likes & bookmarks
 # ─────────────────────────────────────────────
 
-@router.post("/stats/update")
-async def update_post_stats(
-    request: StatsUpdateRequest,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    """Increment the view and/or like counters of the user's own post.
-
-    Creates the post's stats row if it does not exist yet.
+def _readable_post(db: Session, post_id: int, user: models.User) -> models.BoardPost:
+    """Return a post the user may read, for actions on it (like, bookmark).
 
     Args:
-        request: Which post and which counters to increment.
-        db: Database session.
-        current_user: The logged-in user.
+        db: Database session (hidden posts are excluded by default).
+        post_id: The post.
+        user: The logged-in user.
 
     Returns:
-        A dict with ``post_id``, the new ``views`` and ``likes`` and a
-        ``message``.
+        The post.
 
     Raises:
-        HTTPException: 401 if not logged in, 404 if the post does not exist,
-            403 if the post belongs to another user.
+        HTTPException: 404 if it does not exist, is hidden by a moderator, or
+            is someone else's private post (not 403, so its existence does not
+            leak).
     """
-    post = db.query(models.BoardPost).filter(models.BoardPost.id == request.post_id).first()
-    if not post:
+    post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
+    if not post or (post.is_private and post.user_id != user.id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    if post.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="본인 게시글만 수정할 수 있습니다.")
-
-    stats = db.query(models.PostStats).filter(
-        models.PostStats.post_id == request.post_id
-    ).first()
-    if not stats:
-        stats = models.PostStats(post_id=request.post_id)
-        db.add(stats)
-
-    if request.increment_views:
-        stats.views += 1
-        stats.last_viewed_at = datetime.utcnow()
-    if request.increment_likes:
-        stats.likes += 1
-
-    db.commit()
-    return {"post_id": request.post_id, "views": stats.views, "likes": stats.likes, "message": "Stats updated"}
+    return post
 
 
 @router.post("/posts/{post_id}/like", response_model=ToggleResponse)
@@ -594,11 +563,10 @@ async def toggle_post_like(
         The new like state with the post's like and bookmark counts.
 
     Raises:
-        HTTPException: 401 if not logged in, 404 if the post does not exist.
+        HTTPException: 401 if not logged in, 404 if the post does not exist or
+            is someone else's private post.
     """
-    post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    _readable_post(db, post_id, current_user)
 
     stats = db.query(models.PostStats).filter(models.PostStats.post_id == post_id).first()
     if not stats:
@@ -647,11 +615,10 @@ async def toggle_post_bookmark(
         The new bookmark state with the post's like and bookmark counts.
 
     Raises:
-        HTTPException: 401 if not logged in, 404 if the post does not exist.
+        HTTPException: 401 if not logged in, 404 if the post does not exist or
+            is someone else's private post.
     """
-    post = db.query(models.BoardPost).filter(models.BoardPost.id == post_id).first()
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    _readable_post(db, post_id, current_user)
 
     stats = db.query(models.PostStats).filter(models.PostStats.post_id == post_id).first()
     if not stats:
@@ -798,18 +765,46 @@ async def toggle_follow_category(
     return FollowToggleResponse(active=active, target_type="category", target_id=category_id)
 
 
+def _recent_follow_notice(db: Session, author_id: int, follower_id: int) -> bool:
+    """Return True if this follower already notified this author recently.
+
+    Following, unfollowing and following again must not flood the author
+    with notifications.
+
+    Args:
+        db: Database session.
+        author_id: The followed user (recipient).
+        follower_id: The follower (actor).
+
+    Returns:
+        Whether a follow notification from the follower is younger than
+        ``FOLLOW_NOTICE_WINDOW``.
+    """
+    since = models.now_kst().replace(tzinfo=None) - FOLLOW_NOTICE_WINDOW
+    return db.query(models.Notification.id).filter(
+        models.Notification.user_id == author_id,
+        models.Notification.actor_user_id == follower_id,
+        models.Notification.type == "follow",
+        models.Notification.created_at >= since,
+    ).first() is not None
+
+
 @router.post("/follow/author/{author_user_id}", response_model=FollowToggleResponse)
 async def toggle_follow_author(
     author_user_id: int,
+    http_request: Request,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     """Follow an author, or unfollow them if already followed.
 
-    A new follow also sends the author a ``"follow"`` notification.
+    A new follow also sends the author a ``"follow"`` notification, at most
+    once per ``FOLLOW_NOTICE_WINDOW`` per follower, and follow changes are
+    limited per user (``FOLLOW_TOGGLE_LIMIT`` per ``FOLLOW_TOGGLE_WINDOW``).
 
     Args:
         author_user_id: The user to follow.
+        http_request: The incoming request (for the rate limit).
         db: Database session.
         current_user: The logged-in user.
 
@@ -818,7 +813,8 @@ async def toggle_follow_author(
 
     Raises:
         HTTPException: 401 if not logged in, 404 if the author does not exist,
-            400 if users try to follow themselves.
+            400 if users try to follow themselves, 429 when following changes
+            too often.
     """
     author = db.query(models.User).filter(models.User.id == author_user_id).first()
     if not author:
@@ -831,14 +827,19 @@ async def toggle_follow_author(
         .filter(models.AuthorFollow.user_id == current_user.id, models.AuthorFollow.author_user_id == author_user_id)
         .first()
     )
+    await run_in_threadpool(
+        enforce, http_request, "follow-toggle", FOLLOW_TOGGLE_LIMIT, FOLLOW_TOGGLE_WINDOW,
+        subject=str(current_user.id), message="팔로우를 너무 자주 바꿨습니다. 잠시 후 다시 시도해주세요.",
+    )
     if row:
         db.delete(row)
         active = False
     else:
         db.add(models.AuthorFollow(user_id=current_user.id, author_user_id=author_user_id))
         active = True
-        from app.services.notifications import notify
-        notify(db, recipient_id=author.id, actor_id=current_user.id, type="follow")
+        if not _recent_follow_notice(db, author.id, current_user.id):
+            from app.services.notifications import notify
+            notify(db, recipient_id=author.id, actor_id=current_user.id, type="follow")
     db.commit()
 
     return FollowToggleResponse(active=active, target_type="author", target_id=author_user_id)
@@ -903,11 +904,13 @@ async def subscribe_newsletter(
 
     The email must be exactly one address (no lists or display names), and
     requests are limited per client and per address. An already confirmed
-    address is reported as such and left unchanged. Otherwise the subscriber
-    is set to ``"pending"`` with a fresh verification token, and a
-    confirmation email is sent off the event loop. When the email cannot be
-    sent (no SMTP or a send error), the confirmation link is returned in the
-    response instead; when sending is only slow, it is not.
+    address is left unchanged and its owner gets an "already subscribed"
+    mail; otherwise the subscriber is set to ``"pending"`` with a fresh
+    verification token and a confirmation email is sent off the event loop.
+    The response is the same in both cases (:func:`_subscribe_response`), so
+    it does not reveal who is subscribed, and it never contains the
+    confirmation link (outside development). Links in mails come from
+    ``SITE_BASE_URL``.
 
     Args:
         payload: The email address and signup source.
@@ -942,11 +945,12 @@ async def subscribe_newsletter(
     )
 
     if subscriber and subscriber.status == "confirmed":
-        return NewsletterSubscribeResponse(
-            email=email,
-            status="confirmed",
-            message="이미 구독이 확인된 이메일입니다.",
+        # 이미 구독 중: 상태는 그대로 두고, 응답은 새 구독과 같게 (구독 여부를 남에게 알려 주지 않는다).
+        # 주소 주인에게만 '이미 구독 중' 메일을 보낸다
+        mail_sent, send_state = await _send_mail_with_deadline(
+            send_already_subscribed_email, email, _unsubscribe_url(http_request, email)
         )
+        return _subscribe_response(email, mail_sent, send_state, verify_url=None)
 
     token = secrets.token_urlsafe(24)
     if not subscriber:
@@ -968,32 +972,63 @@ async def subscribe_newsletter(
 
     db.commit()
 
-    verify_url = f"{http_request.url_for('verify_newsletter')}?token={token}"
+    verify_url = f"{_site_url(http_request, 'verify_newsletter')}?token={token}"
     mail_sent, send_state = await _send_mail_with_deadline(send_verification_email, email, verify_url)
+    return _subscribe_response(email, mail_sent, send_state, verify_url=verify_url)
 
+
+def _site_url(http_request: Request, route_name: str) -> str:
+    """Return the absolute URL of a route for links in emails.
+
+    Built from ``settings.SITE_BASE_URL`` when it is set, not from the
+    request's ``Host`` header, which the sender of the request chooses.
+
+    Args:
+        http_request: The incoming request (fallback base URL, route table).
+        route_name: The route's name.
+
+    Returns:
+        The absolute URL.
+    """
+    path = http_request.app.url_path_for(route_name)
+    base = settings.SITE_BASE_URL.strip().rstrip("/") or str(http_request.base_url).rstrip("/")
+    return f"{base}{path}"
+
+
+def _unsubscribe_url(http_request: Request, email: str) -> str:
+    """Return a signed unsubscribe link for ``email`` (see :func:`_site_url`)."""
+    token, issued_at = build_unsubscribe_token(email)
+    query = urlencode({"email": email, "token": token, "ts": issued_at})
+    return f"{_site_url(http_request, 'unsubscribe_newsletter')}?{query}"
+
+
+def _subscribe_response(email: str, mail_sent: bool, send_state: str, verify_url: Optional[str]) -> NewsletterSubscribeResponse:
+    """Build the answer to a subscribe request; the same whether or not the address is subscribed.
+
+    The confirmation link itself is never returned, except in development
+    with ``NEWSLETTER_SHOW_VERIFY_LINK`` (it would let anyone confirm an
+    address they do not own).
+
+    Args:
+        email: The normalized address.
+        mail_sent: Whether the mail went out.
+        send_state: The sender's state (``"SEND_TIMEOUT"``, ``"SMTP_NOT_CONFIGURED"`` ...).
+        verify_url: The confirmation link for a new subscription, or None.
+
+    Returns:
+        A ``"pending"`` response with a message for the user.
+    """
+    shown_link = None
     if mail_sent:
-        response_verify_url = None
-        response_message = "확인 이메일을 발송했습니다. 메일함(스팸함 포함)을 확인해주세요."
+        message = "확인 이메일을 발송했습니다. 메일함(스팸함 포함)을 확인해주세요."
     elif send_state == "SEND_TIMEOUT":
-        # 발송이 늦을 뿐 실패한 것은 아니므로 확인 링크를 화면에 내주지 않는다
-        response_verify_url = None
-        response_message = "확인 이메일을 보내는 중입니다. 잠시 후 메일함(스팸함 포함)을 확인해주세요."
+        message = "확인 이메일을 보내는 중입니다. 잠시 후 메일함(스팸함 포함)을 확인해주세요."
+    elif settings.NEWSLETTER_SHOW_VERIFY_LINK and verify_url:
+        shown_link = verify_url
+        message = "(개발 모드) 메일을 보내지 못해 확인 링크를 표시합니다."
     else:
-        # 메일 서버가 없거나 발송 실패 시 개발/로컬 환경 fallback
-        response_verify_url = verify_url
-        response_message = (
-            "메일 전송 설정이 없어 확인 링크를 화면에 표시합니다. "
-            "링크를 열어 구독을 완료해주세요."
-            if send_state == "SMTP_NOT_CONFIGURED"
-            else "메일 발송에 실패하여 확인 링크를 화면에 표시합니다. 링크를 열어 구독을 완료해주세요."
-        )
-
-    return NewsletterSubscribeResponse(
-        email=email,
-        status="pending",
-        verify_url=response_verify_url,
-        message=response_message,
-    )
+        message = "지금은 확인 메일을 보낼 수 없습니다. 나중에 다시 시도해주세요."
+    return NewsletterSubscribeResponse(email=email, status="pending", verify_url=shown_link, message=message)
 
 
 @router.get("/newsletter/verify", name="verify_newsletter")
@@ -1043,17 +1078,7 @@ async def verify_newsletter(token: str, http_request: Request, db: Session = Dep
     subscriber.verify_token = None
     db.commit()
 
-    unsubscribe_token, unsubscribe_issued_at = build_unsubscribe_token(subscriber.email)
-    unsubscribe_query = urlencode(
-        {
-            "email": subscriber.email,
-            "token": unsubscribe_token,
-            "ts": unsubscribe_issued_at,
-        }
-    )
-    unsubscribe_url = (
-        f"{http_request.url_for('unsubscribe_newsletter')}?{unsubscribe_query}"
-    )
+    unsubscribe_url = _unsubscribe_url(http_request, subscriber.email)
     # 확인 완료 메일은 best-effort: 메일 스레드풀에 맡기고 기다리지 않는다
     asyncio.get_running_loop().run_in_executor(
         _mail_executor, send_subscription_confirmed_email, subscriber.email, unsubscribe_url
@@ -1118,7 +1143,7 @@ async def get_home_recommendations(db: Session = Depends(get_db)):
 
     Returns:
         A dict with ``curated`` (hand-picked links), ``trending_topics`` (the
-        six categories with the most posts, as ``category_id``/``name``/
+        six categories with the most public posts, as ``category_id``/``name``/
         ``post_count``) and ``generated_at`` (UTC ISO timestamp).
     """
     category_stats = (
@@ -1127,7 +1152,11 @@ async def get_home_recommendations(db: Session = Depends(get_db)):
             models.BoardCategory.name,
             func.count(models.BoardPost.id).label("post_count"),
         )
-        .outerjoin(models.BoardPost, models.BoardPost.category_id == models.BoardCategory.id)
+        .outerjoin(
+            models.BoardPost,
+            (models.BoardPost.category_id == models.BoardCategory.id)
+            & (models.BoardPost.is_private == False),  # noqa: E712 — 비공개 글은 세지 않는다
+        )
         .group_by(models.BoardCategory.id, models.BoardCategory.name)
         .order_by(func.count(models.BoardPost.id).desc(), models.BoardCategory.name.asc())
         .limit(6)
@@ -1349,8 +1378,8 @@ def process_post_tags(db: Session, post: models.BoardPost, tag_names: List[str])
 
     The names are checked again with :func:`normalize_tag_names` (routes check
     the form field first; maintenance scripts call this directly). The counts
-    of every added or removed tag are recomputed in one grouped query that
-    leaves out moderator-hidden posts, and everything is committed once.
+    of every added or removed tag are recomputed (:func:`recount_tags`), and
+    everything is committed once.
 
     Args:
         db: Database session.
@@ -1364,17 +1393,34 @@ def process_post_tags(db: Session, post: models.BoardPost, tag_names: List[str])
     previous = set(post.tags)
     post.tags = [get_or_create_tag(db, name) for name in names]
     db.flush()
-
-    affected = previous | set(post.tags)
-    counts = {}
-    if affected:
-        counts = dict(
-            db.query(models.PostTag.tag_id, func.count(models.BoardPost.id))
-            .join(models.BoardPost, models.BoardPost.id == models.PostTag.post_id)
-            .filter(models.PostTag.tag_id.in_([tag.id for tag in affected]))
-            .group_by(models.PostTag.tag_id)
-            .all()
-        )
-    for tag in affected:
-        tag.count = counts.get(tag.id, 0)
+    recount_tags(db, previous | set(post.tags))
     db.commit()
+
+
+def recount_tags(db: Session, tags) -> None:
+    """Set each tag's count to the number of public, visible posts carrying it.
+
+    Tag lists and counts are public, so private posts and moderator-hidden
+    posts (left out by the session's hidden-content filter) do not count.
+    One grouped query for all the tags; the caller commits.
+
+    Args:
+        db: Database session.
+        tags: The ``Tag`` rows to recount.
+    """
+    tags = list(tags)
+    if not tags:
+        return
+    db.flush()
+    counts = dict(
+        db.query(models.PostTag.tag_id, func.count(models.BoardPost.id))
+        .join(models.BoardPost, models.BoardPost.id == models.PostTag.post_id)
+        .filter(
+            models.PostTag.tag_id.in_([tag.id for tag in tags]),
+            models.BoardPost.is_private == False,  # noqa: E712
+        )
+        .group_by(models.PostTag.tag_id)
+        .all()
+    )
+    for tag in tags:
+        tag.count = counts.get(tag.id, 0)

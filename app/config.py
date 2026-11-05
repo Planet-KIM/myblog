@@ -22,6 +22,18 @@ class Settings(BaseSettings):
         TRUSTED_PROXY_HOPS: Number of reverse proxies in front of the
             bundled nginx that append the client address to
             ``X-Forwarded-For`` (0 when visitors connect to nginx directly).
+        SESSION_COOKIE_SECURE: Mark the session cookie ``Secure`` (set it to
+            true once the site is served over HTTPS, never before: browsers
+            would not send the cookie over plain HTTP and nobody could log in).
+        CSP_ENABLED, CSP_REPORT_ONLY: Send the Content-Security-Policy
+            (``app/services/csp.py``), and only as report-only while trying
+            a change.
+        EMAIL_VERIFICATION_REQUIRED: Whether public posts, comments and
+            reports, uploads and spell-check requests need a verified email;
+            enforced only while mail can be sent (see
+            ``app/services/email_verification.py``).
+        EMAIL_VERIFY_TOKEN_TTL_HOURS, EMAIL_VERIFY_RESEND_LIMIT: Lifetime of a
+            verification link, and links a user may request per hour.
         CORS_ORIGINS: Comma-separated origins (``https://example.com``)
             that may call the API from another site with the visitor's
             cookies. Empty (the default) turns CORS off: the site's own
@@ -52,8 +64,10 @@ class Settings(BaseSettings):
             requests site-wide, and submissions per user per day).
         NEWSLETTER_*: Sender identity, SMTP connection, token lifetimes,
             the subscribe rate limits (per client and per address) and the
-            longest a subscribe request waits for its mail; nothing is sent
-            unless ``NEWSLETTER_ENABLE_SEND`` is true.
+            longest a subscribe request waits for its mail, and (development
+            only) ``NEWSLETTER_SHOW_VERIFY_LINK`` to show the confirmation
+            link when no mail can be sent; nothing is sent unless
+            ``NEWSLETTER_ENABLE_SEND`` is true.
         SITE_BASE_URL: Absolute site URL used where no request exists (the
             weekly digest).
         DIGEST_ENABLE: Whether the weekly digest is sent.
@@ -72,6 +86,18 @@ class Settings(BaseSettings):
     # nginx 앞단 프록시 수 (Cloudflare, 호스트 nginx/Caddy 등). 없으면 0.
     # X-Forwarded-For 에서 방문자 IP 를 읽을 위치를 정한다 (레이트리밋 키).
     TRUSTED_PROXY_HOPS: int = 0
+
+    # HTTPS 로 서비스할 때 True: 세션 쿠키에 Secure 를 붙여 평문 HTTP 로는 보내지 않게 한다
+    SESSION_COOKIE_SECURE: bool = False
+
+    # Content-Security-Policy (app/services/csp.py). REPORT_ONLY 는 막지 않고 브라우저 콘솔에 보고만
+    CSP_ENABLED: bool = True
+    CSP_REPORT_ONLY: bool = False
+
+    # 이메일 인증: 메일을 보낼 수 있을 때(NEWSLETTER_ENABLE_SEND + SMTP)만 실제로 요구된다
+    EMAIL_VERIFICATION_REQUIRED: bool = True
+    EMAIL_VERIFY_TOKEN_TTL_HOURS: int = 48
+    EMAIL_VERIFY_RESEND_LIMIT: int = 3          # 사용자별 시간당 재발송
 
     # 다른 사이트에서 쿠키와 함께 API 를 부를 수 있는 출처 (쉼표 구분). 비우면 CORS 끔
     CORS_ORIGINS: str = ""
@@ -160,6 +186,8 @@ class Settings(BaseSettings):
     NEWSLETTER_SMTP_USE_TLS: bool = True
     NEWSLETTER_SMTP_USE_SSL: bool = False
     NEWSLETTER_SMTP_TIMEOUT_SECONDS: int = 10
+    # 개발용: 메일을 못 보낼 때 구독 확인 링크를 응답에 보여 줄지 (운영에서는 꼭 False)
+    NEWSLETTER_SHOW_VERIFY_LINK: bool = False
     NEWSLETTER_VERIFY_TOKEN_TTL_HOURS: int = 24
     NEWSLETTER_UNSUBSCRIBE_TOKEN_TTL_HOURS: int = 24 * 30
     # 구독 요청 한도: 클라이언트(IP)별, 주소별

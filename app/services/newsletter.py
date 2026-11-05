@@ -99,6 +99,11 @@ def verify_unsubscribe_token(
     return hmac.compare_digest(expected_token, (token or "").strip())
 
 
+def mail_ready() -> bool:
+    """Return True if mail can be sent (sending enabled, SMTP host and sender set)."""
+    return _smtp_config_ready()
+
+
 def _smtp_config_ready() -> bool:
     """Return True if sending is enabled and an SMTP host and sender address are set."""
     return bool(
@@ -192,6 +197,63 @@ def send_verification_email(to_email: str, verify_url: str) -> tuple[bool, str]:
         "<p>아래 버튼을 눌러 뉴스레터 구독을 완료해주세요.</p>"
         f"<p><a href=\"{safe_verify_url}\">구독 확인하기</a></p>"
         "<p>이 요청을 본인이 하지 않았다면 이 메일을 무시해주세요.</p>"
+    )
+    return _send_email(subject=subject, to_email=to_email, text_body=text_body, html_body=html_body)
+
+
+def send_account_verification_email(to_email: str, verify_url: str) -> tuple[bool, str]:
+    """Email an account the link that verifies its address.
+
+    Args:
+        to_email: The account's address.
+        verify_url: Absolute verification URL; HTML-escaped in the HTML body.
+
+    Returns:
+        The ``(ok, info)`` pair from :func:`_send_email`.
+    """
+    safe_verify_url = html.escape(verify_url)
+    subject = "[Planet KIM] 이메일 인증"
+    text_body = (
+        "안녕하세요.\n\n"
+        "아래 링크를 열어 이메일 주소를 인증해주세요.\n"
+        f"{verify_url}\n\n"
+        "가입하지 않았다면 이 메일을 무시해주세요.\n"
+    )
+    html_body = (
+        "<p>안녕하세요.</p>"
+        "<p>아래 버튼을 눌러 이메일 주소를 인증해주세요.</p>"
+        f"<p><a href=\"{safe_verify_url}\">이메일 인증하기</a></p>"
+        "<p>가입하지 않았다면 이 메일을 무시해주세요.</p>"
+    )
+    return _send_email(subject=subject, to_email=to_email, text_body=text_body, html_body=html_body)
+
+
+def send_already_subscribed_email(to_email: str, unsubscribe_url: str) -> tuple[bool, str]:
+    """Tell a confirmed subscriber that someone asked to subscribe their address again.
+
+    The subscribe form answers the same for every address, so only the
+    address owner learns that it is already subscribed.
+
+    Args:
+        to_email: The confirmed subscriber's address.
+        unsubscribe_url: Absolute signed unsubscribe URL; HTML-escaped in the
+            HTML body.
+
+    Returns:
+        The ``(ok, info)`` pair from :func:`_send_email`.
+    """
+    safe_unsubscribe_url = html.escape(unsubscribe_url)
+    subject = "[Planet KIM's Travel] 이미 구독 중입니다"
+    text_body = (
+        "이 주소는 이미 뉴스레터를 구독하고 있습니다.\n"
+        "직접 요청하지 않았다면 이 메일은 무시하셔도 됩니다.\n\n"
+        "구독 해지:\n"
+        f"{unsubscribe_url}\n"
+    )
+    html_body = (
+        "<p>이 주소는 이미 뉴스레터를 구독하고 있습니다.</p>"
+        "<p>직접 요청하지 않았다면 이 메일은 무시하셔도 됩니다.</p>"
+        f"<p><a href=\"{safe_unsubscribe_url}\">구독 해지</a></p>"
     )
     return _send_email(subject=subject, to_email=to_email, text_body=text_body, html_body=html_body)
 

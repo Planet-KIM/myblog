@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.database import get_db
 from app.auth_utils import get_current_user
+from app.routers.api import recount_tags
 from app.services import spellcheck_requests as access_requests
 from app.services.spellcheck_access import LEVEL_LABELS
 from app.services.static_assets import asset_version
@@ -248,7 +249,7 @@ def admin_moderate(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Hide or unhide a post or comment.
+    """Hide or unhide a post or comment (a post's tags are recounted).
 
     Args:
         target_type: ``"post"`` for a post; any other value means a comment.
@@ -270,6 +271,8 @@ def admin_moderate(
     if not obj:
         raise HTTPException(status_code=404, detail="대상을 찾을 수 없습니다.")
     obj.is_hidden = (action == "hide")
+    if model is models.BoardPost:
+        recount_tags(db, obj.tags)   # 숨긴 글은 공개 태그 수에서 빠진다
     db.commit()
     return RedirectResponse("/admin/", status_code=303)
 

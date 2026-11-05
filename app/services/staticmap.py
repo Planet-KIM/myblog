@@ -113,11 +113,38 @@ def _choose_zoom(pts, w, h):
     return 2
 
 
+# 한 번 그릴 때 지오코딩(외부 Nominatim 요청)할 수 있는 최대 장소 수
+MAX_GEOCODE_PER_MAP = 5
+
+
+def canonical_places(text: str) -> str:
+    """Return the place list in a canonical form, for cache keys.
+
+    Two inputs that draw the same map (same places in the same order, with
+    other spacing, comments or coordinate precision) give the same string.
+
+    Args:
+        text: Place list, one ``label@lat,lng`` or ``label`` per line.
+
+    Returns:
+        One line per place (the first 30): ``label@lat,lng`` with coordinates
+        rounded to 5 decimals, or the label alone when it has none.
+    """
+    lines = []
+    for p in parse_places(text)[:30]:
+        if p["lat"] is None:
+            lines.append(p["label"])
+        else:
+            lines.append(f"{p['label']}@{p['lat']:.5f},{p['lng']:.5f}")
+    return "\n".join(lines)
+
+
 def render_map_png(text: str, width: int = 640, height: int = 420) -> bytes:
     """Render a static map PNG with numbered pins for the places in ``text``.
 
     Uses the first 30 places (see :func:`parse_places`); places without
-    coordinates are geocoded and skipped if that fails. Pins are joined in
+    coordinates are geocoded (at most ``MAX_GEOCODE_PER_MAP`` of them, the
+    rest skipped) and skipped if that fails. Pins are joined in
     order by a route line, a legend lists up to six places, and the required
     OpenStreetMap attribution is drawn in the top-right corner. Missing tiles
     leave a plain background instead of failing. Makes network requests to
@@ -135,9 +162,13 @@ def render_map_png(text: str, width: int = 640, height: int = 420) -> bytes:
     places = parse_places(text)[:30]   # 타일 요청량 제한
     # 좌표 없는 곳 지오코딩
     pts = []
+    lookups = 0
     for p in places:
         lat, lng = p["lat"], p["lng"]
         if lat is None:
+            if lookups >= MAX_GEOCODE_PER_MAP:   # 외부 요청 수 제한
+                continue
+            lookups += 1
             g = geocode(p["label"])
             if not g:
                 continue

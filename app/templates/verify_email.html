@@ -1,0 +1,54 @@
+{#
+  verify_email.html: email verification (/auth/verify-email) — the result of opening a
+  mailed link, or the signed-in user's status with a button to mail a new link.
+  Context: current_user (User|None), active (bool: verification enforced now),
+           verified (bool), result ("ok"|"invalid"|None), notice (str|None),
+           next (str|None: safe local path to go back to).
+  Assets: static/css/auth.css (shared with login.html and signup.html)
+#}
+{% extends "base.html" %}
+
+{% block title %}이메일 인증 · Planet KIM{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/auth.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="page-card">
+    <div class="auth-head">
+      <span class="eyebrow">Planet KIM</span>
+      <h1>이메일 인증</h1>
+      <p>글 공개, 댓글·신고, 파일 업로드, 맞춤법 사용 신청은 이메일을 인증한 계정만 할 수 있어요.</p>
+    </div>
+
+    {% if notice %}<div class="alert alert-info" role="status">{{ notice }}</div>{% endif %}
+
+    {% if result == 'ok' %}
+      <div class="alert alert-success" role="status">이메일을 인증했습니다.</div>
+    {% elif result == 'invalid' %}
+      <div class="alert alert-danger" role="alert">링크가 올바르지 않거나 기간이 지났습니다. 로그인한 뒤 인증 메일을 다시 받아주세요.</div>
+    {% endif %}
+
+    {% if current_user and not result %}
+      {% if verified and current_user.email_verified_at %}
+        <p>{{ current_user.email }} 은(는) 인증된 주소입니다.</p>
+      {% elif not active %}
+        <p>지금은 이메일 인증을 요구하지 않습니다.</p>
+      {% elif current_user.is_admin %}
+        <p>관리자 계정은 인증 없이 모든 기능을 쓸 수 있습니다.</p>
+      {% else %}
+        <p>{{ current_user.email }} 로 인증 메일을 보냅니다. 메일의 링크를 열면 인증이 끝납니다.</p>
+        <form method="post" action="/auth/verify-email/resend">
+          <button type="submit" class="btn btn-primary auth-submit">인증 메일 보내기</button>
+        </form>
+      {% endif %}
+    {% endif %}
+
+    <p class="auth-alt">
+      {% if next %}<a href="{{ next }}">이전 화면으로</a>{% else %}<a href="/">홈으로</a>{% endif %}
+    </p>
+  </div>
+</div>
+{% endblock %}

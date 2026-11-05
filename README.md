@@ -276,6 +276,22 @@ cd ..
 
 ## 13. 보안/운영 메모
 
+### 13.1 HTTPS 적용 (준비된 설정)
+
+지금은 nginx(5052)로 평문 HTTP 를 받습니다. 외부에 공개하기 전에 HTTPS 를 붙이세요.
+
+1. 도메인을 정하고, HTTPS 를 처리할 앞단을 고릅니다.
+   - Cloudflare(프록시 또는 Tunnel), 또는 서버의 Caddy/nginx 가 인증서를 받아 `http://127.0.0.1:5052` 로 넘깁니다.
+2. `.env` 를 바꿉니다.
+   - `TRUSTED_PROXY_HOPS=1` — 방문자 IP 를 앞단이 붙인 `X-Forwarded-For` 에서 읽습니다 (레이트리밋).
+   - `SESSION_COOKIE_SECURE=true` — 세션 쿠키가 HTTPS 로만 오갑니다. **HTTPS 가 붙은 뒤에** 켜세요.
+   - `SITE_BASE_URL=https://내도메인` — 메일 속 링크(구독 확인, 이메일 인증)가 이 주소로 만들어집니다.
+   - 앞단이 `Host` 헤더를 바꾸면 `TRUSTED_ORIGINS=https://내도메인` 도 적습니다 (쓰기 요청 허용 출처).
+3. 방화벽에서 5052 포트는 앞단(프록시)에서만 접속되게 막습니다. 직접 열려 있으면 IP 헤더를 위조할 수 있습니다.
+4. `docker compose up -d` 로 다시 띄웁니다. HTTPS 요청에는 HSTS 헤더가 자동으로 붙습니다.
+
+### 13.2 기타
+
 - `.env`는 절대 커밋하지 마세요.
 - `SECRET_KEY`, SMTP 비밀번호는 운영 환경에서 안전한 비밀 저장소 사용을 권장합니다.
 - 업로드 파일(`app/static/uploads`)은 백업 정책을 별도로 두는 것이 좋습니다.

@@ -174,6 +174,76 @@ def card_block_ids(raw: str) -> list[int]:
     return list(dict.fromkeys(i for i in ids if i is not None))
 
 
+# 저장된 카드 마크업의 시작 (templates/_post_card.html 의 post_link_card)
+_CARD_OPEN = '<div class="post-link" data-post-card="'
+
+
+def strip_card_snapshots(html: Optional[str]) -> Optional[str]:
+    """Empty every post card saved in an HTML body, keeping only its post id.
+
+    The magazine editor saves each card's markup (title, preview, thumbnail
+    of the linked post) in the reading HTML. Kept there, it would stay in
+    search and RSS after the linked post turned private or was deleted; the
+    post page draws the current card from the id anyway. Cards are matched
+    with nested ``<div>`` counting in one pass; an unclosed card is left as is.
+
+    Args:
+        html: The HTML body, or None.
+
+    Returns:
+        The body with each ``<div class="post-link" data-post-card="N">``
+        emptied, or ``html`` unchanged when it has no card.
+    """
+    if not html or _CARD_OPEN not in html:
+        return html
+    parts, pos = [], 0
+    while True:
+        start = html.find(_CARD_OPEN, pos)
+        tag_end = html.find(">", start) if start >= 0 else -1
+        if tag_end < 0:
+            break
+        depth, scan = 1, tag_end + 1
+        while depth:
+            close = html.find("</div>", scan)
+            if close < 0:
+                break
+            opening = html.find("<div", scan, close)
+            if opening >= 0:
+                depth, scan = depth + 1, opening + len("<div")
+            else:
+                depth, scan = depth - 1, close + len("</div>")
+        if depth:
+            break
+        parts += [html[pos:tag_end + 1], "</div>"]
+        pos = scan
+    parts.append(html[pos:])
+    return "".join(parts)
+
+
+def strip_card_block_snapshots(raw: Optional[str]) -> Optional[str]:
+    """Empty the saved card markup of every card block in content_blocks JSON.
+
+    See :func:`strip_card_snapshots`; card blocks keep their ``postId``, and
+    the editor and the post page fetch the current card for it.
+
+    Args:
+        raw: content_blocks JSON, or None.
+
+    Returns:
+        The JSON with each card block's ``content`` set to "", or ``raw``
+        itself when it has no card block or cannot be decoded or encoded.
+    """
+    data = content_blocks.parse(raw)
+    if data is None:
+        return raw
+    changed = False
+    for block in content_blocks.iter_blocks(data):
+        if _card_block_id(block) is not None and block.get("content"):
+            block["content"] = ""
+            changed = True
+    return (content_blocks.dumps(data) or raw) if changed else raw
+
+
 def refresh_card_blocks(raw: str, render: Callable[[int], str]) -> str:
     """Put the current card into every card block of a magazine post.
 

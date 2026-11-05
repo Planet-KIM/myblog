@@ -1,8 +1,8 @@
 /**
  * @file Site-wide behavior loaded on every page (base.html): toasts, the nav
  * theme toggle, the loading overlay, smooth in-page scrolling, lazy images,
- * code-block copy buttons, form validation, the nav active state and page
- * transitions. Exposes window.toast, window.theme, window.loading and
+ * code-block copy buttons, form validation, the nav active state, page
+ * transitions and clearing account data from the browser after logout. Exposes window.toast, window.theme, window.loading and
  * window.AppUtils for page scripts.
  */
 
@@ -544,4 +544,28 @@ window.AppUtils = {
   }
 
   document.addEventListener('click', markTransitionSource);
+})();
+
+
+// ─────────────────────────────────────────────
+// After logout: clear what the account left in this browser
+// ─────────────────────────────────────────────
+/**
+ * When the server has just logged the user out (a short-lived "logged_out"
+ * cookie, set by /auth/logout), remove the recently read posts and the
+ * magazine editor autosaves from localStorage, so the next person on this
+ * browser does not see them. Runs as soon as this script loads, before page
+ * scripts read that data in their DOMContentLoaded handlers.
+ *
+ * @returns {void}
+ */
+(function clearAccountDataAfterLogout() {
+  if (!/(?:^|;\s*)logged_out=1(?:;|$)/.test(document.cookie)) return;
+  try {
+    localStorage.removeItem('recentPosts');
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('magazine:autosave:'))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch (e) { /* storage unavailable: nothing to clear */ }
+  document.cookie = 'logged_out=; Max-Age=0; Path=/; SameSite=Lax';
 })();

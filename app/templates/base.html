@@ -4,21 +4,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- FOUC 방지: 스타일이 칠해지기 전에 저장된/OS 테마를 즉시 반영 (라이트 유저의 다크 깜빡임 제거) -->
-  <script>
-    /* conventions: allow (critical head script: apply the theme before first paint) */
-    (function () {
-      try {
-        var t = localStorage.getItem('theme');
-        if (t !== 'light' && t !== 'dark') {
-          // 기본은 밝은 에디토리얼. OS가 다크를 선호할 때만 다크.
-          t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-        }
-        document.documentElement.setAttribute('data-theme', t);
-        document.documentElement.setAttribute('data-bs-theme', t);
-      } catch (e) {}
-    })();
-  </script>
+  <!-- FOUC 방지: 스타일이 칠해지기 전에 저장된/OS 테마를 즉시 반영. defer 없이 (CSP: 인라인 스크립트 금지라 파일로) -->
+  <script src="{{ url_for('static', path='js/theme-init.js') }}"></script>
   <title>{% block title %}Planet KIM{% endblock %}</title>
   <!-- SEO / 공유(OG) 메타: 라우트가 넘긴 값 우선, 없으면 기본값 -->
   {% set _meta_desc = meta_description | default("누구나 자기만의 블로그를 열고 이야기를 나누는 포털", true) %}

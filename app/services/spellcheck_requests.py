@@ -3,7 +3,8 @@
 Accounts are not email-verified, so anyone can open many of them. The rules
 keep requests cheap to review and hard to abuse:
 
-- only an established account may ask: signed up at least
+- only a verified email may ask (``app/services/email_verification.py``,
+  while verification is active), and only an established account: signed up at least
   ``SPELLCHECK_REQUEST_MIN_ACCOUNT_DAYS`` ago (accounts older than the
   ``users.created_at`` column count as established) or with a public post;
 - one pending request per user (also a partial unique index in the
@@ -29,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.config import settings
+from app.services.email_verification import is_verified
 from app.services.notifications import notify
 from app.services.spellcheck_access import LEVEL_BASIC, LEVEL_FULL, effective_level
 
@@ -129,6 +131,8 @@ def request_block_reason(db: Session, user: models.User, now: Optional[datetime]
     now = now or kst_now()
     if effective_level(user) >= LEVEL_FULL:
         return "이미 모든 맞춤법 모델을 쓸 수 있습니다."
+    if not is_verified(user):
+        return "이메일을 인증한 뒤 신청할 수 있습니다. (/auth/verify-email)"
     if pending_request(db, user.id):
         return "검토를 기다리는 신청이 있습니다."
     rejected = (
