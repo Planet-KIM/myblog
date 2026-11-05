@@ -34,6 +34,7 @@ from app.services.layout_quota import ensure_layout_budget, ensure_template_slot
 from app.services.profile import author_matches, public_author_name
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
 from app.services.content_blocks import has_layout, parse as parse_content_blocks
+from app.services.csp import mark_editor_page
 from app.services.email_verification import is_verified, require_verified
 from app.services.spellcheck_access import effective_level
 from app.services.ratelimit import enforce
@@ -866,7 +867,8 @@ def board_new(
         (``board_new_clean.html`` for Milkdown, ``board_new_tiptap.html`` for
         TipTap) with the user's categories, a fresh draft id, popular tags
         and the user's spell-check level (the editor hides what it does not
-        allow).
+        allow). Editor pages get the CSP that allows inline ``<style>``
+        (``csp.mark_editor_page``).
 
     Raises:
         HTTPException: 401 if not logged in.
@@ -889,6 +891,7 @@ def board_new(
     )
 
     template_name = "board_new_tiptap.html" if editor == "tiptap" else "board_new_clean.html"
+    mark_editor_page(request)   # 편집기의 <style> 허용 (app/services/csp.py)
     popular_tags = (
         db.query(models.Tag)
         .filter(models.Tag.count > 0)
@@ -1120,7 +1123,8 @@ def board_edit(
         ``board_edit_tiptap.html`` for TipTap posts or ``board_edit.html``
         otherwise, with the sanitized block JSON and initial HTML (the
         editors load it with innerHTML), the user's categories, the post's
-        tags, popular tags and the user's spell-check level.
+        tags, popular tags and the user's spell-check level, under the CSP
+        that allows inline ``<style>`` (``csp.mark_editor_page``).
 
     Raises:
         HTTPException: 401 if not logged in, 404 if the post does not exist,
@@ -1143,6 +1147,7 @@ def board_edit(
     )
 
     template_name = "board_edit_tiptap.html" if post.editor_type == "tiptap" else "board_edit.html"
+    mark_editor_page(request)   # 편집기의 <style> 허용 (app/services/csp.py)
 
     # XSS 방어: 에디터에 주입되는 content_blocks·HTML 도 정제 (에디터가 innerHTML 로 읽는다)
     post.content_blocks_safe = sanitize_content_blocks(post.content_blocks)

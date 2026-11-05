@@ -1550,14 +1550,6 @@ function _scDiffLegend(changes) {
   </div>`;
 }
 
-// 애니메이션 CSS 즉시 주입
-;(function() {
-  if (document.getElementById('sc-spin-style')) return;
-  const s = document.createElement('style'); s.id = 'sc-spin-style';
-  s.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes scShimmer{from{background-position:200% 0}to{background-position:-200% 0}}';
-  (document.head || document.documentElement).appendChild(s);
-})();
-
 /**
  * Put a spell-check run button into its busy state (spinner, disabled).
  *
@@ -1815,13 +1807,6 @@ function _scShowPopup({ selectModel, original, error }) {
 
   document.body.appendChild(overlay);
   document.body.appendChild(popup);
-
-  if (!document.getElementById('sc-spin-style')) {
-    const s = document.createElement('style');
-    s.id = 'sc-spin-style';
-    s.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes scShimmer{from{background-position:200% 0}to{background-position:-200% 0}}';
-    document.head.appendChild(s);
-  }
 
   /**
    * Close the dialog on Escape and stop listening.

@@ -799,3 +799,9 @@
 
 /* Spell-check run button while a check is running (kept last so it wins over the button looks). */
 .sc-btn-busy { opacity: 0.7; cursor: not-allowed; }
+
+/* ── 맞춤법 검사 애니메이션 ───────────────────────────
+   검사 버튼의 회전 표시(spin)와 결과 자리 반짝임(scShimmer).
+   예전엔 스크립트가 <style> 로 넣었지만, CSP 가 인라인 <style> 을 막으므로 여기 둔다. */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes scShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }

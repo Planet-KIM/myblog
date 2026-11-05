@@ -160,7 +160,8 @@ async def security_headers(request: Request, call_next):
 
     Sets ``X-Content-Type-Options``, ``X-Frame-Options``, ``Referrer-Policy``
     and ``Permissions-Policy`` unless the handler already set them, the
-    Content-Security-Policy (``app/services/csp.py``) unless the response has
+    Content-Security-Policy (``app/services/csp.py``; the editor-page variant
+    when the handler called ``csp.mark_editor_page``) unless the response has
     its own (uploads are sandboxed), ``Cache-Control: no-store`` on HTML sent
     with a session cookie (a signed-in page must not come back from the
     browser's cache or back/forward cache after logout), and
@@ -180,7 +181,7 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
     if settings.CSP_ENABLED and "content-security-policy" not in response.headers:
-        response.headers[csp.header_name()] = csp.policy()
+        response.headers[csp.header_name()] = csp.policy(editor=csp.is_editor_page(request))
     # 로그인한 사용자에게 보낸 페이지는 브라우저가 저장하지 않게 (로그아웃 뒤 '뒤로 가기'로 다시 보이지 않도록)
     if SESSION_COOKIE in request.cookies and response.headers.get("content-type", "").startswith("text/html"):
         response.headers["Cache-Control"] = "no-store"
