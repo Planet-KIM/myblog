@@ -12,10 +12,15 @@ Formats:
     v3, what the editor saves: ``{"v": 3, "pages": [{"cw", "ch", "blocks"}, ...]}``.
     v2, one page: ``{"v": 2, "cw", "ch", "blocks": [...]}``. The viewer also
         draws a document's top-level ``blocks`` when its ``pages`` is empty.
-    v1, one page of bare blocks: ``[block, ...]``.
+    v1, one page of bare blocks: ``[block, ...]``, saved without a canvas size
+        (``legacy_canvas`` derives one from the blocks).
 """
 import json
+import math
 from typing import Any, Iterator, Optional
+
+# v1 레이아웃(캔버스 크기 없이 블록만 저장)의 캔버스: 가장 아래 블록 밑 여백 (v2 에디터가 남기던 값)
+LEGACY_BOTTOM_MARGIN = 40
 
 
 def parse(raw: Optional[str]) -> Any:
@@ -97,6 +102,66 @@ def iter_block_lists(data: Any) -> Iterator[list]:
         blocks = page.get("blocks")
         if isinstance(blocks, list):
             yield blocks
+
+
+def _coordinate(value: Any) -> float:
+    """Return a block coordinate as a finite float; numeric text is read, anything else is 0."""
+    if isinstance(value, bool):
+        return 0.0
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return number if math.isfinite(number) else 0.0
+
+
+def legacy_canvas(blocks: list) -> tuple[float, float]:
+    """Return the canvas size of a v1 layout, which was saved without one.
+
+    The same rule as legacyPage() in static/js/board_detail_magazine.js: the
+    leftmost block's left margin is repeated right of the rightmost block,
+    and ``LEGACY_BOTTOM_MARGIN`` is left below the lowest block (the editor
+    of that time framed blocks the same way).
+
+    Args:
+        blocks: The v1 block list; entries that are not dicts are ignored.
+
+    Returns:
+        ``(width, height)``, with 0 for a side the blocks give no size for.
+    """
+    items = [b for b in blocks if isinstance(b, dict)]
+    if not items:
+        return 0.0, 0.0
+    left = max(0.0, min(_coordinate(b.get("x")) for b in items))
+    right = max(_coordinate(b.get("x")) + _coordinate(b.get("w")) for b in items)
+    bottom = max(_coordinate(b.get("y")) + _coordinate(b.get("h")) for b in items)
+    width = right + left
+    return (width if width > 0 else 0.0), (bottom + LEGACY_BOTTOM_MARGIN if bottom > 0 else 0.0)
+
+
+def has_layout(data: Any) -> bool:
+    """Tell whether the post page's viewer draws ``data`` as pages.
+
+    Mirrors the format check of static/js/board_detail_magazine.js: a v3
+    document with at least one page, a v2 page (``v`` 2 or a ``cw``) with a
+    ``blocks`` list, or a non-empty v1 block list. Anything else, such as an
+    early TipTap document (``{"type": "doc", ...}``), draws nothing, so the
+    post page shows the HTML body instead.
+
+    Args:
+        data: A decoded content_blocks value, as sanitized for the page.
+
+    Returns:
+        True when the viewer has pages to draw.
+    """
+    if isinstance(data, list):
+        return bool(data)
+    if not isinstance(data, dict):
+        return False
+    pages = data.get("pages")
+    if data.get("v") == 3 and isinstance(pages, list) and pages:
+        return True
+    return (data.get("v") == 2 or bool(data.get("cw"))) and isinstance(data.get("blocks"), list)
 
 
 def iter_blocks(data: Any) -> Iterator[dict]:

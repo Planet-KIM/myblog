@@ -33,6 +33,7 @@ from app.routers.api import parse_tag_field, process_post_tags, recount_tags
 from app.services.layout_quota import ensure_layout_budget, ensure_template_slot
 from app.services.profile import author_matches, public_author_name
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
+from app.services.content_blocks import has_layout, parse as parse_content_blocks
 from app.services.email_verification import is_verified, require_verified
 from app.services.spellcheck_access import effective_level
 from app.services.ratelimit import enforce
@@ -1629,6 +1630,8 @@ def board_detail(
         blocks_raw = refresh_card_blocks(blocks_raw, cards.__getitem__)
     post.content_html_safe = html_safe
     post.content_blocks_safe = sanitize_content_blocks(blocks_raw)
+    # 뷰어가 그릴 수 없는 레이아웃(초기 TipTap 문서 등)이면 HTML 본문을 보여 준다
+    post.has_layout = has_layout(parse_content_blocks(post.content_blocks_safe))
 
     # 읽기 시간: 본문 텍스트만, 이중 언어 글은 언어마다 따로 (머리말에서 언어 전환용)
     body = post.content_html or post.content or ""

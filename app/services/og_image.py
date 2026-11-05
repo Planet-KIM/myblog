@@ -20,7 +20,7 @@ from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-from app.services.content_blocks import parse as parse_content_blocks
+from app.services.content_blocks import legacy_canvas, parse as parse_content_blocks
 
 logger = logging.getLogger(__name__)
 
@@ -455,8 +455,9 @@ def _first_page(content_blocks) -> Optional[dict]:
     """Return the first page of a magazine layout in any stored format.
 
     Accepts the v3 multi-page format (``{"v": 3, "pages": [...]}``), the older
-    single-page dict (``{"blocks": [...], "cw": .., "ch": ..}``) and a bare
-    list of blocks. Older formats default to a 1200x800 canvas.
+    single-page dict (``{"blocks": [...], "cw": .., "ch": ..}``, 1200x800 when
+    it has no size) and a bare list of blocks, sized to its blocks
+    (``content_blocks.legacy_canvas``).
 
     Args:
         content_blocks: The layout as a JSON string or already-decoded value.
@@ -472,7 +473,8 @@ def _first_page(content_blocks) -> Optional[dict]:
     if isinstance(data, dict) and isinstance(data.get("blocks"), list):
         return {"blocks": data["blocks"], "cw": data.get("cw", 1200), "ch": data.get("ch", 800)}
     if isinstance(data, list) and data:
-        return {"blocks": data, "cw": 1200, "ch": 800}
+        cw, ch = legacy_canvas(data)
+        return {"blocks": data, "cw": cw or 1200, "ch": ch or 800}
     return None
 
 

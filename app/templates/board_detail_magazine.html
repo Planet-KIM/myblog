@@ -4,7 +4,9 @@
   fallback), tags, action bar (edit / save as layout template / delete for the
   owner; like, bookmark, copy link, print, share on X), author card, series
   banner, related posts, comments and prev/next navigation.
-  Context: post, current_user, stats, prev_post, next_post, comments,
+  Context: post (with content_html_safe, content_blocks_safe and has_layout:
+  whether the viewer can draw content_blocks, else the HTML body is shown),
+  current_user, stats, prev_post, next_post, comments,
   author_other_posts, related_posts, backlinks (posts linking here, _backlinks.html),
   series_label, series_slug (+ SEO meta).
   Assets: css/mag-overlay.css (text on photos, shared editor/post page), static/css/board_detail_magazine.css, static/js/board_detail.js
@@ -68,7 +70,7 @@
 
 <!-- Magazine content: page viewer -->
 <article class="magazine-content" id="magazineContent">
-  {% if post.content_blocks %}
+  {% if post.has_layout %}
   <!-- content_blocks is parsed by JS viewer below -->
   <div id="magazine-viewer-root" data-bilingual-root></div>
   {% else %}
@@ -174,7 +176,7 @@
   <i class="bi bi-arrow-up-short scroll-icon" aria-hidden="true"></i>
 </button>
 
-{% if post.content_blocks %}
+{% if post.has_layout %}
 <script id="content-blocks-data" type="application/json">
 {{ post.content_blocks_safe | safe }}
 </script>

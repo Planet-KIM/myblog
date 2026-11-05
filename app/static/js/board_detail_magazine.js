@@ -19,7 +19,10 @@
   /**
    * Build the page-flip viewer (slides, nav bar, dots, reading-mode toggle and
    * reader) into #magazine-viewer-root from the #content-blocks-data JSON.
-   * Does nothing when the root, the data or any page is missing.
+   * Draws v3 pages, a v2 page or a v1 block array; the server shows the HTML
+   * body instead for anything else (app/services/content_blocks.has_layout
+   * mirrors this check). Does nothing when the root, the data or any page is
+   * missing.
    *
    * @returns {void}
    */
@@ -116,6 +119,8 @@
       pages = data.pages;
     } else if ((data.v === 2 || data.cw) && Array.isArray(data.blocks)) {
       pages = [data];
+    } else if (Array.isArray(data) && data.length) {
+      pages = [legacyPage(data)];  // v1: 캔버스 크기 없이 블록만 저장된 초기 형식
     } else { return; }
 
     if (!pages.length) return;
@@ -524,6 +529,8 @@
   // 사진 필터 — 에디터(frontend/board_*_tiptap.js FILTERS)와 같은 값 ('none' 은 클래스 없음)
   const IMG_FILTERS = ['bw', 'duotone'];
   const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
+  // v1 레이아웃(캔버스 크기 없음)의 캔버스: 가장 아래 블록 밑 여백 (v2 에디터가 남기던 값)
+  const LEGACY_BOTTOM_MARGIN = 40;
   const ATTR_ESCAPES = { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' };
 
   // content_blocks is the author's JSON. The server checks it too
@@ -540,6 +547,29 @@
    */
   function num(value, fallback) {
     return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  }
+
+  /**
+   * A page for the v1 format, a bare block array saved without a canvas size.
+   * The canvas is sized to the blocks: the leftmost block's left margin is
+   * repeated on the right, and LEGACY_BOTTOM_MARGIN px are left below the
+   * lowest block (the editor of that time framed blocks the same way).
+   *
+   * @param {Array<*>} blocks - The saved array.
+   * @returns {{cw: number, ch: number, blocks: Array<Object>}} The page; with
+   *   no usable size, cw/ch are 0 and the viewer's default canvas is used.
+   */
+  function legacyPage(blocks) {
+    const items = blocks.filter(b => b && typeof b === 'object');
+    if (!items.length) return { cw: 0, ch: 0, blocks: items };
+    const left = Math.max(0, Math.min(...items.map(b => num(b.x, 0))));
+    const right = Math.max(...items.map(b => num(b.x, 0) + num(b.w, 0)));
+    const bottom = Math.max(...items.map(b => num(b.y, 0) + num(b.h, 0)));
+    return {
+      cw: right + left > 0 ? right + left : 0,
+      ch: bottom > 0 ? bottom + LEGACY_BOTTOM_MARGIN : 0,
+      blocks: items,
+    };
   }
 
   /**
