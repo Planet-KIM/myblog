@@ -156,6 +156,10 @@ main.container {
 #magazine-viewer-root.reader-on .mag-reader { display: block; }
 /* 블록 HTML 의 position:absolute 요소가 읽기 칼럼 밖(페이지)을 덮지 못하게 칼럼 안에 가두고 자른다 */
 .mag-reader-inner { position: relative; overflow: clip; max-width: var(--reading-max-width); margin: 0 auto; padding: 0 var(--space-lg); }
+/* overflow: clip 을 모르는 브라우저(Safari 15 이하 등)는 hidden 으로 똑같이 가둔다 */
+@supports not (overflow: clip) {
+  .mag-reader-inner { overflow: hidden; }
+}
 /* 전체 폭 보기: 읽기 칼럼 폭 제한을 풀고 가장자리 여백만 둔다 */
 #magazine-viewer-root.full-on .mag-reader-inner { max-width: none; padding: 0 var(--space-2xl); }
 .mag-reader .reader-block { margin: 0 0 1.1rem; line-height: 1.75; color: var(--text-main); word-break: keep-all; }

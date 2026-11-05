@@ -74,6 +74,12 @@
   overflow: clip;
 }
 
+/* overflow: clip 을 모르는 브라우저(Safari 15 이하 등): hidden 으로 똑같이 가둔다.
+   hidden 은 스크롤 상자를 만들지만 본문 안에는 sticky 요소가 없어 영향이 없다. */
+@supports not (overflow: clip) {
+  .markdown-content { overflow: hidden; }
+}
+
 .markdown-content > :first-child { margin-top: 0; }
 
 .markdown-content p { margin: 0 0 1.4em; }
