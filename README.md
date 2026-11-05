@@ -292,6 +292,8 @@ cd ..
 
 ### 13.2 기타
 
+- 패키지 취약점 점검: `python3 scripts/check_vulns.py` — `constraints.txt` 의 버전을 공개 취약점 DB(OSV)에 조회합니다. 가끔(예: 한 달에 한 번) 돌리세요. 찾으면 종료 코드 1.
+- 뉴스레터 구독 재확인: `python3 scripts/reconfirm_subscribers.py [--apply]` — 메일 없이(화면 링크로) 확정된 구독을 '확인 대기'로 되돌리고 확인 토큰을 지웁니다. 기본은 미리보기, DB 백업 뒤 `--apply`.
 - `.env`는 절대 커밋하지 마세요.
 - `SECRET_KEY`, SMTP 비밀번호는 운영 환경에서 안전한 비밀 저장소 사용을 권장합니다.
 - 업로드 파일(`app/static/uploads`)은 백업 정책을 별도로 두는 것이 좋습니다.

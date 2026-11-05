@@ -68,6 +68,10 @@
   color: var(--text-main);
   word-break: keep-all;
   overflow-wrap: anywhere;
+  /* 본문의 position:absolute 요소는 본문 상자 기준으로 놓이고 그 밖으로는 잘린다
+     (글이 머리글·버튼·댓글을 덮지 못하게). clip 은 스크롤 상자를 만들지 않는다. */
+  position: relative;
+  overflow: clip;
 }
 
 .markdown-content > :first-child { margin-top: 0; }

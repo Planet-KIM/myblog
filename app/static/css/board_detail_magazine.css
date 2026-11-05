@@ -154,7 +154,8 @@ main.container {
 #magazine-viewer-root.reader-on .page-nav-bar,
 #magazine-viewer-root.reader-on .page-dots { display: none !important; }
 #magazine-viewer-root.reader-on .mag-reader { display: block; }
-.mag-reader-inner { max-width: var(--reading-max-width); margin: 0 auto; padding: 0 var(--space-lg); }
+/* 블록 HTML 의 position:absolute 요소가 읽기 칼럼 밖(페이지)을 덮지 못하게 칼럼 안에 가두고 자른다 */
+.mag-reader-inner { position: relative; overflow: clip; max-width: var(--reading-max-width); margin: 0 auto; padding: 0 var(--space-lg); }
 /* 전체 폭 보기: 읽기 칼럼 폭 제한을 풀고 가장자리 여백만 둔다 */
 #magazine-viewer-root.full-on .mag-reader-inner { max-width: none; padding: 0 var(--space-2xl); }
 .mag-reader .reader-block { margin: 0 0 1.1rem; line-height: 1.75; color: var(--text-main); word-break: keep-all; }

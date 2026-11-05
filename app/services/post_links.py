@@ -41,11 +41,19 @@ _MAX_POST_ID = 2**63 - 1   # SQLite INTEGER 범위; 더 큰 id 는 질의에서 
 _POST_PATH_ANYWHERE = re.compile(r"/board/(\d+)")
 # 링크 하나만 담은 문단 (링크 앞뒤 공백, 끝의 <br> 하나는 허용)
 _CARD_PARAGRAPH = re.compile(
-    r"<p\b[^>]*>\s*<a\b(?P<attrs>[^>]*)>(?:(?!</a>).)*</a>\s*(?:<br\s*/?>\s*)?</p>",
+    r"<p\b[^>]*>\s*<a\b(?P<attrs>[^>]*)>(?P<text>(?:(?!</a>).)*)</a>\s*(?:<br\s*/?>\s*)?</p>",
     re.S | re.I,
 )
 _HREF = re.compile(r"""\bhref\s*=\s*["']([^"']*)["']""", re.I)
 _MARKDOWN_LINK = re.compile(r"\]\(\s*<?([^)\s>]+)")
+# 마크다운에서 링크 하나만 있는 줄: [글자](주소) 또는 [글자](<주소> "설명"), 끝의 줄바꿈 표시(\) 허용
+_MARKDOWN_CARD_LINE = re.compile(
+    r"""^[ ]{0,3}\[(?P<text>(?:[^\[\]\\\n]|\\.)*)\]"""
+    r"""\(\s*(?P<dest><[^<>\n]*>|[^\s()<>]+)(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)[ \t]*\\?\r?$"""
+)
+_CODE_FENCES = ("```", "~~~")
+# 카드 줄에 저장하는 글자: 연결한 글의 제목은 저장하지 않는다 (카드는 글 id 로 그린다)
+CARD_LINE_LABEL = "연결된 글 #{}"
 
 
 @dataclass
@@ -152,6 +160,81 @@ def replace_card_paragraphs(html: str, hosts: Iterable[str], render: Callable[[i
         return render(post_id) if post_id is not None else match.group(0)
 
     return _CARD_PARAGRAPH.sub(card_or_paragraph, html or "")
+
+
+def relabel_card_paragraphs(html: Optional[str], hosts: Iterable[str]) -> Optional[str]:
+    """Replace the link text of every card paragraph with ``CARD_LINE_LABEL``.
+
+    The Markdown editor writes the linked post's title as the link text. The
+    post page shows the current card instead, so the text is only seen in
+    search, RSS and previews, where it would outlive the linked post turning
+    private. The link itself (and so the card) is kept.
+
+    Args:
+        html: Post body HTML, or None.
+        hosts: Host names that count as this site.
+
+    Returns:
+        The HTML with those link texts replaced, or ``html`` unchanged when
+        it has no card paragraph.
+    """
+    if not html:
+        return html
+
+    def relabel(match: re.Match) -> str:
+        """The matched paragraph with its link text replaced, or unchanged."""
+        post_id = _paragraph_post_id(match, hosts)
+        if post_id is None:
+            return match.group(0)
+        start, end = match.span("text")
+        offset = match.start()
+        whole = match.group(0)
+        return whole[:start - offset] + html_module.escape(CARD_LINE_LABEL.format(post_id)) + whole[end - offset:]
+
+    return _CARD_PARAGRAPH.sub(relabel, html)
+
+
+def _is_blank_line(lines: list[str], index: int) -> bool:
+    """Tell whether ``lines[index]`` is blank; outside the list counts as blank."""
+    return not (0 <= index < len(lines)) or not lines[index].strip()
+
+
+def relabel_markdown_card_lines(markdown: Optional[str], hosts: Iterable[str]) -> Optional[str]:
+    """Replace the link text of every card line in Markdown with ``CARD_LINE_LABEL``.
+
+    The Markdown counterpart of :func:`relabel_card_paragraphs`: a card line
+    is a paragraph of one line holding only a link to a post on this site
+    (blank lines around it). Lines inside fenced code blocks are left alone.
+
+    Args:
+        markdown: The Markdown body, or None.
+        hosts: Host names that count as this site.
+
+    Returns:
+        The Markdown with those link texts replaced, or ``markdown``
+        unchanged when it has no link.
+    """
+    if not markdown or "](" not in markdown:
+        return markdown
+    lines = markdown.split("\n")
+    fence = None
+    for index, line in enumerate(lines):
+        stripped = line.lstrip()
+        if fence:
+            if stripped.startswith(fence):
+                fence = None
+            continue
+        if stripped.startswith(_CODE_FENCES):
+            fence = stripped[:3]
+            continue
+        match = _MARKDOWN_CARD_LINE.match(line)
+        if not match or not (_is_blank_line(lines, index - 1) and _is_blank_line(lines, index + 1)):
+            continue
+        post_id = post_id_from_href(match.group("dest").strip("<>"), hosts)
+        if post_id is not None:
+            start, end = match.span("text")
+            lines[index] = line[:start] + CARD_LINE_LABEL.format(post_id) + line[end:]
+    return "\n".join(lines)
 
 
 def _card_block_id(block: dict) -> Optional[int]:

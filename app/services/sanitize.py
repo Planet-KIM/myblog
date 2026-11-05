@@ -12,7 +12,8 @@ HTML 정제 (XSS 방어)
 
 설계 원칙:
   - 허용 목록(allowlist) 방식: 모르는 것은 전부 제거(strip=True)
-  - 인라인 스타일은 CSSSanitizer로 색상/레이아웃 속성만 허용 (url()/behavior 등 제거)
+  - 인라인 스타일은 CSSSanitizer로 색상/레이아웃 속성만 허용 (url()/behavior 등 제거),
+    position 은 static/relative/absolute 만 (fixed·sticky 로 페이지를 덮지 못하게)
   - 링크/이미지 URL은 http(s)/상대경로/mailto/tel 만 허용 (javascript:/data: 차단)
   - data-* 는 에디터가 만드는 것만, 사이트 요소가 쓰는 id 는 제거
     (본문이 같은 문서의 페이지 요소·JS 동작 훅을 흉내 내지 못하게)
@@ -26,6 +27,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import bleach
+import tinycss2
 from bleach.css_sanitizer import CSSSanitizer
 
 from app.services import content_blocks
@@ -146,7 +148,54 @@ def _allow_attribute(tag: str, name: str, value: str) -> bool:
     return name in _TAG_ATTRS.get(tag, set())
 
 
-_css_sanitizer = CSSSanitizer(allowed_css_properties=ALLOWED_CSS_PROPERTIES)
+# position 값: 매거진 읽기 HTML 이 쓰는 relative/absolute 까지만. fixed·sticky 는 요소를
+# 화면에 붙여 페이지의 머리글·신고 버튼·댓글을 덮을 수 있다.
+_ALLOWED_POSITIONS = frozenset({"static", "relative", "absolute"})
+
+
+def _is_allowed_position(declaration) -> bool:
+    """Tell whether a tinycss2 ``position`` declaration's value is allowed.
+
+    The value must be a single keyword from ``_ALLOWED_POSITIONS`` (case and
+    CSS escapes do not matter); comments, functions or several tokens fail.
+
+    Args:
+        declaration: A tinycss2 Declaration whose name is ``position``.
+
+    Returns:
+        True to keep the declaration.
+    """
+    tokens = [t for t in declaration.value if t.type not in ("whitespace", "comment")]
+    return len(tokens) == 1 and tokens[0].type == "ident" and tokens[0].lower_value in _ALLOWED_POSITIONS
+
+
+class _ContentCSSSanitizer(CSSSanitizer):
+    """bleach's CSS sanitizer plus one value rule: ``position`` only takes ``_ALLOWED_POSITIONS``.
+
+    bleach filters properties by name only, so ``position: fixed`` would pass
+    the property allowlist.
+    """
+
+    def sanitize_css(self, style: str) -> str:
+        """Sanitize a style attribute with bleach, then drop a disallowed ``position``.
+
+        Args:
+            style: The attribute value.
+
+        Returns:
+            The cleaned declarations.
+        """
+        cleaned = super().sanitize_css(style)
+        if "position" not in cleaned.lower():
+            return cleaned
+        kept = [
+            token for token in tinycss2.parse_declaration_list(cleaned)
+            if not (token.type == "declaration" and token.lower_name == "position" and not _is_allowed_position(token))
+        ]
+        return tinycss2.serialize(kept).strip()
+
+
+_css_sanitizer = _ContentCSSSanitizer(allowed_css_properties=ALLOWED_CSS_PROPERTIES)
 
 
 def sanitize_html(html: str | None) -> str:

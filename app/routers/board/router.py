@@ -48,6 +48,8 @@ from app.services.post_links import (
     linking_posts,
     load_linked_posts,
     refresh_card_blocks,
+    relabel_card_paragraphs,
+    relabel_markdown_card_lines,
     replace_card_paragraphs,
     strip_card_block_snapshots,
     strip_card_snapshots,
@@ -948,6 +950,26 @@ def _without_card_snapshots(content, content_html, content_blocks):
     )
 
 
+def _relabel_card_lines(content, content_html, hosts):
+    """Save a neutral label instead of the linked post's title on Markdown card lines.
+
+    Only for Markdown posts: there a paragraph holding just a link to a post
+    is shown as that post's current card, so its link text (the title when
+    it was linked) is seen only in search, RSS and previews, where it would
+    outlive the linked post turning private. In a magazine text block such a
+    paragraph is shown as written, so it is left alone.
+
+    Args:
+        content: Submitted Markdown body.
+        content_html: Submitted HTML body.
+        hosts: Host names that count as this site (:func:`site_hosts`).
+
+    Returns:
+        ``(content, content_html)`` with card-line link texts replaced.
+    """
+    return relabel_markdown_card_lines(content, hosts), relabel_card_paragraphs(content_html, hosts)
+
+
 @router.post("/new", response_class=HTMLResponse)
 def board_create(
     request: Request,
@@ -1000,6 +1022,8 @@ def board_create(
     draft_id = normalize_draft_id(draft_id)
     tag_names = parse_tag_field(tags)
     content, content_html, content_blocks = _without_card_snapshots(content, content_html, content_blocks)
+    if (editor_type or "milkdown") != "tiptap":
+        content, content_html = _relabel_card_lines(content, content_html, site_hosts(request))
     ensure_layout_budget(db, current_user.id, len(content_blocks or ""))
 
     normal = ensure_default_category(db, current_user)
@@ -1236,6 +1260,8 @@ def board_update(
 
     # 에디터 타입에 따라 제목 추출 분기
     effective_editor_type = editor_type or post.editor_type or "milkdown"
+    if effective_editor_type != "tiptap":
+        content, content_html = _relabel_card_lines(content, content_html, site_hosts(request))
     post.title = derive_title(effective_editor_type, content_html, content)
 
     post.content = content
