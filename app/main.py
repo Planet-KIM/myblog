@@ -5,7 +5,7 @@ shutdown lifespan, the CORS (only for ``CORS_ORIGINS``), session, body-size,
 cross-site-write and security-header middleware, the ``/static`` mount, the
 HTML/JSON error handlers for 401, 403,
 404, 429 and 500, and every feature router (auth, blog, board, admin, upload,
-api). The database schema is managed by Alembic, not created here.
+api, spellcheck). The database schema is managed by Alembic, not created here.
 """
 import asyncio
 from contextlib import asynccontextmanager
@@ -18,7 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routers import blog, board, admin, auth, upload, api
+from .routers import blog, board, admin, auth, upload, api, spellcheck
 from .services.csrf import is_cross_site
 from .services.static_assets import asset_version
 from .services.upload_static import UploadSafeStaticFiles
@@ -236,3 +236,4 @@ app.include_router(board.router)
 app.include_router(admin.router)
 app.include_router(upload.router)
 app.include_router(api.router)
+app.include_router(spellcheck.router)

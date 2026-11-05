@@ -16,7 +16,9 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import relationship
 
@@ -46,6 +48,8 @@ class User(Base):
         spellcheck_level: Spell-check access granted by an admin: 0 none,
             1 the fast models, 2 the large models too (see
             ``app/services/spellcheck_access.py``).
+        created_at: When the account signed up; None for accounts older
+            than the column.
         handle: Unique public blog id used in ``/@handle`` URLs (optional).
         display_name, blog_title, bio, avatar_url, cover_url, accent_color:
             Public profile fields shown on the user's blog.
@@ -66,6 +70,9 @@ class User(Base):
 
     # 맞춤법 검사 등급: 0 사용 불가, 1 기본 모델, 2 고품질 모델까지 (관리자는 항상 2로 취급)
     spellcheck_level = Column(Integer, nullable=False, default=0, server_default="0")
+
+    # 가입 시각 (이 컬럼이 생기기 전에 가입한 계정은 NULL)
+    created_at = Column(DateTime, nullable=True, default=now_kst)
 
     # ── 포털 프로필 (블로그 소유자 정보) ─────────────────
     # handle: URL에 노출되는 블로그 식별자 (/@handle). 내부 FK는 항상 id 사용.
@@ -607,6 +614,56 @@ class Notification(Base):
     def __repr__(self) -> str:
         """Return a debug representation with id, recipient and type."""
         return f"<Notification id={self.id} to={self.user_id} {self.type}>"
+
+
+# ─────────────────────────────
+# 맞춤법 검사 사용 신청 (사용자 신청 → 관리자 승인/거절)
+# ─────────────────────────────
+class SpellcheckRequest(Base):
+    """A user's request for spell-check access, decided by an admin.
+
+    Rows are kept after the decision as the access history. A user has at
+    most one ``"pending"`` request (a partial unique index enforces it).
+
+    Attributes:
+        user_id, user: The requester.
+        requested_level: 1 (fast models) or 2 (large models too).
+        reason: The requester's note, plain text (shown escaped).
+        status: ``"pending"``, ``"approved"``, ``"rejected"`` or ``"cancelled"``.
+        granted_level: The level an approval gave (may be below the request).
+        decided_by_user_id, decided_by: The admin who decided.
+        decision_note: The admin's note to the requester.
+        created_at, decided_at: When it was filed and decided.
+    """
+
+    __tablename__ = "spellcheck_requests"
+    __table_args__ = (
+        Index(
+            "uq_spellcheck_requests_one_pending",
+            "user_id",
+            unique=True,
+            sqlite_where=text("status = 'pending'"),
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    requested_level = Column(Integer, nullable=False)
+    reason = Column(String(500), nullable=False, default="")
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    granted_level = Column(Integer, nullable=True)
+    decided_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    decision_note = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=now_kst)
+    decided_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+    decided_by = relationship("User", foreign_keys=[decided_by_user_id])
+
+    def __repr__(self) -> str:
+        """Return a debug representation with id, requester and status."""
+        return f"<SpellcheckRequest id={self.id} user={self.user_id} {self.status}>"
 
 
 # ─────────────────────────────

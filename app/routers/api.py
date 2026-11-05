@@ -43,7 +43,7 @@ from app.services.newsletter import (
     verify_unsubscribe_token,
 )
 from app.services.ratelimit import enforce
-from app.services.spellcheck_access import ensure_spellcheck_allowed
+from app.services.spellcheck_access import daily_quotas, ensure_spellcheck_allowed
 from app.services.recommendations import get_curated_home_recommendations
 from app.services.post_links import search_link_targets
 
@@ -59,6 +59,8 @@ MAX_TAGS_PER_POST = 20
 MAX_TAG_LENGTH = 50
 MAX_TAG_FIELD_CHARS = 4096
 MAX_TAG_LIST_LIMIT = 50
+
+SECONDS_PER_DAY = 24 * 60 * 60   # 맞춤법 하루 사용량 창
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -105,17 +107,22 @@ class _InMemoryRateLimiter:
 _in_memory_limiter = _InMemoryRateLimiter()
 
 
-async def _check_rate_limit(user_id: int) -> None:
-    """
-    유저별 맞춤법 요청 빈도 검사.
-    Redis 연결 가능 → Redis sliding window
-    Redis 없음     → in-memory fallback
-    429 초과 시 HTTPException 발생.
-    """
-    limit  = settings.SPELLCHECK_RATE_LIMIT
-    window = settings.SPELLCHECK_RATE_WINDOW
-    key    = f"spellcheck_rl:{user_id}"
+async def _check_rate_limit(key: str, limit: int, window: int, message: Optional[str] = None) -> None:
+    """Count one request in a sliding-window bucket and refuse it over the limit.
 
+    Uses Redis when it is reachable, else the in-process limiter (reset when
+    the server restarts).
+
+    Args:
+        key: Bucket key, e.g. ``"spellcheck_rl:<user_id>"``.
+        limit: Most requests allowed within the window.
+        window: Window length in seconds.
+        message: Error text; defaults to "N requests per W seconds".
+
+    Raises:
+        HTTPException: 429 when the bucket already holds ``limit`` requests.
+    """
+    message = message or f"요청이 너무 많습니다. {window}초에 최대 {limit}회 가능합니다."
     try:
         import redis.asyncio as aioredis
         r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -132,20 +139,14 @@ async def _check_rate_limit(user_id: int) -> None:
         await r.aclose()
 
         if count > limit:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"요청이 너무 많습니다. {window}초에 최대 {limit}회 가능합니다.",
-            )
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
     except HTTPException:
         raise
     except Exception:
         # Redis 연결 실패 → in-memory fallback
         allowed = await _in_memory_limiter.is_allowed(key, limit, window)
         if not allowed:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"요청이 너무 많습니다. {window}초에 최대 {limit}회 가능합니다.",
-            )
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=message)
 
 
 # ─────────────────────────────────────────────
@@ -1183,7 +1184,9 @@ async def check_spelling(
       1. Login (``get_current_user``).
       2. Access level: the account must have spell check granted, and level
          2 for the large models (``app/services/spellcheck_access.py``).
-      3. Per-user rate limit (``SPELLCHECK_RATE_LIMIT`` per window).
+      3. Per-user rate limit (``SPELLCHECK_RATE_LIMIT`` per window) and,
+         except for admins, 24-hour quotas (``SPELLCHECK_DAILY_LIMIT`` for
+         all requests, ``SPELLCHECK_LARGE_DAILY_LIMIT`` for large models).
       4. Server-wide semaphore on concurrent inference; 429 when no slot
          frees up in time.
     The text may be at most ``SPELLCHECK_MAX_CHARS`` characters.
@@ -1216,10 +1219,13 @@ async def check_spelling(
     ko_variant = sc_request.ko_variant or "et5"
 
     # ── Layer 1: 권한 등급 ────────────────────────────────
-    ensure_spellcheck_allowed(current_user, text, en_variant, ko_variant)
+    needed_level = ensure_spellcheck_allowed(current_user, text, en_variant, ko_variant)
 
-    # ── Layer 2: Rate Limit ───────────────────────────────
-    await _check_rate_limit(current_user.id)
+    # ── Layer 2: Rate Limit (분당) + 하루 사용량 (승인 뒤 남용 방지) ──
+    await _check_rate_limit(f"spellcheck_rl:{current_user.id}",
+                            settings.SPELLCHECK_RATE_LIMIT, settings.SPELLCHECK_RATE_WINDOW)
+    for key, limit, message in daily_quotas(current_user, needed_level):
+        await _check_rate_limit(key, limit, SECONDS_PER_DAY, message)
 
     # ── Layer 3: Semaphore (서버 전체 동시 추론 제한) ─────
     semaphore: asyncio.Semaphore = http_request.app.state.spellcheck_semaphore

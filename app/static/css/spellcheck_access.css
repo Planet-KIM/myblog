@@ -1,0 +1,23 @@
+/**
+ * spellcheck_access.css: spell-check access page (/spellcheck/access) — level,
+ * latest request and the request form, as stacked cards.
+ * Used by templates/spellcheck_access.html. Relies on theme tokens.
+ */
+
+/* Page column and cards. */
+.sc-access-wrap { max-width: var(--reading-max-width); margin: 0 auto; }
+.sc-access-card { padding: var(--space-lg); margin-bottom: var(--space-md); }
+.sc-access-card h2 { font-size: var(--fs-lg); margin: 0 0 var(--space-sm); }
+
+/* Current level, meta line and notes. */
+.sc-access-level { font-size: var(--fs-lg); font-weight: 600; color: var(--text-primary); margin: 0; }
+.sc-access-meta,
+.sc-access-note { font-size: var(--fs-sm); color: var(--text-muted); margin: var(--space-xs) 0; }
+
+/* User-written text (reason, admin note): kept as typed, line breaks included. */
+.sc-access-text { white-space: pre-wrap; overflow-wrap: anywhere; margin: var(--space-xs) 0 var(--space-md); }
+
+/* Request form: fields stacked with even spacing. */
+.sc-access-form { display: flex; flex-direction: column; gap: var(--space-sm); align-items: stretch; }
+.sc-access-form .form-label { margin: 0; font-size: var(--fs-sm); }
+.sc-access-form .btn { align-self: flex-start; }

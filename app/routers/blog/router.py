@@ -27,6 +27,7 @@ from app.config import settings
 from app.database import get_db
 from app.auth_utils import get_current_user, get_current_user_optional
 from app.services.profile import author_matches, validate_handle, validate_avatar_url, validate_accent_color
+from app.services.spellcheck_requests import NOTIFY_APPROVED, NOTIFY_REJECTED
 from app.services.seo import website_jsonld, blog_jsonld
 from app.services.plain_text import markdown_to_plain
 from app.services.post_media import extract_first_image
@@ -103,6 +104,12 @@ router = APIRouter(tags=["blog"])
 
 # sitemap.xml 에 넣는 태그 피드 최대 수 (태그는 누구나 만들 수 있어 상한이 필요)
 SITEMAP_TAG_LIMIT = 1000
+
+# 맞춤법 사용 신청 결과 알림 문구 (type → 문구)
+SPELLCHECK_NOTICES = {
+    NOTIFY_APPROVED: "맞춤법 검사 사용 신청이 승인됐어요",
+    NOTIFY_REJECTED: "맞춤법 검사 사용 신청이 거절됐어요",
+}
 
 
 def build_approved_api_catalog() -> List[Dict[str, str]]:
@@ -1409,7 +1416,8 @@ def notifications_page(
     """Render the user's 50 newest notifications and mark them read.
 
     Each item gets a message and a link (the follower's blog for follows, the
-    post's comments for comments). Unread notifications shown are marked as
+    post's comments for comments, the access page for spell-check request
+    decisions). Unread notifications shown are marked as
     read once the page is built. A comment notification is always about one of
     the user's own posts, so only those posts are looked up: a stale post id
     that SQLite gave to someone else's new post shows no title.
@@ -1459,6 +1467,9 @@ def notifications_page(
         if n.type == "follow":
             msg = f"{actor_name}님이 회원님을 팔로우했어요"
             link = f"/@{actor.handle}" if (actor and actor.handle) else "/"
+        elif n.type in SPELLCHECK_NOTICES:
+            msg = SPELLCHECK_NOTICES[n.type]
+            link = "/spellcheck/access"
         else:
             post = posts.get(n.post_id)
             title = post.title if post else "글"

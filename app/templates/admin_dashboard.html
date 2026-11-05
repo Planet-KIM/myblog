@@ -3,7 +3,9 @@
   preview/send, open reports (hide/resolve), recent posts and spell-check access.
   Context: post_count (int), digest_msg (str|None),
   report_items (list of {report, exists, hidden, link, summary}), posts (list),
-  users (list[User]), spellcheck_levels (dict[int, str]: level -> label).
+  users (list[User]), spellcheck_levels (dict[int, str]: level -> label),
+  pending_requests (list of {request: SpellcheckRequest, user, public_posts}),
+  decided_requests (list[SpellcheckRequest]), note_max (int).
   Assets: static/css/admin_dashboard.css (send confirmation via data-confirm,
           handled by confirm-submit.js from base.html)
 #}
@@ -75,6 +77,60 @@
       <li class="list-group-item text-muted">열린 신고가 없습니다.</li>
       {% endfor %}
     </ul>
+  </section>
+
+  <section class="admin-section" id="spellcheck-requests">
+    <h2>맞춤법 사용 신청 <span class="count">{{ pending_requests|length }}</span></h2>
+    <ul class="list-group admin-list">
+      {% for it in pending_requests %}
+      {% set r = it.request %}
+      <li class="list-group-item">
+        <div class="admin-request-head">
+          <div>
+            <strong>{{ it.user.display_name or it.user.handle or "-" }}</strong> · {{ spellcheck_levels[r.requested_level] }} 신청
+            <div class="meta">
+              {{ it.user.email }}{% if it.user.handle %} · @{{ it.user.handle }}{% endif %}
+              · 가입 {{ it.user.created_at.strftime('%Y-%m-%d') if it.user.created_at else '이전' }}
+              · 공개 글 {{ it.public_posts }}개 · 신청 {{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '' }}
+            </div>
+          </div>
+        </div>
+        {% if r.reason %}<p class="admin-request-reason">{{ r.reason }}</p>{% endif %}
+        <div class="admin-request-actions">
+          <form method="post" action="/admin/spellcheck-requests/{{ r.id }}/approve" class="admin-level-form">
+            <select name="granted_level" class="form-select form-select-sm" aria-label="승인할 등급">
+              {% for value in range(r.requested_level, 0, -1) %}
+              <option value="{{ value }}">{{ spellcheck_levels[value] }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="note" class="form-control form-control-sm" maxlength="{{ note_max }}" placeholder="메모 (선택)" aria-label="승인 메모">
+            <button class="btn btn-sm btn-outline-primary" type="submit">승인</button>
+          </form>
+          <form method="post" action="/admin/spellcheck-requests/{{ r.id }}/reject" class="admin-level-form"
+                data-confirm="이 신청을 거절할까요?">
+            <input type="text" name="note" class="form-control form-control-sm" maxlength="{{ note_max }}" placeholder="거절 사유 (선택)" aria-label="거절 사유">
+            <button class="btn btn-sm btn-outline-secondary" type="submit">거절</button>
+          </form>
+        </div>
+      </li>
+      {% else %}
+      <li class="list-group-item text-muted">검토할 신청이 없습니다.</li>
+      {% endfor %}
+    </ul>
+    {% if decided_requests %}
+    <h3 class="admin-subhead">최근 처리</h3>
+    <ul class="list-group admin-list">
+      {% for r in decided_requests %}
+      <li class="list-group-item">
+        {{ r.user.email }} · {{ spellcheck_levels[r.requested_level] }} 신청 →
+        {% if r.status == 'approved' %}승인({{ spellcheck_levels[r.granted_level] }}){% elif r.status == 'rejected' %}거절{% else %}취소{% endif %}
+        <div class="meta">
+          {{ r.decided_at.strftime('%Y-%m-%d %H:%M') if r.decided_at else '' }}{% if r.decided_by %} · {{ r.decided_by.email }}{% endif %}{% if r.decision_note %} · {{ r.decision_note }}{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
   </section>
 
   <section class="admin-section" id="spellcheck">

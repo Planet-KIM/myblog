@@ -3,7 +3,8 @@
   Context: post (BoardPost; content_blocks_safe = saved layout JSON), initial_html (str: the
            sanitized content_html/content, the HTML fallback), categories (list[BoardCategory]), normal_category_id (int),
            tags_value (str), popular_tags (list[Tag], for _tag_suggestions.html),
-           spellcheck_level (int: 0 none, 1 fast models, 2 large models too).
+           spellcheck_level (int: 0 none, 1 fast models, 2 large models too; on #block-canvas,
+           and below 2 a link to /spellcheck/access in the bottom bar).
   Assets: css/mag-overlay.css (text on photos, shared editor/post page), css/post-link.css (글 카드 blocks and the 글 연결 dialog), css/tiptap-editor.css, css/editor_fullscreen.css, css/tiptap_editor_page.css,
           js/tiptap_word_count.js, editor/board_edit_tiptap.js (the editor bundle; reads
           #initial-blocks / #initial-content and data-post-id on #block-canvas, and drives the
@@ -90,6 +91,7 @@
       <button type="submit" class="tiptap-btn tiptap-btn-primary">Update</button>
       <button type="button" class="tiptap-btn tiptap-btn-secondary tiptap-btn-preview">Preview</button>
       <a href="/board/{{ post.id }}" class="tiptap-btn tiptap-btn-secondary">Cancel</a>
+      {% if spellcheck_level < 2 %}<a href="/spellcheck/access" class="tiptap-btn tiptap-btn-secondary" target="_blank" rel="noopener">{{ '맞춤법 신청' if spellcheck_level == 0 else '고품질 맞춤법 신청' }}</a>{% endif %}
       <button type="button" class="tiptap-btn tiptap-btn-secondary tiptap-zoom-btn" data-page-zoom-toggle hidden aria-label="페이지 확대/축소"><i class="bi bi-aspect-ratio" aria-hidden="true"></i><span data-page-zoom-label>100%</span></button>
     </div>
   </form>

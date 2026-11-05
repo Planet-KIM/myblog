@@ -45,7 +45,11 @@ class Settings(BaseSettings):
             for Celery and the app.
         BOARD_MAX_BODY_SIZE: Largest accepted request body in bytes.
         SPELLCHECK_*: Concurrency, rate limit, input size, default English
-            model and worker memory cap for the spell checker.
+            model and worker memory cap for the spell checker; the daily
+            quotas per user (all requests, and large-model requests); and the
+            access-request rules (account age or a public post first, one
+            pending request, a cooldown after a rejection, a cap on pending
+            requests site-wide, and submissions per user per day).
         NEWSLETTER_*: Sender identity, SMTP connection, token lifetimes,
             the subscribe rate limits (per client and per address) and the
             longest a subscribe request waits for its mail; nothing is sent
@@ -123,6 +127,16 @@ class Settings(BaseSettings):
 
     # 요청당 최대 글자 수
     SPELLCHECK_MAX_CHARS: int = 10000
+
+    # 승인 뒤 남용 방지: 사용자별 24시간 사용량 (관리자는 제외)
+    SPELLCHECK_DAILY_LIMIT: int = 200          # 전체 요청
+    SPELLCHECK_LARGE_DAILY_LIMIT: int = 50     # 고품질(대형) 모델 요청
+
+    # 사용 신청 규칙
+    SPELLCHECK_REQUEST_MIN_ACCOUNT_DAYS: int = 7   # 가입 후 이 기간이 지나거나 공개 글이 있어야 신청 가능
+    SPELLCHECK_REQUEST_COOLDOWN_DAYS: int = 7      # 거절된 뒤 다시 신청하기까지
+    SPELLCHECK_REQUEST_PENDING_CAP: int = 100      # 사이트 전체 대기 신청 수 상한
+    SPELLCHECK_REQUEST_DAILY_LIMIT: int = 5        # 사용자별 하루 신청·취소 횟수
 
     # 영어 교정 모델 — 두 모델 모두 시작 시 로드, 요청마다 선택 가능
     # vennify : vennify/t5-base-grammar-correction (~250M, 빠름)

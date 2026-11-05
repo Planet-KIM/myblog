@@ -45,3 +45,9 @@
 .admin-hint { font-size: var(--fs-sm); color: var(--text-muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); }
 .admin-level-form { display: flex; align-items: center; gap: var(--space-xs); margin: 0; }
 .admin-level-form .form-select { width: auto; }
+
+/* Spell-check access requests: the requester's note kept as typed, then approve / reject forms. */
+.admin-request-reason { white-space: pre-wrap; overflow-wrap: anywhere; margin: var(--space-sm) 0; font-size: var(--fs-sm); color: var(--text-primary); }
+.admin-request-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-sm); }
+.admin-request-actions .form-control { width: 14rem; max-width: 100%; }
+.admin-subhead { font-size: var(--fs-base); margin: var(--space-lg) 0 var(--space-sm); }

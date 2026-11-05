@@ -1,9 +1,11 @@
-"""Admin pages: moderation dashboard, hide/unhide, report resolution, digest
-and spell-check access.
+"""Admin pages: moderation dashboard, hide/unhide, report resolution, digest,
+spell-check access levels and access requests.
 
 Every route requires a logged-in admin. Queries here pass
 ``include_hidden=True`` so admins also see moderated (hidden) content.
 """
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -12,6 +14,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.database import get_db
 from app.auth_utils import get_current_user
+from app.services import spellcheck_requests as access_requests
 from app.services.spellcheck_access import LEVEL_LABELS
 from app.services.static_assets import asset_version
 
@@ -47,9 +50,10 @@ def admin_dashboard(
 
     Shows the total post count and the 20 newest posts (hidden ones included),
     plus up to 50 open reports, each with a short summary of its target, whether
-    the target is hidden or deleted, and a link to it, and the accounts with
-    their spell-check level. The ``digest`` query parameter, set after a
-    digest send, is shown as a status message.
+    the target is hidden or deleted, and a link to it, the pending and recent
+    spell-check access requests, and the accounts with their spell-check
+    level. The ``digest`` query parameter, set after a digest send, is shown
+    as a status message.
 
     Args:
         request: The incoming request.
@@ -100,6 +104,8 @@ def admin_dashboard(
             "link": link,
         })
 
+    pending_requests, decided_requests = access_requests.review_queue(db)
+
     return templates.TemplateResponse(
         request,
         "admin_dashboard.html",
@@ -112,8 +118,93 @@ def admin_dashboard(
             "digest_msg": request.query_params.get("digest"),
             "users": db.query(models.User).order_by(models.User.id.asc()).limit(SPELLCHECK_USER_LIMIT).all(),
             "spellcheck_levels": LEVEL_LABELS,
+            "pending_requests": pending_requests,
+            "decided_requests": decided_requests,
+            "note_max": access_requests.NOTE_MAX_CHARS,
         },
     )
+
+
+def _decide_spellcheck_request(db: Session, request_id: int, admin: models.User, approve: bool,
+                               granted_level: Optional[int], note: str) -> RedirectResponse:
+    """Approve or reject a spell-check access request and go back to the dashboard.
+
+    Args:
+        db: Database session.
+        request_id: The request.
+        admin: The logged-in admin (already checked).
+        approve: True to approve, False to reject.
+        granted_level: Level to grant on approval.
+        note: The admin's note to the requester.
+
+    Returns:
+        A 303 redirect to the requests section of ``/admin/``.
+
+    Raises:
+        HTTPException: 404 if the request does not exist, 409 if it is
+            already decided or the level is not allowed.
+    """
+    try:
+        access_requests.decide_request(db, request_id, admin, approve, granted_level, note)
+    except access_requests.RequestNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except access_requests.RequestRefused as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return RedirectResponse("/admin/#spellcheck-requests", status_code=303)
+
+
+@router.post("/spellcheck-requests/{request_id}/approve")
+def admin_approve_spellcheck_request(
+    request_id: int,
+    granted_level: int = Form(...),
+    note: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Approve a spell-check access request, granting at most the requested level.
+
+    Args:
+        request_id: The request.
+        granted_level: 1 or 2, not above what was requested.
+        note: Optional note to the requester.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to ``/admin/``.
+
+    Raises:
+        HTTPException: 401/403 if not an admin, 404/409 from
+            :func:`_decide_spellcheck_request`.
+    """
+    _require_admin(current_user)
+    return _decide_spellcheck_request(db, request_id, current_user, True, granted_level, note)
+
+
+@router.post("/spellcheck-requests/{request_id}/reject")
+def admin_reject_spellcheck_request(
+    request_id: int,
+    note: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Reject a spell-check access request (the user may ask again after the cooldown).
+
+    Args:
+        request_id: The request.
+        note: Optional note to the requester.
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to ``/admin/``.
+
+    Raises:
+        HTTPException: 401/403 if not an admin, 404/409 from
+            :func:`_decide_spellcheck_request`.
+    """
+    _require_admin(current_user)
+    return _decide_spellcheck_request(db, request_id, current_user, False, None, note)
 
 
 @router.post("/users/{user_id}/spellcheck")

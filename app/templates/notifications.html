@@ -1,6 +1,7 @@
 {#
   notifications.html: the signed-in user's notifications (/notifications) —
-  new followers and comments on their posts, unread ones highlighted.
+  new followers, comments on their posts and spell-check request decisions,
+  unread ones highlighted.
   Context: items (list of {n: Notification, actor: User|None, msg, link}).
   Assets: static/css/notifications.css (image fallbacks come from base.html)
 #}
@@ -28,7 +29,7 @@
       {% endif %}
       <span class="notif-body">
         <span class="notif-msg">
-          <i class="bi {% if it.n.type == 'follow' %}bi-person-plus{% else %}bi-chat{% endif %}" aria-hidden="true"></i>{{ it.msg }}
+          <i class="bi {% if it.n.type == 'follow' %}bi-person-plus{% elif it.n.type.startswith('spellcheck') %}bi-spellcheck{% else %}bi-chat{% endif %}" aria-hidden="true"></i>{{ it.msg }}
         </span>
         <span class="notif-time">{{ it.n.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
       </span>

@@ -8,12 +8,16 @@ granted per account by an admin (admin page or ``scripts/set_spellcheck.py``):
     2  the large models too: pko (Korean) and coedit (English), about 3.5 GB
        of memory each
 
-Admins always have level 2. ``POST /api/spellcheck`` enforces the level; the
-editor only hides the buttons a user cannot use.
+Admins always have level 2. ``POST /api/spellcheck`` enforces the level and
+the daily quotas (:func:`daily_quotas`); the editor only hides the buttons a
+user cannot use. Users ask for a level at ``/spellcheck/access``
+(``app/services/spellcheck_requests.py``).
 """
 from __future__ import annotations
 
 from fastapi import HTTPException
+
+from app.config import settings
 
 LEVEL_NONE = 0
 LEVEL_BASIC = 1
@@ -66,7 +70,7 @@ def required_level(text: str, en_variant: str, ko_variant: str) -> int:
     return LEVEL_FULL if variant in LARGE_VARIANTS else LEVEL_BASIC
 
 
-def ensure_spellcheck_allowed(user, text: str, en_variant: str, ko_variant: str) -> None:
+def ensure_spellcheck_allowed(user, text: str, en_variant: str, ko_variant: str) -> int:
     """Refuse a spell-check request the user's level does not cover.
 
     Args:
@@ -75,12 +79,43 @@ def ensure_spellcheck_allowed(user, text: str, en_variant: str, ko_variant: str)
         en_variant: Requested English variant.
         ko_variant: Requested Korean variant.
 
+    Returns:
+        The level the request needs (``LEVEL_FULL`` when it uses a large model).
+
     Raises:
         HTTPException: 403 when the user has no spell-check access, or asks
             for a large model with level 1.
     """
     level = effective_level(user)
     if level == LEVEL_NONE:
-        raise HTTPException(status_code=403, detail="맞춤법 검사 권한이 없습니다. 관리자에게 요청해주세요.")
-    if required_level(text, en_variant, ko_variant) > level:
+        raise HTTPException(status_code=403, detail="맞춤법 검사 권한이 없습니다. 신청 페이지(/spellcheck/access)에서 신청해주세요.")
+    needed = required_level(text, en_variant, ko_variant)
+    if needed > level:
         raise HTTPException(status_code=403, detail="고품질 모델 사용 권한이 없습니다. 빠른 모델을 선택해주세요.")
+    return needed
+
+
+def daily_quotas(user, needed_level: int) -> list[tuple[str, int, str]]:
+    """Return the 24-hour quota buckets a request counts against.
+
+    Every request counts toward ``SPELLCHECK_DAILY_LIMIT``; a large-model
+    request also toward ``SPELLCHECK_LARGE_DAILY_LIMIT``. Admins have none.
+    The buckets are keyed by user id, so an approved account cannot spend
+    more by changing IP.
+
+    Args:
+        user: The logged-in ``models.User``.
+        needed_level: What :func:`ensure_spellcheck_allowed` returned.
+
+    Returns:
+        ``(key, limit, message)`` per bucket.
+    """
+    if user.is_admin:
+        return []
+    quotas = [(f"spellcheck_day:{user.id}", settings.SPELLCHECK_DAILY_LIMIT,
+               f"오늘 맞춤법 검사 횟수({settings.SPELLCHECK_DAILY_LIMIT}회)를 모두 썼습니다. 내일 다시 시도해주세요.")]
+    if needed_level >= LEVEL_FULL:
+        quotas.append((f"spellcheck_day_large:{user.id}", settings.SPELLCHECK_LARGE_DAILY_LIMIT,
+                       f"오늘 고품질 모델 사용 횟수({settings.SPELLCHECK_LARGE_DAILY_LIMIT}회)를 모두 썼습니다. "
+                       "빠른 모델을 쓰거나 내일 다시 시도해주세요."))
+    return quotas

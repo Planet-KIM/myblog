@@ -1,0 +1,78 @@
+{#
+  spellcheck_access.html: the signed-in user's spell-check access (/spellcheck/access) —
+  current level and daily quota, the latest request and its decision, and the request form.
+  Context: level (int), level_labels (dict[int, str]), latest (SpellcheckRequest|None),
+           blocked (str|None: why a request cannot be filed now), requestable (list[int]),
+           reason_max (int), daily_limit (int), large_daily_limit (int),
+           notice (str|None), error (str|None).
+  Assets: static/css/spellcheck_access.css (withdraw confirmation via data-confirm,
+          handled by confirm-submit.js from base.html)
+#}
+{% extends "base.html" %}
+{% block title %}맞춤법 검사 사용 신청{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', path='css/spellcheck_access.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-content sc-access-wrap">
+  <header class="page-header">
+    <span class="eyebrow">Spell check</span>
+    <h1>맞춤법 검사 사용 신청</h1>
+    <p class="lead-text">매거진 편집기의 맞춤법 검사는 서버 자원을 많이 써서, 관리자가 승인한 계정만 쓸 수 있습니다.</p>
+  </header>
+
+  {% if notice %}<div class="alert alert-success" role="status">{{ notice }}</div>{% endif %}
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+
+  <section class="page-card sc-access-card">
+    <h2>내 등급</h2>
+    <p class="sc-access-level">{{ level_labels[level] }}{% if current_user.is_admin %} <span class="badge-tint">관리자</span>{% endif %}</p>
+    {% if level >= 1 and not current_user.is_admin %}
+    <p class="sc-access-note">하루(24시간) 최대 {{ daily_limit }}회{% if level >= 2 %}, 그중 고품질 모델은 {{ large_daily_limit }}회{% endif %}까지 쓸 수 있습니다.</p>
+    {% endif %}
+  </section>
+
+  {% if latest %}
+  <section class="page-card sc-access-card">
+    <h2>최근 신청</h2>
+    <p class="sc-access-meta">
+      {{ level_labels[latest.requested_level] }} ·
+      {% if latest.status == 'pending' %}<span class="badge-tint badge-tint-amber">검토 중</span>
+      {% elif latest.status == 'approved' %}<span class="badge-tint">승인 · {{ level_labels[latest.granted_level] }}</span>
+      {% elif latest.status == 'rejected' %}<span class="badge-tint">거절</span>
+      {% else %}<span class="badge-tint">취소</span>{% endif %}
+      · {{ latest.created_at.strftime('%Y-%m-%d %H:%M') if latest.created_at else '' }}
+    </p>
+    {% if latest.reason %}<p class="sc-access-text">{{ latest.reason }}</p>{% endif %}
+    {% if latest.decision_note %}<p class="sc-access-note">관리자 메모</p><p class="sc-access-text">{{ latest.decision_note }}</p>{% endif %}
+    {% if latest.status == 'pending' %}
+    <form method="post" action="/spellcheck/access/cancel" data-confirm="신청을 취소할까요?">
+      <button type="submit" class="btn btn-sm btn-outline-secondary">신청 취소</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if requestable %}
+  <section class="page-card sc-access-card">
+    <h2>새로 신청하기</h2>
+    {% if blocked %}
+    <p class="sc-access-note">{{ blocked }}</p>
+    {% else %}
+    <form method="post" action="/spellcheck/access/request" class="sc-access-form">
+      <label for="sc-level" class="form-label">원하는 등급</label>
+      <select id="sc-level" name="level" class="form-select">
+        {% for value in requestable %}
+        <option value="{{ value }}">{{ level_labels[value] }}{% if value == 2 %} (pko·CoEdIT){% else %} (et5·T5-base){% endif %}</option>
+        {% endfor %}
+      </select>
+      <label for="sc-reason" class="form-label">사용 목적 (선택, {{ reason_max }}자 이내)</label>
+      <textarea id="sc-reason" name="reason" class="form-control" rows="4" maxlength="{{ reason_max }}" placeholder="어떤 글에 쓰려는지 간단히 적어주세요."></textarea>
+      <button type="submit" class="btn btn-primary">신청하기</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
