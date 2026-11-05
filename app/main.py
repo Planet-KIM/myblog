@@ -30,6 +30,26 @@ from .services.upload_static import UploadSafeStaticFiles
 
 
 # ── 서버 시작/종료 수명주기 ────────────────────────────────
+def _clean_stale_draft_uploads() -> None:
+    """Delete uploads that never joined a post within ``UPLOAD_DRAFT_TTL_DAYS`` (at start-up).
+
+    Failures are printed, never raised: the server starts either way.
+    """
+    try:
+        from .database import SessionLocal
+        from .routers.upload.router import delete_stale_draft_uploads
+
+        db = SessionLocal()
+        try:
+            removed = delete_stale_draft_uploads(db, settings.UPLOAD_DRAFT_TTL_DAYS)
+        finally:
+            db.close()
+        if removed:
+            print(f"[Startup] 글에 붙지 않은 오래된 업로드 {removed}개 정리")
+    except Exception as exc:  # noqa: BLE001 — 정리 실패로 서버가 멈추면 안 된다
+        print(f"[Startup] 오래된 업로드 정리 실패: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -38,11 +58,13 @@ async def lifespan(app: FastAPI):
         → 모델은 Celery 워커 프로세스에서만 로드 (메모리 중복 방지)
         → 웹서버는 task를 Celery에 전달하고 결과만 받음
       - 동시 추론 제한용 asyncio.Semaphore 초기화
+      - 글에 붙지 않은 채 UPLOAD_DRAFT_TTL_DAYS 가 지난 업로드 정리
     """
     # 동시 추론 세마포어 — api.py에서 req.app.state.spellcheck_semaphore 로 접근
     app.state.spellcheck_semaphore = asyncio.Semaphore(
         settings.SPELLCHECK_MAX_CONCURRENT
     )
+    _clean_stale_draft_uploads()
     print(
         f"[Startup] 준비 완료 "
         f"(맞춤법은 Celery 워커 전담, "
@@ -57,6 +79,9 @@ async def lifespan(app: FastAPI):
 
 # ── 앱 인스턴스 ───────────────────────────────────────────
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+
+# Starlette SessionMiddleware 의 기본 쿠키 이름 (로그인 상태 판단: no-store)
+SESSION_COOKIE = "session"
 
 # CORS 는 설정한 출처에만 연다. 사이트 자신의 페이지는 같은 출처라 CORS 가 필요 없고,
 # 모든 출처 + 쿠키 허용은 다른 사이트가 로그인한 방문자 이름으로 API 응답을 읽게 한다.
@@ -136,9 +161,11 @@ async def security_headers(request: Request, call_next):
     Sets ``X-Content-Type-Options``, ``X-Frame-Options``, ``Referrer-Policy``
     and ``Permissions-Policy`` unless the handler already set them, the
     Content-Security-Policy (``app/services/csp.py``) unless the response has
-    its own (uploads are sandboxed), and ``Strict-Transport-Security`` only
-    when the request arrived over HTTPS (directly or via a proxy's
-    ``X-Forwarded-Proto``).
+    its own (uploads are sandboxed), ``Cache-Control: no-store`` on HTML sent
+    with a session cookie (a signed-in page must not come back from the
+    browser's cache or back/forward cache after logout), and
+    ``Strict-Transport-Security`` only when the request arrived over HTTPS
+    (directly or via a proxy's ``X-Forwarded-Proto``).
 
     Args:
         request: The incoming request.
@@ -154,6 +181,9 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
     if settings.CSP_ENABLED and "content-security-policy" not in response.headers:
         response.headers[csp.header_name()] = csp.policy()
+    # 로그인한 사용자에게 보낸 페이지는 브라우저가 저장하지 않게 (로그아웃 뒤 '뒤로 가기'로 다시 보이지 않도록)
+    if SESSION_COOKIE in request.cookies and response.headers.get("content-type", "").startswith("text/html"):
+        response.headers["Cache-Control"] = "no-store"
     # HTTPS로 제공될 때만 HSTS (Nginx 등 프록시의 X-Forwarded-Proto 도 인정)
     forwarded_proto = request.headers.get("x-forwarded-proto", "")
     if request.url.scheme == "https" or forwarded_proto == "https":

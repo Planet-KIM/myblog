@@ -17,6 +17,7 @@ Upload Router - 통합 파일 업로드 시스템
 
 import io
 import shutil
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional, Tuple
 from uuid import UUID, uuid4
@@ -25,7 +26,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 from PIL import Image, ImageOps
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from starlette import status
 
@@ -243,8 +244,62 @@ def _optimize_image(content: bytes, suffix: str) -> Tuple[bytes, str, Optional[s
         return content, suffix, None
 
 
+def ensure_upload_quota(db: Session, user_id: int, new_bytes: int) -> None:
+    """Refuse an upload that would take the user over their storage quota.
+
+    Args:
+        db: Database session.
+        user_id: The uploader.
+        new_bytes: Size of the file about to be stored.
+
+    Raises:
+        HTTPException: 413 when the user's stored files plus ``new_bytes``
+            exceed ``settings.UPLOAD_USER_QUOTA_MB``.
+    """
+    used = db.query(func.coalesce(func.sum(models.UploadedFile.size_bytes), 0)).filter(
+        models.UploadedFile.user_id == user_id
+    ).scalar() or 0
+    if used + new_bytes > settings.UPLOAD_USER_QUOTA_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail=f"업로드 용량({settings.UPLOAD_USER_QUOTA_MB}MB)을 모두 썼습니다. 쓰지 않는 파일을 지워주세요.",
+        )
+
+
+def delete_stale_draft_uploads(db: Session, older_than_days: int) -> int:
+    """Delete uploads that never became part of a post, after some days.
+
+    Files uploaded to a new post's draft (or with no draft) stay unattached
+    until the post is published; abandoned drafts would keep them forever.
+    A file that a saved post, a template or a server-side draft still
+    mentions is kept even so (a post whose body kept the draft path, or a
+    draft still being written).
+
+    Args:
+        db: Database session.
+        older_than_days: Age after which an unattached upload is deleted.
+
+    Returns:
+        How many uploads were deleted (records and files).
+    """
+    cutoff = models.now_kst().replace(tzinfo=None) - timedelta(days=older_than_days)
+    candidates = (
+        db.query(models.UploadedFile)
+        .filter(models.UploadedFile.post_id.is_(None), models.UploadedFile.created_at < cutoff)
+        .all()
+    )
+    stale = [
+        r for r in candidates
+        if not _used_elsewhere(db, r, post_id=0)   # 0: 어떤 글도 빼지 않고 모두 검사
+        and db.query(models.Draft.id).filter(models.Draft.content.like(f"%{r.stored_name}%")).first() is None
+    ]
+    delete_uploads(db, stale)
+    return len(stale)
+
+
 @router.post("/upload")
 async def upload_file(
+    request: Request,
     file: UploadFile = File(...),
     post_id: Optional[int] = Form(None),
     draft_id: Optional[str] = Form(None),
@@ -254,9 +309,12 @@ async def upload_file(
     """Store an uploaded file and record it.
 
     Only extensions in ``FILE_TYPES`` are accepted. Images are checked for
-    their pixel count and shrunk to WebP in a worker thread.
+    their pixel count and shrunk to WebP in a worker thread. Uploads are
+    limited per user (``UPLOAD_RATE_LIMIT`` per hour) and by a storage quota
+    (``UPLOAD_USER_QUOTA_MB``).
 
     Args:
+        request: The incoming request (for the rate limit).
         file: The uploaded file.
         post_id: One of the user's posts to attach the file to.
         draft_id: UUID of the editing session's draft.
@@ -270,10 +328,15 @@ async def upload_file(
         HTTPException: 400 for a disallowed extension, an empty file or a bad
             ``draft_id``; 403 without a verified email (while verification is
             active) or for a post that is not the user's; 404 for a missing
-            post; 413 for a file over its type's size limit or an image with
-            too many pixels.
+            post; 413 for a file over its type's size limit, an image with
+            too many pixels, or over the storage quota; 429 over the rate
+            limit.
     """
     require_verified(current_user, "파일을 올릴")
+    await run_in_threadpool(
+        enforce, request, "upload", settings.UPLOAD_RATE_LIMIT, 3600, subject=str(current_user.id),
+        message="파일을 너무 많이 올렸습니다. 잠시 후 다시 시도해주세요.",
+    )
     draft_id = normalize_draft_id(draft_id)
 
     # 업로드 대상이 게시글이면 본인 소유인지 확인 (타인 폴더 업로드 차단)
@@ -315,6 +378,8 @@ async def upload_file(
         size_bytes = len(content)
         if webp_mime:
             mime_type = webp_mime
+
+    ensure_upload_quota(db, current_user.id, size_bytes)
 
     # 저장 디렉토리 결정
     save_dir, url_prefix = _get_upload_dir(
@@ -417,6 +482,7 @@ def map_image(request: Request):
 
 @router.post("/images")
 async def upload_image_compat(
+    request: Request,
     file: UploadFile = File(...),
     post_id: Optional[int] = Form(None),
     draft_id: Optional[str] = Form(None),
@@ -434,7 +500,7 @@ async def upload_image_compat(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="이미지 파일만 허용됩니다 (.jpg, .png, .gif, .webp 등)",
         )
-    return await upload_file(file, post_id, draft_id, current_user, db)
+    return await upload_file(request, file, post_id, draft_id, current_user, db)
 
 
 # ============================================================
@@ -547,19 +613,25 @@ def delete_uploads(db: Session, records: list) -> None:
     """Delete upload records and their files on disk, then commit.
 
     Only files inside the upload folder are unlinked (see
-    :func:`upload_disk_path`).
+    :func:`upload_disk_path`). Safe to run from two processes at once (the
+    server's workers clean up at start): a file already gone is skipped, and
+    the records go in one bulk delete that does not mind rows another
+    process removed first.
 
     Args:
         db: Database session.
         records: ``UploadedFile`` records to delete.
     """
+    if not records:
+        return
     for record in records:
         path = upload_disk_path(record)
-        if path is not None and path.is_file():
-            path.unlink()
-        db.delete(record)
-    if records:
-        db.commit()
+        if path is not None:
+            path.unlink(missing_ok=True)
+    db.query(models.UploadedFile).filter(
+        models.UploadedFile.id.in_([record.id for record in records])
+    ).delete(synchronize_session=False)
+    db.commit()
 
 
 def prune_unused_uploads(db: Session, post: models.BoardPost) -> None:

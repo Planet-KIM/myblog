@@ -3,14 +3,21 @@
 Import the ready-made ``settings`` instance rather than building ``Settings``
 again.
 """
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 예시·흔한 값의 SECRET_KEY 는 거부한다 (세션 쿠키와 구독 해지·이메일 인증 토큰을 위조할 수 있게 된다)
+_EXAMPLE_SECRET_KEYS = {"replace_with_long_random_secret", "change-me", "changeme", "secret", "secret-key", "dev", "test"}
+MIN_SECRET_KEY_LENGTH = 32
 
 
 class Settings(BaseSettings):
     """Typed configuration for the whole app, read from env vars and ``.env``.
 
     Every field can be overridden by an environment variable of the same name.
-    ``SECRET_KEY`` has no default, so the app fails to start without it.
+    ``SECRET_KEY`` has no default, so the app fails to start without it, and
+    an example value or one shorter than ``MIN_SECRET_KEY_LENGTH`` characters
+    is refused too.
 
     Attributes:
         PROJECT_NAME: Title of the FastAPI app.
@@ -53,6 +60,9 @@ class Settings(BaseSettings):
             copies (save as template, new post from a template or starter)
             per user, and the window.
         UPLOAD_MAX_IMAGE_PIXELS: Largest uploaded image, in pixels.
+        UPLOAD_USER_QUOTA_MB, UPLOAD_RATE_LIMIT, UPLOAD_DRAFT_TTL_DAYS: Storage
+            per user, uploads per user per hour, and days before uploads that
+            never joined a post are deleted (at server start).
         CELERY_BROKER_URL, CELERY_RESULT_BACKEND, REDIS_URL: Redis endpoints
             for Celery and the app.
         BOARD_MAX_BODY_SIZE: Largest accepted request body in bytes.
@@ -124,6 +134,10 @@ class Settings(BaseSettings):
 
     # 업로드 이미지 최대 픽셀 수 (가로×세로). 압축 해제 폭탄 방지
     UPLOAD_MAX_IMAGE_PIXELS: int = 40_000_000
+    # 업로드: 사용자별 저장 용량(MB), 시간당 업로드 수, 글에 붙지 않은 업로드를 지우기까지 일수
+    UPLOAD_USER_QUOTA_MB: int = 1024
+    UPLOAD_RATE_LIMIT: int = 120
+    UPLOAD_DRAFT_TTL_DAYS: int = 14
 
     # Redis / Celery
     # 로컬 개발: redis://localhost:6379/x
@@ -211,6 +225,31 @@ class Settings(BaseSettings):
     GITHUB_ISSUES_TIMEOUT_SECONDS: int = 8
 
     model_config = SettingsConfigDict(env_file=".env")
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def _strong_secret_key(cls, value: str) -> str:
+        """Refuse an example or short ``SECRET_KEY``.
+
+        The key signs the session cookie and the unsubscribe and email
+        verification tokens; with a guessable key anyone could forge them.
+
+        Args:
+            value: The configured key.
+
+        Returns:
+            The key, unchanged.
+
+        Raises:
+            ValueError: The key is a known example value or shorter than
+                ``MIN_SECRET_KEY_LENGTH`` characters (the app does not start).
+        """
+        if value.strip().lower() in _EXAMPLE_SECRET_KEYS or len(value.strip()) < MIN_SECRET_KEY_LENGTH:
+            raise ValueError(
+                f"SECRET_KEY 가 예시 값이거나 {MIN_SECRET_KEY_LENGTH}자보다 짧습니다. 새로 만드세요: "
+                "python3 -c 'import secrets; print(secrets.token_urlsafe(48))'"
+            )
+        return value
 
 
 settings = Settings()

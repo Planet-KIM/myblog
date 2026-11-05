@@ -1802,7 +1802,23 @@ def board_post_og(post_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{post_id}/cover.png")
 def board_post_cover(post_id: int, db: Session = Depends(get_db)):
-    """매거진(tiptap) 글의 레이아웃 첫 페이지를 커버 이미지로 — 공개 글만."""
+    """Serve the first page of a public magazine post's layout as a cover PNG.
+
+    Cached on disk under a hash of the layout. A layout that cannot be drawn
+    gets the "empty page" placeholder, cached the same way, so a broken
+    layout is not redrawn on every request.
+
+    Args:
+        post_id: The post.
+        db: Database session.
+
+    Returns:
+        A ``image/png`` response cached publicly for one day.
+
+    Raises:
+        HTTPException: 404 for a missing, private or hidden post, or one
+            without a layout; 500 if even the placeholder cannot be stored.
+    """
     post = db.query(models.BoardPost).filter_by(id=post_id).first()
     if not post or post.is_private:
         raise HTTPException(404, "Not found")
@@ -1820,7 +1836,11 @@ def board_post_cover(post_id: int, db: Session = Depends(get_db)):
         else:
             from app.services.og_image import render_layout_thumbnail
 
-            data = render_layout_thumbnail(post.content_blocks, width=800)
+            try:
+                data = render_layout_thumbnail(post.content_blocks, width=800)
+            except Exception:  # noqa: BLE001 — 그리지 못한 레이아웃은 자리표시로 (이것도 캐시)
+                logger.exception("커버 이미지 생성 실패 post_id=%s", post_id)
+                data = render_layout_thumbnail(None, width=800)
             _OG_CACHE_DIR.mkdir(parents=True, exist_ok=True)
             for old in _OG_CACHE_DIR.glob(f"cover-{post_id}-*.png"):
                 if old != cache_path:

@@ -343,7 +343,8 @@ def download(source: str, output_file: str, n_samples: int, min_len: int = 10, m
             cfg["hf_name"],
             split="train",
             streaming=True,   # 전체 다운로드 없이 스트리밍 → 빠름
-            trust_remote_code=True,
+            # trust_remote_code 는 쓰지 않는다: 데이터셋 저장소의 파이썬 코드를 이 컴퓨터에서 실행하게 된다.
+            # 스크립트가 필요한 데이터셋(cc100 등)은 로드에 실패하고 아래에서 안내한다.
         )
     except Exception as e:
         print(f"[download] 로드 실패: {e}")
@@ -436,7 +437,9 @@ def extract_db(output_file: str, db_url: str = None):
     engine = create_engine(db_url)
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT content_html FROM board_posts WHERE content_html IS NOT NULL")
+            # 공개되고 숨김 처리되지 않은 글만 (비공개 글을 학습 데이터로 내보내지 않는다)
+            text("SELECT content_html FROM board_posts WHERE content_html IS NOT NULL "
+                 "AND is_private = 0 AND (is_hidden = 0 OR is_hidden IS NULL)")
         ).fetchall()
 
     texts = []

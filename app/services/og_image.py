@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import html as _html
 import logging
+import math
 import re as _re
 from functools import lru_cache
 from pathlib import Path
@@ -475,20 +476,43 @@ def _first_page(content_blocks) -> Optional[dict]:
     return None
 
 
+# 썸네일 캔버스 상한: 저장된 페이지 크기·좌표가 이상한 값이어도 거대한 이미지를 만들지 않게
+_PAGE_SIZE_MIN, _PAGE_SIZE_MAX = 100.0, 10000.0
+_MAX_THUMB_ASPECT = 4.0   # 썸네일 높이는 너비의 이 배수까지
+
+
+def _finite(value, default: float = 0.0) -> float:
+    """Return ``value`` as a finite float, or ``default`` when it is not a number."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
+
+
 def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:
-    """매거진 레이아웃(content_blocks)의 첫 페이지를 도식 썸네일 PNG로."""
+    """Draw the first page of a magazine layout as a schematic thumbnail PNG.
+
+    Stored layouts come from the browser, so their page size and block
+    geometry are bounded here: the page size is clamped to
+    ``_PAGE_SIZE_MIN``..``_PAGE_SIZE_MAX``, the thumbnail is at most
+    ``_MAX_THUMB_ASPECT`` times as tall as wide, values that are not numbers
+    count as 0, and blocks are clipped to the canvas.
+
+    Args:
+        content_blocks: The layout JSON (any stored format), or None.
+        width: Thumbnail width in pixels.
+
+    Returns:
+        PNG bytes; an "empty page" placeholder when there are no blocks.
+    """
     import io
     page = _first_page(content_blocks)
-    cw = (page or {}).get("cw") or 1200
-    ch = (page or {}).get("ch") or 800
-    try:
-        cw = float(cw) or 1200
-        ch = float(ch) or 800
-    except (TypeError, ValueError):
-        cw, ch = 1200, 800
+    cw = min(max(_finite((page or {}).get("cw"), 1200.0) or 1200.0, _PAGE_SIZE_MIN), _PAGE_SIZE_MAX)
+    ch = min(max(_finite((page or {}).get("ch"), 800.0) or 800.0, _PAGE_SIZE_MIN), _PAGE_SIZE_MAX)
     scale = width / cw
     W = int(round(width))
-    H = max(1, int(round(ch * scale)))
+    H = max(1, min(int(round(ch * scale)), int(W * _MAX_THUMB_ASPECT)))
     img = Image.new("RGB", (W, H), PAPER)
     draw = ImageDraw.Draw(img)
 
@@ -500,8 +524,11 @@ def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:
     for b in page["blocks"]:
         if not isinstance(b, dict):
             continue
-        x = int(round((b.get("x") or 0) * scale)); y = int(round((b.get("y") or 0) * scale))
-        w = int(round((b.get("w") or 0) * scale)); h = int(round((b.get("h") or 0) * scale))
+        # 캔버스 안으로 자른다 (좌표·크기가 이상한 블록이 거대한 이미지를 만들지 않게)
+        x = min(max(int(round(_finite(b.get("x")) * scale)), 0), W)
+        y = min(max(int(round(_finite(b.get("y")) * scale)), 0), H)
+        w = min(int(round(_finite(b.get("w")) * scale)), W - x)
+        h = min(int(round(_finite(b.get("h")) * scale)), H - y)
         if w <= 1 or h <= 1:
             continue
         x2, y2 = x + w, y + h
@@ -542,7 +569,7 @@ def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:
                 _draw_text_lines(draw, x, y, w, h, dark=(t == "code"))
 
         if b.get("showBorder"):
-            bw = max(1, int(round((b.get("borderWidth") or 1) * scale)))
+            bw = min(max(1, int(round((_finite(b.get("borderWidth"), 1.0) or 1.0) * scale))), max(1, min(w, h) // 2))
             draw.rectangle([x, y, x2 - 1, y2 - 1], outline=_hex_rgb(b.get("borderColor"), INK), width=bw)
 
     buf = io.BytesIO(); img.save(buf, format="PNG", optimize=True); return buf.getvalue()

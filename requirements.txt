@@ -21,7 +21,7 @@ markdown==3.11.2
 bleach[css]==6.4.0
 passlib[bcrypt]==1.7.4
 # ── 글별 동적 OG 이미지(공유 썸네일) 생성 ──
-Pillow==11.3.0
+Pillow==13.0.0
 fonttools==4.68.0
 # ── 맞춤법 검사 ──
 transformers==5.22.1

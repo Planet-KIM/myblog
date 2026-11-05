@@ -389,7 +389,9 @@ def step1_extract_blog(max_lines: int = 5000) -> List[str]:
     try:
         with engine.connect() as conn:
             rows = conn.execute(
-                text("SELECT content_html FROM board_posts WHERE content_html IS NOT NULL LIMIT 500")
+                # 공개되고 숨김 처리되지 않은 글만 (비공개 글을 학습 데이터로 쓰지 않는다)
+                text("SELECT content_html FROM board_posts WHERE content_html IS NOT NULL "
+                     "AND is_private = 0 AND (is_hidden = 0 OR is_hidden IS NULL) LIMIT 500")
             ).fetchall()
     except Exception as e:
         print(f"  ⚠ DB 읽기 실패: {e}")
@@ -442,7 +444,7 @@ def step2_download_wiki(max_lines: int = 20000) -> List[str]:
 
     # 시도 순서: wikipedia → cc100 (streaming 모드로 전체 다운로드 불필요)
     sources = [
-        ("wikipedia", "20220301.ko", "text"),
+        ("wikimedia/wikipedia", "20231101.ko", "text"),   # 스크립트 없는(parquet) 공식 덤프
         ("cc100",     "ko",          "text"),
     ]
 
@@ -452,8 +454,7 @@ def step2_download_wiki(max_lines: int = 20000) -> List[str]:
             ds = load_dataset(
                 ds_name, ds_config,
                 split="train",
-                trust_remote_code=True,
-                streaming=True,
+                streaming=True,   # trust_remote_code 없음: 데이터셋 저장소의 코드를 실행하지 않는다
             )
             lines = []
             for row in ds:

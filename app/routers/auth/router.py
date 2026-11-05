@@ -411,7 +411,9 @@ def logout(request: Request):
 
     Also sets a short-lived ``logged_out`` cookie; ``static/js/app.js`` sees
     it on the next page and removes what the account left in this browser
-    (recently read posts, magazine editor autosaves).
+    (recently read posts, magazine editor autosaves). ``Clear-Site-Data:
+    "cache"`` empties the pages the browser kept, back/forward cache
+    included, so "back" does not show signed-in pages.
 
     Args:
         request: The incoming request.
@@ -423,4 +425,6 @@ def logout(request: Request):
     response = RedirectResponse("/", status_code=303)
     response.set_cookie(LOGGED_OUT_COOKIE, "1", max_age=300, path="/", samesite="lax",
                         secure=settings.SESSION_COOKIE_SECURE)
+    # 이 브라우저에 저장된 페이지(뒤로 가기 캐시 포함)를 비운다
+    response.headers["Clear-Site-Data"] = '"cache"'
     return response
