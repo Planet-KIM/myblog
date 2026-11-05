@@ -1040,8 +1040,9 @@ def board_edit(
 
     Returns:
         ``board_edit_tiptap.html`` for TipTap posts or ``board_edit.html``
-        otherwise, with sanitized block JSON, the user's categories, the
-        post's tags and popular tags.
+        otherwise, with the sanitized block JSON and initial HTML (the
+        editors load it with innerHTML), the user's categories, the post's
+        tags and popular tags.
 
     Raises:
         HTTPException: 401 if not logged in, 404 if the post does not exist,
@@ -1065,8 +1066,9 @@ def board_edit(
 
     template_name = "board_edit_tiptap.html" if post.editor_type == "tiptap" else "board_edit.html"
 
-    # XSS 방어: 에디터에 주입되는 content_blocks도 정제 (스크립트 태그 탈출 방지)
+    # XSS 방어: 에디터에 주입되는 content_blocks·HTML 도 정제 (에디터가 innerHTML 로 읽는다)
     post.content_blocks_safe = sanitize_content_blocks(post.content_blocks)
+    initial_html = sanitize_html(post.content_html or post.content or "")
 
     popular_tags = (
         db.query(models.Tag)
@@ -1087,6 +1089,7 @@ def board_edit(
             "current_user": current_user,
             "tags_value": ", ".join(t.name for t in post.tags),
             "popular_tags": popular_tags,
+            "initial_html": initial_html,
         },
     )
 

@@ -20,7 +20,9 @@
  * reads the processed headings.
  */
 (function initBilingual() {
-  const PAIR = /\{\{([\s\S]*?)\|\|([\s\S]*?)\}\}/;
+  const PAIR_OPEN = '{{', PAIR_SEPARATOR = '||', PAIR_CLOSE = '}}';
+  // A block with more pairs than this keeps the rest as typed (bounds the work per paragraph).
+  const MAX_PAIRS_PER_BLOCK = 500;
   const SKIP = 'code, pre, kbd, samp, script, style, textarea';
   // A pair never spans two of these: it lives inside one paragraph, heading, item or cell.
   const BLOCK = 'p, li, h1, h2, h3, h4, h5, h6, td, th, dt, dd, figcaption, blockquote, div, section, article';
@@ -52,14 +54,43 @@
    * @returns {Element[]} Nearest block of each such text (root itself when there is none).
    */
   function blocksWithPairs(root) {
-    const blocks = [];
+    const blocks = new Set();   // insertion order = document order
     textNodes(root).forEach(n => {
-      if (!n.data.includes('{{')) return;
+      if (!n.data.includes(PAIR_OPEN)) return;
       const b = n.parentElement.closest(BLOCK);
-      const block = b && root.contains(b) ? b : root;
-      if (!blocks.includes(block)) blocks.push(block);
+      blocks.add(b && root.contains(b) ? b : root);
     });
-    return blocks;
+    return Array.from(blocks);
+  }
+
+  /**
+   * Find the {{ko||en}} pairs in a text, left to right, in one pass.
+   *
+   * Same rule as the server (_pairs in app/services/bilingual.py) and the old
+   * lazy regex: from "{{" to the first "||" after it, then to the first "}}"
+   * after that. Each search starts where the last one stopped, so the scan is
+   * linear; the regex retried from every "{{" and could freeze the page on a
+   * crafted post.
+   *
+   * @param {string} text - Joined text of a block.
+   * @param {number} limit - Most pairs to return.
+   * @returns {Array<{open: number, sep: number, close: number}>} Indexes of each
+   *   pair's "{{", "||" and "}}".
+   */
+  function findPairs(text, limit) {
+    const pairs = [];
+    let pos = 0;
+    while (pairs.length < limit) {
+      const open = text.indexOf(PAIR_OPEN, pos);
+      if (open < 0) break;
+      const sep = text.indexOf(PAIR_SEPARATOR, open + PAIR_OPEN.length);
+      if (sep < 0) break;
+      const close = text.indexOf(PAIR_CLOSE, sep + PAIR_SEPARATOR.length);
+      if (close < 0) break;
+      pairs.push({ open, sep, close });
+      pos = close + PAIR_CLOSE.length;
+    }
+    return pairs;
   }
 
   /**
@@ -119,21 +150,23 @@
   }
 
   /**
-   * Replace the first {{ko||en}} pair inside a block with a .bi-pair span.
+   * Replace the {{ko||en}} pairs inside a block with .bi-pair spans.
    *
-   * The pair may run across several text nodes (bold or links inside a side);
-   * DOM ranges cut it out and keep that formatting.
+   * A pair may run across several text nodes (bold or links inside a side);
+   * DOM ranges cut it out and keep that formatting. The pairs are found in
+   * one pass over the block's text and replaced from the last to the first:
+   * each replacement only changes the DOM from its own "{{" on, so the text
+   * offsets of the pairs before it stay valid.
    *
    * @param {Element} block - Paragraph, heading, item or cell to search.
-   * @returns {?HTMLSpanElement} The new .bi-pair, or null when none is left.
+   * @returns {number} Number of pairs replaced (at most MAX_PAIRS_PER_BLOCK).
    */
-  function wrapFirstPair(block) {
+  function wrapPairs(block) {
     const nodes = textNodes(block);
     const starts = [];
     let text = '';
     nodes.forEach(n => { starts.push(text.length); text += n.data; });
-    const m = PAIR.exec(text);
-    if (!m) return null;
+    const pairs = findPairs(text, MAX_PAIRS_PER_BLOCK);
 
     /**
      * DOM position of a character offset in the joined text.
@@ -166,22 +199,24 @@
       return r;
     };
 
-    const open = m.index, end = m.index + m[0].length;
-    const sep = open + 2 + m[1].length;
-    const whole = span(open, end);
-    const koRange = span(open + 2, sep, true);
-    const enRange = span(sep + 2, end - 2, true);
+    for (let i = pairs.length - 1; i >= 0; i--) {
+      const { open, sep, close } = pairs[i];
+      const whole = span(open, close + PAIR_CLOSE.length);
+      const koRange = span(open + PAIR_OPEN.length, sep, true);
+      const enRange = span(sep + PAIR_SEPARATOR.length, close, true);
 
-    const en = enRange.extractContents();
-    const ko = koRange.extractContents();
-    whole.deleteContents();   // what is left: the {{ || }} delimiters
+      const en = enRange.extractContents();
+      const ko = koRange.extractContents();
+      whole.deleteContents();   // what is left: the {{ || }} delimiters
 
-    const pair = document.createElement('span');
-    pair.className = 'bi-pair';
-    pair.append(sideSpan('ko', ko), sideSpan('en', en));
-    whole.insertNode(pair);
-    if (block.textContent.trim() === pair.textContent.trim()) pair.classList.add('is-whole');
-    return pair;
+      const pair = document.createElement('span');
+      pair.className = 'bi-pair';
+      pair.append(sideSpan('ko', ko), sideSpan('en', en));
+      whole.insertNode(pair);
+      // Only a block's single pair can be the whole paragraph.
+      if (pairs.length === 1 && block.textContent.trim() === pair.textContent.trim()) pair.classList.add('is-whole');
+    }
+    return pairs.length;
   }
 
   /**
@@ -193,7 +228,7 @@
   function splitPairs(root) {
     let count = 0;
     blocksWithPairs(root).forEach(block => {
-      while (wrapFirstPair(block)) count++;
+      count += wrapPairs(block);
     });
     return count;
   }

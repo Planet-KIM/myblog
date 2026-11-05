@@ -1,7 +1,7 @@
 {#
   board_edit_tiptap.html: edit a magazine (TipTap, free-position block) post, full screen.
-  Context: post (BoardPost; content_blocks_safe = saved layout JSON, else content_html/content as
-           the HTML fallback), categories (list[BoardCategory]), normal_category_id (int),
+  Context: post (BoardPost; content_blocks_safe = saved layout JSON), initial_html (str: the
+           sanitized content_html/content, the HTML fallback), categories (list[BoardCategory]), normal_category_id (int),
            tags_value (str), popular_tags (list[Tag], for _tag_suggestions.html).
   Assets: css/mag-overlay.css (text on photos, shared editor/post page), css/post-link.css (글 카드 blocks and the 글 연결 dialog), css/tiptap-editor.css, css/editor_fullscreen.css, css/tiptap_editor_page.css,
           js/tiptap_word_count.js, editor/board_edit_tiptap.js (the editor bundle; reads
@@ -74,7 +74,7 @@
     </script>
     {% else %}
     <script id="initial-content" type="application/json">
-      {{ (post.content_html or post.content) | tojson | safe }}
+      {{ initial_html | tojson | safe }}
     </script>
     {% endif %}
 

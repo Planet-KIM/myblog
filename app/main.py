@@ -1,8 +1,9 @@
 """FastAPI application entry point.
 
 Builds the ``app`` instance that the ASGI server runs: registers the startup/
-shutdown lifespan, the CORS, session, body-size and security-header
-middleware, the ``/static`` mount, the HTML/JSON error handlers for 401, 403,
+shutdown lifespan, the CORS (only for ``CORS_ORIGINS``), session, body-size,
+cross-site-write and security-header middleware, the ``/static`` mount, the
+HTML/JSON error handlers for 401, 403,
 404, 429 and 500, and every feature router (auth, blog, board, admin, upload,
 api). The database schema is managed by Alembic, not created here.
 """
@@ -18,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .routers import blog, board, admin, auth, upload, api
+from .services.csrf import is_cross_site
 from .services.static_assets import asset_version
 from .services.upload_static import UploadSafeStaticFiles
 
@@ -55,13 +57,17 @@ async def lifespan(app: FastAPI):
 # ── 앱 인스턴스 ───────────────────────────────────────────
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # 실제 서비스 시 도메인으로 제한 권장
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS 는 설정한 출처에만 연다. 사이트 자신의 페이지는 같은 출처라 CORS 가 필요 없고,
+# 모든 출처 + 쿠키 허용은 다른 사이트가 로그인한 방문자 이름으로 API 응답을 읽게 한다.
+_cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # same_site="lax" helps prevent CSRF by preventing the browser from sending
 # the session cookie along with cross-site POST requests.
@@ -91,6 +97,26 @@ async def limit_body_size(request: Request, call_next):
                 )
             },
         )
+    return await call_next(request)
+
+
+# ── 다른 사이트가 보낸 쓰기 요청 차단 (CSRF) ──────────────
+@app.middleware("http")
+async def reject_cross_site_writes(request: Request, call_next):
+    """Refuse POST/PUT/PATCH/DELETE requests sent by another site's page.
+
+    See ``app/services/csrf.py`` for the rule (the ``Origin``/``Referer`` host
+    must be the site's own or a trusted one).
+
+    Args:
+        request: The incoming request.
+        call_next: The next ASGI handler in the middleware chain.
+
+    Returns:
+        A 403 response for a cross-site write, else the downstream response.
+    """
+    if is_cross_site(request):
+        return JSONResponse(status_code=403, content={"detail": "다른 사이트에서 보낸 요청은 처리하지 않습니다."})
     return await call_next(request)
 
 

@@ -10,10 +10,16 @@ __pycache__/
 venv/
 node_modules/
 frontend/node_modules/
-# 개발용 SQLite DB 는 이미지에 굽지 않는다(런타임 마운트/볼륨에서 옴)
-app.db
-app.db-*
+# 비밀값: 런타임에 env_file / 바인드마운트로 들어오므로 이미지에 굽지 않는다
+.env
+.env.*
+!.env.example
+# 개발용 SQLite DB 와 그 백업은 이미지에 굽지 않는다(런타임 마운트/볼륨에서 옴)
+app.db*
 *.sqlite3
+backup/
+*.bak
+*.bak-*
 # 맞춤법 모델 학습용 데이터·결과물(수 GB). 서비스는 쓰지 않고, 필요해도 런타임 마운트(.:/app)로 읽는다
 models/
 data/

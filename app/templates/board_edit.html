@@ -1,6 +1,7 @@
 {#
   board_edit.html: edit a Markdown (Milkdown/Crepe) post, full screen.
-  Context: post (BoardPost; its content_html or content is the initial body), categories
+  Context: post (BoardPost), initial_html (str: its content_html or content, sanitized; the
+           initial body), categories
            (list[BoardCategory]), normal_category_id (int), tags_value (str),
            popular_tags (list[Tag], for _tag_suggestions.html).
   Assets: css/writing-enhanced.css, editor/index.css (Milkdown bundle CSS), css/editor_fullscreen.css,
@@ -103,7 +104,7 @@
 
     <!-- 초기 콘텐츠 (HTML) -->
     <script id="initial-content" type="application/json">
-      {{ (post.content_html or post.content) | tojson | safe }}
+      {{ initial_html | tojson | safe }}
     </script>
 
     <!-- Hidden fields -->
