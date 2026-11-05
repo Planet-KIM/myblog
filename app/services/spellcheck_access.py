@@ -1,0 +1,86 @@
+"""Who may use spell check, and which models.
+
+Spell check runs large models on the server's CPU and memory, so it is
+granted per account by an admin (admin page or ``scripts/set_spellcheck.py``):
+
+    0  no spell check (the default for every account)
+    1  the fast models: et5 (Korean) and vennify (English)
+    2  the large models too: pko (Korean) and coedit (English), about 3.5 GB
+       of memory each
+
+Admins always have level 2. ``POST /api/spellcheck`` enforces the level; the
+editor only hides the buttons a user cannot use.
+"""
+from __future__ import annotations
+
+from fastapi import HTTPException
+
+LEVEL_NONE = 0
+LEVEL_BASIC = 1
+LEVEL_FULL = 2
+LEVEL_LABELS = {
+    LEVEL_NONE: "사용 안 함",
+    LEVEL_BASIC: "기본 모델",
+    LEVEL_FULL: "고품질 모델까지",
+}
+
+# 등급 2가 필요한 대형 모델 (app/services/spellcheck.py 의 variant 이름)
+LARGE_VARIANTS = frozenset({"pko", "coedit"})
+
+
+def effective_level(user) -> int:
+    """Return the spell-check level a user has.
+
+    Args:
+        user: A ``models.User``, or None for a guest.
+
+    Returns:
+        ``LEVEL_FULL`` for admins, else the stored level limited to 0..2
+        (0 for a guest).
+    """
+    if user is None:
+        return LEVEL_NONE
+    if user.is_admin:
+        return LEVEL_FULL
+    return min(max(int(user.spellcheck_level or 0), LEVEL_NONE), LEVEL_FULL)
+
+
+def required_level(text: str, en_variant: str, ko_variant: str) -> int:
+    """Return the level needed for a request: the model it will really use decides.
+
+    The spell checker picks the Korean or the English model from the text's
+    language, so only that model's variant counts (the editor always sends
+    both).
+
+    Args:
+        text: The text to correct.
+        en_variant: Requested English variant.
+        ko_variant: Requested Korean variant.
+
+    Returns:
+        ``LEVEL_FULL`` when the model used is a large one, else ``LEVEL_BASIC``.
+    """
+    from app.services.spellcheck import detect_lang   # 지연 임포트: 모델 코드는 필요할 때만
+
+    variant = ko_variant if detect_lang(text) == "ko" else en_variant
+    return LEVEL_FULL if variant in LARGE_VARIANTS else LEVEL_BASIC
+
+
+def ensure_spellcheck_allowed(user, text: str, en_variant: str, ko_variant: str) -> None:
+    """Refuse a spell-check request the user's level does not cover.
+
+    Args:
+        user: The logged-in ``models.User``.
+        text: The text to correct.
+        en_variant: Requested English variant.
+        ko_variant: Requested Korean variant.
+
+    Raises:
+        HTTPException: 403 when the user has no spell-check access, or asks
+            for a large model with level 1.
+    """
+    level = effective_level(user)
+    if level == LEVEL_NONE:
+        raise HTTPException(status_code=403, detail="맞춤법 검사 권한이 없습니다. 관리자에게 요청해주세요.")
+    if required_level(text, en_variant, ko_variant) > level:
+        raise HTTPException(status_code=403, detail="고품질 모델 사용 권한이 없습니다. 빠른 모델을 선택해주세요.")

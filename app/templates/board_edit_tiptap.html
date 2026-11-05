@@ -2,7 +2,8 @@
   board_edit_tiptap.html: edit a magazine (TipTap, free-position block) post, full screen.
   Context: post (BoardPost; content_blocks_safe = saved layout JSON), initial_html (str: the
            sanitized content_html/content, the HTML fallback), categories (list[BoardCategory]), normal_category_id (int),
-           tags_value (str), popular_tags (list[Tag], for _tag_suggestions.html).
+           tags_value (str), popular_tags (list[Tag], for _tag_suggestions.html),
+           spellcheck_level (int: 0 none, 1 fast models, 2 large models too).
   Assets: css/mag-overlay.css (text on photos, shared editor/post page), css/post-link.css (글 카드 blocks and the 글 연결 dialog), css/tiptap-editor.css, css/editor_fullscreen.css, css/tiptap_editor_page.css,
           js/tiptap_word_count.js, editor/board_edit_tiptap.js (the editor bundle; reads
           #initial-blocks / #initial-content and data-post-id on #block-canvas, and drives the
@@ -63,7 +64,7 @@
 
     <!-- Block Canvas -->
     <div class="tiptap-editor-wrapper">
-      <div id="block-canvas" data-post-id="{{ post.id }}"></div>
+      <div id="block-canvas" data-post-id="{{ post.id }}" data-spellcheck-level="{{ spellcheck_level }}"></div>
       <div id="page-tab-bar" class="page-tab-bar"></div>
     </div>
 

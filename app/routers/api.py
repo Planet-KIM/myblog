@@ -43,6 +43,7 @@ from app.services.newsletter import (
     verify_unsubscribe_token,
 )
 from app.services.ratelimit import enforce
+from app.services.spellcheck_access import ensure_spellcheck_allowed
 from app.services.recommendations import get_curated_home_recommendations
 from app.services.post_links import search_link_targets
 
@@ -1176,16 +1177,29 @@ async def check_spelling(
     http_request: Request,
     current_user: models.User = Depends(get_current_user),
 ):
-    """
-    맞춤법 교정 API
+    """Correct the spelling of a text with the Korean or English model.
 
-    보호 레이어:
-      1. 로그인 필수 (get_current_user)
-      2. Rate limit: 유저당 60초에 최대 20회
-      3. Semaphore: 서버 전체 동시 추론 최대 2개
-         (대기 큐 존재, 10초 내 슬롯 확보 못하면 429)
+    Protection layers, in order:
+      1. Login (``get_current_user``).
+      2. Access level: the account must have spell check granted, and level
+         2 for the large models (``app/services/spellcheck_access.py``).
+      3. Per-user rate limit (``SPELLCHECK_RATE_LIMIT`` per window).
+      4. Server-wide semaphore on concurrent inference; 429 when no slot
+         frees up in time.
+    The text may be at most ``SPELLCHECK_MAX_CHARS`` characters.
 
-    글자 수 제한: 최대 500자 (SPELLCHECK_MAX_CHARS)
+    Args:
+        sc_request: The text and the requested models.
+        http_request: The incoming request (for the app's semaphore).
+        current_user: The logged-in user.
+
+    Returns:
+        The original and corrected text, its language and the model used.
+
+    Raises:
+        HTTPException: 400 for an empty or too long text, 403 without the
+            access level, 429 when rate-limited or busy, 503/500 when the
+            check fails.
     """
     text = sc_request.text.strip()
     if not text:
@@ -1198,14 +1212,18 @@ async def check_spelling(
             detail=f"텍스트가 너무 깁니다. (최대 {max_chars}자, 현재 {len(text)}자)"
         )
 
-    # ── Layer 1: Rate Limit ───────────────────────────────
-    await _check_rate_limit(current_user.id)
-
-    # ── Layer 2: Semaphore (서버 전체 동시 추론 제한) ─────
-    semaphore: asyncio.Semaphore = http_request.app.state.spellcheck_semaphore
-
     en_variant = sc_request.en_variant or settings.SPELLCHECK_EN_DEFAULT_VARIANT
     ko_variant = sc_request.ko_variant or "et5"
+
+    # ── Layer 1: 권한 등급 ────────────────────────────────
+    ensure_spellcheck_allowed(current_user, text, en_variant, ko_variant)
+
+    # ── Layer 2: Rate Limit ───────────────────────────────
+    await _check_rate_limit(current_user.id)
+
+    # ── Layer 3: Semaphore (서버 전체 동시 추론 제한) ─────
+    semaphore: asyncio.Semaphore = http_request.app.state.spellcheck_semaphore
+
     is_large = en_variant == "coedit" or ko_variant == "pko"
 
     try:

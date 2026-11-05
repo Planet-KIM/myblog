@@ -1,6 +1,6 @@
 /**
  * admin_dashboard.css: admin dashboard (/admin/) — stat tile, digest panel,
- * report and recent-post lists.
+ * report, spell-check access and recent-post lists.
  * Used by templates/admin_dashboard.html. Relies on theme tokens.
  */
 
@@ -40,3 +40,8 @@
 .admin-list .list-group-item a:hover { color: var(--primary); }
 .admin-list .meta { font-size: var(--fs-xs); color: var(--text-muted); margin-top: 2px; }
 .admin-list form { margin: 0; }
+
+/* Spell-check access: a note above the list, and a level select with its save button per account. */
+.admin-hint { font-size: var(--fs-sm); color: var(--text-muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); }
+.admin-level-form { display: flex; align-items: center; gap: var(--space-xs); margin: 0; }
+.admin-level-form .form-select { width: auto; }

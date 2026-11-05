@@ -23,6 +23,7 @@ import { magazineHtmlExtensions, stripPastedBlockStyles } from './plugins/tiptap
 import { applyPageWidth, pageHeight, canvasScale, initPageZoom, moveBlock, restack } from './plugins/pageCanvas.js';
 import { initImageOverlay, syncOverlay, destroyOverlay, overlayMarkup } from './plugins/imageOverlay.js';
 import { pickPostCard, renderPostCardBody } from './plugins/postCardBlock.js';
+import { canSpellcheck, canUseEnVariant } from './plugins/spellcheckAccess.js';
 
 // ── Upload ────────────────────────────────────────────────
 /**
@@ -638,7 +639,7 @@ function renderBlock(block) {
     hdr.appendChild(dirBtn);
   }
 
-  if (block.type === 'text') {
+  if (block.type === 'text' && canSpellcheck()) {
     const scBtn = mkBtn(
       '<span style="font-size:0.7rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>',
       '블록 맞춤법 미리보기',
@@ -1716,7 +1717,7 @@ function _scShowPopup({ selectModel, original, error }) {
     modelRow.appendChild(modelLabel);
 
     const variantBtns = {};
-    ['vennify', 'coedit'].forEach(v => {
+    ['vennify', 'coedit'].filter(canUseEnVariant).forEach(v => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = v === 'vennify' ? '빠름' : '고품질';
@@ -1836,11 +1837,12 @@ function _scShowPopup({ selectModel, original, error }) {
  * Spell-check the selected text (toolbar button or Ctrl+Shift+S).
  *
  * Shows the model chooser for the selection, or an error dialog when no text is
- * selected.
+ * selected. Does nothing without spell-check access (plugins/spellcheckAccess.js).
  *
  * @returns {void}
  */
 function triggerSpellCheck() {
+  if (!canSpellcheck()) return;
   const target = _scGetTarget();
   if (!target) {
     _scShowPopup({ error: '텍스트 블록에서 검사할 텍스트를 드래그로 선택한 후 실행하세요.' });
@@ -1904,7 +1906,7 @@ function _scBlockPreviewOpen(blockId) {
   const modelGrid = document.createElement('div');
   modelGrid.className = 'sc-panel-models';
   const variantBtns = {};
-  [{ v: 'vennify', label: '빠름', sub: 'KO: et5 · EN: T5-base' }, { v: 'coedit', label: '고품질', sub: 'KO: et5 · EN: CoEdIT' }].forEach(({ v, label, sub }) => {
+  [{ v: 'vennify', label: '빠름', sub: 'KO: et5 · EN: T5-base' }, { v: 'coedit', label: '고품질', sub: 'KO: et5 · EN: CoEdIT' }].filter(({ v }) => canUseEnVariant(v)).forEach(({ v, label, sub }) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'sc-panel-variant' + (v === 'vennify' ? ' sc-panel-variant-active' : '');
@@ -2004,12 +2006,13 @@ function _scBlockPreviewClose(blockId) {
 }
 
 /**
- * Open or close a block's spell-check panel.
+ * Open or close a block's spell-check panel (nothing without spell-check access).
  *
  * @param {string} blockId - Text block id.
  * @returns {void}
  */
 function _scBlockPreviewToggle(blockId) {
+  if (!canSpellcheck()) return;
   _scSplitActive.has(blockId) ? _scBlockPreviewClose(blockId) : _scBlockPreviewOpen(blockId);
 }
 
@@ -2041,8 +2044,8 @@ function buildToolbar() {
     { icon: '<i class="bi bi-geo-alt"></i>', tip: '지도 (여행 장소)', fn: () => { const s = '왕궁@13.7500,100.4914\n왓 포@13.7465,100.4927\n왓 아룬@13.7437,100.4889'; addBlock('map', { mapText: s, content: renderMapHTML(s), w: 520, h: 380 }); } },
     { icon: '<i class="bi bi-link-45deg"></i>', tip: '글 카드 (다른 글 연결)', fn: () => pickPostCard(addBlock, document.getElementById('block-canvas')?.dataset?.postId) },
     { icon: '<i class="bi bi-arrows-expand"></i>', tip: 'Spacer', fn: () => addBlock('spacer', { h: 60 }) },
-    { icon: '<span style="font-size:0.72rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>', tip: '맞춤법 검사 (Ctrl+Shift+S)', fn: () => triggerSpellCheck(), wide: true },
-  ].forEach(({ icon, tip, fn, wide, id }) => {
+    { icon: '<span style="font-size:0.72rem;font-weight:700;letter-spacing:-0.5px;">맞춤법</span>', tip: '맞춤법 검사 (Ctrl+Shift+S)', fn: () => triggerSpellCheck(), wide: true, spellcheck: true },
+  ].filter(item => !item.spellcheck || canSpellcheck()).forEach(({ icon, tip, fn, wide, id }) => {
     const btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'tiptap-toolbar-btn';
     if (id) btn.id = id;

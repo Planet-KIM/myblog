@@ -1,8 +1,9 @@
 {#
   admin_dashboard.html: admin dashboard (/admin/) — post count, weekly digest
-  preview/send, open reports (hide/resolve) and recent posts.
+  preview/send, open reports (hide/resolve), recent posts and spell-check access.
   Context: post_count (int), digest_msg (str|None),
-  report_items (list of {report, exists, hidden, link, summary}), posts (list).
+  report_items (list of {report, exists, hidden, link, summary}), posts (list),
+  users (list[User]), spellcheck_levels (dict[int, str]: level -> label).
   Assets: static/css/admin_dashboard.css (send confirmation via data-confirm,
           handled by confirm-submit.js from base.html)
 #}
@@ -72,6 +73,35 @@
       </li>
       {% else %}
       <li class="list-group-item text-muted">열린 신고가 없습니다.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="admin-section" id="spellcheck">
+    <h2>맞춤법 권한 <span class="count">{{ users|length }}</span></h2>
+    <p class="admin-hint">기본 모델은 et5·T5-base, 고품질 모델(pko·CoEdIT)은 각각 메모리를 약 3.5GB 씁니다. 관리자는 항상 모두 쓸 수 있습니다.</p>
+    <ul class="list-group admin-list">
+      {% for u in users %}
+      <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          {{ u.display_name or u.handle or "-" }}
+          <div class="meta">{{ u.email }}{% if u.handle %} · @{{ u.handle }}{% endif %}</div>
+        </div>
+        {% if u.is_admin %}
+        <span class="badge-tint">관리자 · 항상 허용</span>
+        {% else %}
+        <form method="post" action="/admin/users/{{ u.id }}/spellcheck" class="admin-level-form">
+          <select name="level" class="form-select form-select-sm" aria-label="{{ u.email }} 맞춤법 등급">
+            {% for value, label in spellcheck_levels.items() %}
+            <option value="{{ value }}" {% if (u.spellcheck_level or 0) == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-sm btn-outline-secondary" type="submit">저장</button>
+        </form>
+        {% endif %}
+      </li>
+      {% else %}
+      <li class="list-group-item text-muted">계정이 없습니다.</li>
       {% endfor %}
     </ul>
   </section>

@@ -43,6 +43,9 @@ class User(Base):
         email: Unique login email.
         password_hash: PBKDF2 hash of the password.
         is_admin: Whether the user can use the admin pages.
+        spellcheck_level: Spell-check access granted by an admin: 0 none,
+            1 the fast models, 2 the large models too (see
+            ``app/services/spellcheck_access.py``).
         handle: Unique public blog id used in ``/@handle`` URLs (optional).
         display_name, blog_title, bio, avatar_url, cover_url, accent_color:
             Public profile fields shown on the user's blog.
@@ -60,6 +63,9 @@ class User(Base):
 
     # 관리자 여부
     is_admin = Column(Boolean, default=False)
+
+    # 맞춤법 검사 등급: 0 사용 불가, 1 기본 모델, 2 고품질 모델까지 (관리자는 항상 2로 취급)
+    spellcheck_level = Column(Integer, nullable=False, default=0, server_default="0")
 
     # ── 포털 프로필 (블로그 소유자 정보) ─────────────────
     # handle: URL에 노출되는 블로그 식별자 (/@handle). 내부 FK는 항상 id 사용.

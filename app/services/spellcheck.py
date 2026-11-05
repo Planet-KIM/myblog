@@ -31,6 +31,7 @@
     SPELLCHECK_KO_MODEL=models/blog-spellcheck/best
 """
 
+import gc
 import os
 import re
 import threading
@@ -543,18 +544,65 @@ def load_all() -> None:
     print("[SpellCheck] 모델 로딩 완료 ✓  (pko / coedit 은 첫 요청 시 자동 로드)")
 
 
-def correct(text: str, en_variant: str = "vennify", ko_variant: str = "et5") -> str:
+# 대형 모델은 각각 메모리 약 3.5GB: 둘을 함께 올리면 워커 메모리를 넘으므로 한 번에 하나만 둔다
+_LARGE_CHECKERS = (_ko_pko, _en_coedit)
+_large_lock = threading.Lock()
+
+
+def _unload(checker) -> None:
+    """Drop a checker's model and tokenizer from memory; its next use loads them again.
+
+    Args:
+        checker: A ``_KoSpellChecker`` or ``_EnSpellChecker``.
     """
-    언어 감지 후 적절한 모델로 교정.
-      ko_variant: "et5" (빠름) | "pko" (고품질)
-      en_variant: "vennify" (빠름) | "coedit" (고품질)
+    with checker._lock:
+        checker._model = None
+        checker._tokenizer = None
+        checker._loaded = False
+    gc.collect()
+
+
+def _correct_with(checker, text: str) -> str:
+    """Correct ``text`` with ``checker``, keeping at most one large model loaded.
+
+    A large checker runs under a lock, after unloading the other large one,
+    so the two (about 3.5 GB each) are never in memory together, and a
+    request never loses its model halfway. The fast models are not affected.
+
+    Args:
+        checker: The checker to use.
+        text: The text to correct.
+
+    Returns:
+        The corrected text.
+    """
+    if checker not in _LARGE_CHECKERS:
+        return checker.correct(text)
+    with _large_lock:
+        for other in _LARGE_CHECKERS:
+            if other is not checker and other._loaded:
+                print(f"[SpellCheck] 메모리 확보: {other.model_path} 내림")
+                _unload(other)
+        return checker.correct(text)
+
+
+def correct(text: str, en_variant: str = "vennify", ko_variant: str = "et5") -> str:
+    """Correct ``text`` with the Korean or English model, chosen by its language.
+
+    Args:
+        text: The text to correct.
+        en_variant: ``"vennify"`` (fast) or ``"coedit"`` (large); unknown
+            names use vennify.
+        ko_variant: ``"et5"`` (fast) or ``"pko"`` (large); unknown names use
+            et5.
+
+    Returns:
+        The corrected text.
     """
     lang = detect_lang(text)
     if lang == "ko":
-        checker = _KO_CHECKERS.get(ko_variant, _ko_et5)
-        return checker.correct(text)
-    checker = _EN_CHECKERS.get(en_variant, _en_vennify)
-    return checker.correct(text)
+        return _correct_with(_KO_CHECKERS.get(ko_variant, _ko_et5), text)
+    return _correct_with(_EN_CHECKERS.get(en_variant, _en_vennify), text)
 
 
 def model_info(text: str, en_variant: str = "vennify", ko_variant: str = "et5") -> str:

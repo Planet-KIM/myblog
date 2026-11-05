@@ -1,4 +1,5 @@
-"""Admin pages: moderation dashboard, hide/unhide, report resolution and digest.
+"""Admin pages: moderation dashboard, hide/unhide, report resolution, digest
+and spell-check access.
 
 Every route requires a logged-in admin. Queries here pass
 ``include_hidden=True`` so admins also see moderated (hidden) content.
@@ -11,7 +12,11 @@ from sqlalchemy.orm import Session
 from app import models
 from app.database import get_db
 from app.auth_utils import get_current_user
+from app.services.spellcheck_access import LEVEL_LABELS
 from app.services.static_assets import asset_version
+
+# 맞춤법 권한 표에 보여 줄 최대 계정 수
+SPELLCHECK_USER_LIMIT = 200
 
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["asset_ver"] = asset_version
@@ -42,8 +47,9 @@ def admin_dashboard(
 
     Shows the total post count and the 20 newest posts (hidden ones included),
     plus up to 50 open reports, each with a short summary of its target, whether
-    the target is hidden or deleted, and a link to it. The ``digest`` query
-    parameter, set after a digest send, is shown as a status message.
+    the target is hidden or deleted, and a link to it, and the accounts with
+    their spell-check level. The ``digest`` query parameter, set after a
+    digest send, is shown as a status message.
 
     Args:
         request: The incoming request.
@@ -104,8 +110,43 @@ def admin_dashboard(
             "report_items": report_items,
             "current_user": current_user,
             "digest_msg": request.query_params.get("digest"),
+            "users": db.query(models.User).order_by(models.User.id.asc()).limit(SPELLCHECK_USER_LIMIT).all(),
+            "spellcheck_levels": LEVEL_LABELS,
         },
     )
+
+
+@router.post("/users/{user_id}/spellcheck")
+def admin_set_spellcheck_level(
+    user_id: int,
+    level: int = Form(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Set an account's spell-check level.
+
+    Args:
+        user_id: The account.
+        level: 0 (none), 1 (fast models) or 2 (large models too).
+        db: Database session.
+        current_user: The logged-in user.
+
+    Returns:
+        A 303 redirect to the spell-check section of ``/admin/``.
+
+    Raises:
+        HTTPException: 401 if not logged in, 403 if not an admin, 400 for an
+            unknown level, 404 if the account does not exist.
+    """
+    _require_admin(current_user)
+    if level not in LEVEL_LABELS:
+        raise HTTPException(status_code=400, detail="알 수 없는 등급입니다.")
+    user = db.query(models.User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="계정을 찾을 수 없습니다.")
+    user.spellcheck_level = level
+    db.commit()
+    return RedirectResponse("/admin/#spellcheck", status_code=303)
 
 
 @router.post("/moderate")

@@ -33,6 +33,7 @@ from app.routers.api import parse_tag_field, process_post_tags
 from app.services.layout_quota import ensure_layout_budget, ensure_template_slot
 from app.services.profile import author_matches, public_author_name
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
+from app.services.spellcheck_access import effective_level
 from app.services.ratelimit import enforce
 from app.services.seo import post_jsonld, breadcrumb_jsonld, post_meta
 from app.services.static_assets import asset_version
@@ -857,7 +858,9 @@ def board_new(
     Returns:
         ``board_select_editor.html``, or the chosen editor page
         (``board_new_clean.html`` for Milkdown, ``board_new_tiptap.html`` for
-        TipTap) with the user's categories, a fresh draft id and popular tags.
+        TipTap) with the user's categories, a fresh draft id, popular tags
+        and the user's spell-check level (the editor hides what it does not
+        allow).
 
     Raises:
         HTTPException: 401 if not logged in.
@@ -899,6 +902,7 @@ def board_new(
             "draft_id": str(uuid4()),
             "tags_value": "",
             "popular_tags": popular_tags,
+            "spellcheck_level": effective_level(current_user),
         },
     )
 
@@ -1042,7 +1046,7 @@ def board_edit(
         ``board_edit_tiptap.html`` for TipTap posts or ``board_edit.html``
         otherwise, with the sanitized block JSON and initial HTML (the
         editors load it with innerHTML), the user's categories, the post's
-        tags and popular tags.
+        tags, popular tags and the user's spell-check level.
 
     Raises:
         HTTPException: 401 if not logged in, 404 if the post does not exist,
@@ -1090,6 +1094,7 @@ def board_edit(
             "tags_value": ", ".join(t.name for t in post.tags),
             "popular_tags": popular_tags,
             "initial_html": initial_html,
+            "spellcheck_level": effective_level(current_user),
         },
     )
 

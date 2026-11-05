@@ -64,8 +64,12 @@ services:
       dockerfile: Dockerfile
     container_name: fastapi-blog-celery
     command: ["celery", "-A", "app.tasks", "worker", "--loglevel=info", "--pool=solo", "--concurrency=1", "-Q", "spellcheck"]
+    # 메모리 부족 등으로 죽어도 다시 뜨게 한다 (맞춤법 기능이 멈춘 채 남지 않도록)
+    restart: unless-stopped
     volumes:
       - .:/app
+      # 맞춤법 모델 캐시: 컨테이너를 다시 만들어도 모델(수 GB)을 다시 받지 않도록
+      - hf_cache:/root/.cache/huggingface
     env_file:
       - .env
     environment:
@@ -86,3 +90,5 @@ services:
 volumes:
   # 컨테이너용 node_modules (호스트 mac 바이너리와 섞이지 않도록 분리)
   editor_node_modules:
+  # Hugging Face 모델 캐시 (celery-worker)
+  hf_cache:
