@@ -34,6 +34,7 @@ from app.services.ratelimit import enforce
 from app.services.seo import post_jsonld, breadcrumb_jsonld, post_meta
 from app.services.static_assets import asset_version
 from app.services.bilingual import has_pairs, pick_language
+from app.services.plain_text import block_html_to_lines, drop_elements, markdown_line_text, strip_tags
 from app.services.reading_time import estimate_reading_minutes
 from app.services.post_links import (
     build_post_card,
@@ -77,8 +78,6 @@ def extract_title_from_markdown(content: str) -> str:
     Returns:
         That line as plain text, cut to 200 characters, or ``"Untitled"``.
     """
-    import re
-    import markdown
     import html as html_module
 
     lines = content.splitlines()
@@ -91,9 +90,8 @@ def extract_title_from_markdown(content: str) -> str:
         if line.startswith("#"):
             line = line.lstrip("#").strip()
 
-        # Markdown -> HTML -> Plain Text 로 변환하여 **나 __ 처리
-        raw_html = markdown.markdown(line)
-        plain = re.sub(r'<[^>]+>', '', raw_html)
+        # **·__·링크 등 인라인 Markdown 제거 (선형 시간; Python-Markdown 은 '[' 반복에 2차 시간)
+        plain = strip_tags(markdown_line_text(line), "")
         plain = html_module.unescape(plain).strip()
 
         if plain:
@@ -105,26 +103,52 @@ def extract_title_from_markdown(content: str) -> str:
 # ------------------------------------------------------------
 # HTML 에서 제목 추출 (TipTap용)
 # ------------------------------------------------------------
-def extract_title_from_html(html: str) -> str:
-    """HTML 콘텐츠에서 첫 번째 heading 또는 텍스트를 제목으로 추출."""
+# 제목 후보 요소의 여는/닫는 태그 (선형 탐색을 위해 따로 찾는다)
+_HEADING_OPEN = re.compile(r"<h[1-3][^<>]*>")
+_HEADING_CLOSE = re.compile(r"</h[1-3]>")
+_PARAGRAPH_OPEN = re.compile(r"<p[^<>]*>")
+_PARAGRAPH_CLOSE = re.compile(r"</p>")
+
+
+def _first_element_text(html: str, opening: re.Pattern, closing: re.Pattern) -> str:
+    """Plain text of the first element that ``opening`` starts and ``closing`` ends.
+
+    Finds the first opening tag, then the first closing tag after it: the
+    match the lazy regex ``<open>(.*?)</close>`` found, in linear time instead
+    of rescanning the rest of the body from every opening tag (when the first
+    opening tag has no closing tag after it, no later one has either).
+
+    Args:
+        html: HTML text.
+        opening: Pattern of the opening tag.
+        closing: Pattern of the closing tag.
+
+    Returns:
+        The element's text with tags removed and entities decoded, or "" when
+        there is no such element.
+    """
     import html as html_module
 
-    # h1~h3 태그에서 추출 시도
-    heading_match = re.search(r'<h[1-3][^>]*>(.*?)</h[1-3]>', html, re.DOTALL)
-    if heading_match:
-        plain = re.sub(r'<[^>]+>', '', heading_match.group(1))
-        plain = html_module.unescape(plain).strip()
+    start = opening.search(html)
+    end = closing.search(html, start.end()) if start else None
+    if not end:
+        return ""
+    return html_module.unescape(strip_tags(html[start.end():end.start()], "")).strip()
+
+
+def extract_title_from_html(html: str) -> str:
+    """Take a post title from HTML: the first h1-h3, else the first paragraph.
+
+    Args:
+        html: HTML body (TipTap).
+
+    Returns:
+        That element's text, cut to 200 characters, or ``"Untitled"``.
+    """
+    for opening, closing in ((_HEADING_OPEN, _HEADING_CLOSE), (_PARAGRAPH_OPEN, _PARAGRAPH_CLOSE)):
+        plain = _first_element_text(html, opening, closing)
         if plain:
             return plain[:200]
-
-    # heading 없으면 첫 번째 <p> 텍스트 사용
-    p_match = re.search(r'<p[^>]*>(.*?)</p>', html, re.DOTALL)
-    if p_match:
-        plain = re.sub(r'<[^>]+>', '', p_match.group(1))
-        plain = html_module.unescape(plain).strip()
-        if plain:
-            return plain[:200]
-
     return "Untitled"
 
 
@@ -135,7 +159,17 @@ def extract_title_from_milkdown_top_line(
     content_html: Optional[str],
     content: Optional[str] = None,
 ) -> str:
-    """Milkdown 콘텐츠에서 최상단 유효 1줄만 제목으로 추출."""
+    """Take a post title from Milkdown content: its first meaningful line.
+
+    Code, images, editor boilerplate and leftover tag fragments are skipped.
+
+    Args:
+        content_html: Rendered HTML, if any.
+        content: Markdown source, used when there is no HTML.
+
+    Returns:
+        That line, cut to 200 characters, or ``"Untitled"``.
+    """
     import html as html_module
 
     source = (content_html or content or "").strip()
@@ -146,25 +180,10 @@ def extract_title_from_milkdown_top_line(
     text = html_module.unescape(source)
 
     # 2) 코드/스타일 블록 제거 (제목 후보에서 제외)
-    text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", "\n", text)
-    text = re.sub(r"(?is)<pre[^>]*>.*?</pre>", "\n", text)
-    text = re.sub(r"(?is)<code[^>]*>.*?</code>", "\n", text)
+    text = drop_elements(text, replacement="\n")
 
-    # 3) 줄 경계 보존
-    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
-    text = re.sub(
-        r"(?i)</(h[1-6]|p|div|li|blockquote|section|article|header|footer|tr|td|th)>",
-        "\n",
-        text,
-    )
-    text = re.sub(
-        r"(?i)<(h[1-6]|p|div|li|blockquote|section|article|header|footer|tr|td|th)[^>]*>",
-        "",
-        text,
-    )
-
-    # 4) 나머지 태그 제거
-    text = re.sub(r"(?is)<[^>]+>", "", text)
+    # 3) 줄 경계 보존 + 나머지 태그 제거
+    text = block_html_to_lines(text, "")
     text = text.replace("\r\n", "\n").replace("\r", "\n")
 
     boilerplate_phrases = (
@@ -246,7 +265,20 @@ def create_preview(
     content: Optional[str] = None,
     max_length: int = 200,
 ) -> str:
-    """HTML/Markdown 혼합 본문에서 카드용 순수 텍스트 미리보기 생성."""
+    """Make a card preview: plain text from an HTML/Markdown body.
+
+    Every step is linear in the body length; it runs on each list and post
+    page view.
+
+    Args:
+        content_html: HTML body, if any.
+        content: Source body, used when there is no HTML.
+        max_length: Cut the text at a word boundary near this length and add
+            ``...``.
+
+    Returns:
+        The preview, or ``"No preview available..."`` when there is no text.
+    """
     import html as html_module
 
     source = (content_html or content or "").strip()
@@ -256,19 +288,12 @@ def create_preview(
     text = html_module.unescape(source)
 
     # 코드/스크립트/스타일 블록 제거
-    text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", "\n", text)
-    text = re.sub(r"(?is)<pre[^>]*>.*?</pre>", "\n", text)
-    text = re.sub(r"(?is)<code[^>]*>.*?</code>", "\n", text)
+    text = drop_elements(text, replacement="\n")
     text = re.sub(r"```[\s\S]*?```", "\n", text)
     text = pick_language(text)  # 이중 언어 {{ko||en}} 은 한국어만
 
-    # 블록 경계 보존
-    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
-    text = re.sub(r"(?i)</(h[1-6]|p|div|li|blockquote|section|article|header|footer|tr|td|th)>", "\n", text)
-    text = re.sub(r"(?i)<(h[1-6]|p|div|li|blockquote|section|article|header|footer|tr|td|th)[^>]*>", "", text)
-
-    # 잔여 태그 제거 및 공백 정리
-    text = re.sub(r"(?is)<[^>]+>", " ", text)
+    # 블록 경계 보존 + 잔여 태그 제거 및 공백 정리
+    text = block_html_to_lines(text, " ")
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = re.sub(r"\s+", " ", text).strip()
 

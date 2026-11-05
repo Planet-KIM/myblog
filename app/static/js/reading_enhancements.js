@@ -17,7 +17,10 @@
 (function initReadingEnhancements() {
   window.__skipCodeCopy = true;   // app.js 의 범용 복사 버튼과 중복 방지
 
-  var article = document.querySelector('.article-content');
+  // The page's own <article>: post markup cannot add one (sanitize.py drops
+  // the tag), so a block in a post body that copies the class is not taken
+  // for the article.
+  var article = document.querySelector('article.article-content');
 
   /**
    * Text of a heading without the elements matching a selector (used to read
@@ -35,47 +38,80 @@
   }
 
   /**
-   * HTML-escape text by letting the browser serialise it.
+   * Make an element with a class and, optionally, text.
    *
-   * @param {string} text - Plain text.
-   * @returns {string} Escaped HTML.
+   * @param {string} tag - Tag name.
+   * @param {string} className - Class attribute ('' for none).
+   * @param {string} [text] - Text content.
+   * @returns {HTMLElement} The element.
    */
-  function escapeText(text) {
-    var a = document.createElement('a');
-    a.textContent = text;          // 텍스트로 넣어 XSS 없이 안전
-    return a.innerHTML;
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  /**
+   * The label of a TOC link: the heading text, or both languages of a
+   * bilingual heading (so the language switch applies to it too).
+   *
+   * @param {Element} h - The heading.
+   * @param {string} text - Its Korean (or only) text.
+   * @param {boolean} bilingual - Whether the heading holds a .bi-pair.
+   * @returns {Node} A text node or a .bi-pair span.
+   */
+  function tocLabel(h, text, bilingual) {
+    if (!bilingual) return document.createTextNode(text);
+    var pair = el('span', 'bi-pair');
+    var ko = el('span', 'bi-ko', text);
+    var en = el('span', 'bi-en', textWithout(h, '.bi-ko, .bi-fold'));
+    ko.lang = 'ko';
+    en.lang = 'en';
+    pair.append(ko, en);
+    return pair;
+  }
+
+  /**
+   * Build the table of contents for the h2/h3 headings, giving each heading
+   * without an id one made from its text. Built with DOM APIs only: heading
+   * ids and text come from the post body and are set as attribute values and
+   * text, never parsed as HTML.
+   *
+   * @param {NodeList} heads - The article's h2/h3 headings.
+   * @returns {?HTMLElement} The nav.post-toc, or null when no heading has text.
+   */
+  function buildToc(heads) {
+    var used = {};
+    var list = document.createElement('ul');
+    heads.forEach(function (h, i) {
+      // 이중 언어 제목(bilingual.js 가 만든 .bi-pair)은 한국어로 앵커를 만들고 두 언어를 함께 담는다
+      var bilingual = !!h.querySelector('.bi-pair');
+      var text = bilingual ? textWithout(h, '.bi-en, .bi-fold') : (h.textContent || '').trim();
+      if (!text) return;
+      var slug = text.toLowerCase().replace(/[^\w가-힣]+/g, '-').replace(/^-+|-+$/g, '') || ('section-' + i);
+      if (used[slug]) slug = slug + '-' + i;
+      used[slug] = true;
+      if (!h.id) h.id = slug;
+      var link = el('a', '');
+      link.setAttribute('href', '#' + h.id);
+      link.appendChild(tocLabel(h, text, bilingual));
+      var item = el('li', h.tagName === 'H3' ? 'lvl-3' : '');
+      item.appendChild(link);
+      list.appendChild(item);
+    });
+    if (!list.children.length) return null;
+    var toc = el('nav', 'post-toc');
+    toc.setAttribute('aria-label', '목차');
+    toc.append(el('div', 'post-toc-title', '목차'), list);
+    return toc;
   }
 
   // ── 목차 (h2/h3) — 제목이 3개 이상일 때만 ──
   if (article) {
     var heads = article.querySelectorAll('h2, h3');
-    if (heads.length >= 3) {
-      var used = {};
-      var toc = document.createElement('nav');
-      toc.className = 'post-toc';
-      toc.setAttribute('aria-label', '목차');
-      var items = '';
-      heads.forEach(function (h, i) {
-        // 이중 언어 제목(bilingual.js 가 만든 .bi-pair)은 한국어로 앵커를 만들고 두 언어를 함께 담는다
-        var bilingual = h.querySelector('.bi-pair');
-        var text = bilingual ? textWithout(h, '.bi-en, .bi-fold') : (h.textContent || '').trim();
-        if (!text) return;
-        var slug = text.toLowerCase().replace(/[^\w가-힣]+/g, '-').replace(/^-+|-+$/g, '') || ('section-' + i);
-        if (used[slug]) slug = slug + '-' + i;
-        used[slug] = true;
-        if (!h.id) h.id = slug;
-        var lvl = h.tagName === 'H3' ? ' class="lvl-3"' : '';
-        var label = bilingual
-          ? '<span class="bi-pair"><span class="bi-ko" lang="ko">' + escapeText(text) + '</span><span class="bi-en" lang="en">'
-            + escapeText(textWithout(h, '.bi-ko, .bi-fold')) + '</span></span>'
-          : escapeText(text);
-        items += '<li' + lvl + '><a href="#' + h.id + '">' + label + '</a></li>';
-      });
-      if (items) {
-        toc.innerHTML = '<div class="post-toc-title">목차</div><ul>' + items + '</ul>';
-        article.parentNode.insertBefore(toc, article);
-      }
-    }
+    var toc = heads.length >= 3 ? buildToc(heads) : null;
+    if (toc) article.parentNode.insertBefore(toc, article);
   }
 
   // ── 코드블록: 언어 라벨 + 복사 버튼 헤더 ──

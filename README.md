@@ -205,7 +205,6 @@ docker compose down
 - Recommendation: `GET /recommendations/home`
 - Utility:
   - `POST /calculate-reading-time`
-  - `POST /markdown/preview`
   - `POST /spellcheck`
 - Upload:
   - `POST /upload`

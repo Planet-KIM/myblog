@@ -43,17 +43,17 @@
      * @returns {string} A .mag-block element (photos carry their overlay text).
      */
     function blockHTML(b, x, y, w, h) {
-      const br = b.showBorder ? (b.borderRadius >= 9999 ? '9999px' : `${b.borderRadius ?? 0}px`) : '';
-      const border = b.showBorder ? `--mag-bw:${b.borderWidth ?? 1}px;--mag-bc:${b.borderColor ?? '#000000'};--mag-br:${br};` : '';
+      const radius = num(b.borderRadius, 0);
+      const br = b.showBorder ? (radius >= 9999 ? '9999px' : `${radius}px`) : '';
+      const border = b.showBorder ? `--mag-bw:${num(b.borderWidth, 1)}px;--mag-bc:${borderColor(b.borderColor)};--mag-br:${br};` : '';
       const cls = 'mag-block' + (b.showBorder ? ' mag-block-bordered' : '');
       const s = `--mag-x:${x.toFixed(3)}%;--mag-y:${y.toFixed(3)}%;--mag-w:${w.toFixed(3)}%;--mag-h:${h.toFixed(3)}%;${border}`;
       if (b.type === 'image' && b.src) {
-        const ox = (b.imgOffsetX ?? 50).toFixed(1), oy = (b.imgOffsetY ?? 50).toFixed(1);
-        const fc = b.imgFilter && b.imgFilter !== 'none' ? ` mag-filter-${b.imgFilter}` : '';
-        return `<div class="${cls}" style="${s}"><img class="mag-block-img${fc}" src="${b.src}" style="--mag-ox:${ox}%;--mag-oy:${oy}%;">${overlayHTML(b)}</div>`;
+        const ox = num(b.imgOffsetX, 50).toFixed(1), oy = num(b.imgOffsetY, 50).toFixed(1);
+        return `<div class="${cls}" style="${s}"><img class="mag-block-img${filterClass(b.imgFilter)}" src="${escapeAttr(b.src)}" style="--mag-ox:${ox}%;--mag-oy:${oy}%;">${overlayHTML(b)}</div>`;
       }
       if (b.type === 'spacer') return `<div class="${cls}" style="${s}"></div>`;
-      return `<div class="${cls}${b.dropCap ? ' mag-dropcap' : ''}" style="${s}">${b.content || ''}</div>`;
+      return `<div class="${cls}${b.dropCap ? ' mag-dropcap' : ''}" style="${s}">${htmlField(b.content)}</div>`;
     }
 
     /**
@@ -67,7 +67,7 @@
       if (!b.overlay) return '';
       const pos = OVERLAY_POSITIONS.includes(b.overlayPos) ? b.overlayPos : 'bottom';
       const tone = OVERLAY_TONES.includes(b.overlayTone) ? b.overlayTone : 'band-dark';
-      return `<div class="mag-overlay mag-overlay--${pos} mag-overlay--${tone}">${b.overlay}</div>`;
+      return `<div class="mag-overlay mag-overlay--${pos} mag-overlay--${tone}">${htmlField(b.overlay)}</div>`;
     }
 
     /**
@@ -102,7 +102,7 @@
      * @returns {string} A .reader-overlay figure.
      */
     function overlayFigureHTML(photo, riders) {
-      const w = photo.w, h = photo.h;
+      const w = num(photo.w, 0), h = num(photo.h, 0);
       let inner = blockHTML({ ...photo, showBorder: false }, 0, 0, 100, 100);
       riders.forEach(t => {
         inner += blockHTML(t, (t.x - photo.x) / w * 100, (t.y - photo.y) / h * 100, t.w / w * 100, t.h / h * 100);
@@ -129,7 +129,7 @@
      * @returns {string} HTML for the slide.
      */
     function buildSlideHTML(page) {
-      const cw = page.cw || 1200, ch = page.ch || 800;
+      const cw = num(page.cw, 0) || 1200, ch = num(page.ch, 0) || 800;
       let html = `<div class="mag-fit" data-cw="${cw}" data-ch="${ch}">`;
       html += `<div class="magazine-layout" style="--mag-cw:${cw}px;--mag-ch:${ch}px;">`;
       (page.blocks || []).forEach(b => {
@@ -153,7 +153,7 @@
     function buildReaderHTML() {
       let html = '';
       pages.forEach((page, pi) => {
-        const cw = page.cw || 1200;
+        const cw = num(page.cw, 0) || 1200;
         if (pi > 0) html += '<div class="reader-page-sep" aria-hidden="true"></div>';
         const riders = photoRiders(page.blocks || []);
         const onPhoto = new Set([...riders.values()].flat());
@@ -162,15 +162,14 @@
           if (b.type === 'image' && b.src && (b.overlay || riders.has(b))) {
             html += overlayFigureHTML(b, riders.get(b) || []);
           } else if (b.type === 'image' && b.src) {
-            const fc = b.imgFilter && b.imgFilter !== 'none' ? ` mag-filter-${b.imgFilter}` : '';
-            html += `<figure class="reader-block"><img class="reader-img${fc}" src="${b.src}" loading="lazy"></figure>`;
+            html += `<figure class="reader-block"><img class="reader-img${filterClass(b.imgFilter)}" src="${escapeAttr(b.src)}" loading="lazy"></figure>`;
           } else if (b.type === 'spacer') {
             html += '<div class="reader-spacer"></div>';
           } else if (b.type === 'postcard' && b.content) {
-            html += `<div class="reader-block reader-postcard">${b.content}</div>`;
+            html += `<div class="reader-block reader-postcard">${htmlField(b.content)}</div>`;
           } else if (b.content) {
-            const rel = Math.max(0.85, Math.min(1.9, (b.w || cw) / cw * 2.2));
-            html += `<div class="reader-block reader-text${b.dropCap ? ' mag-dropcap' : ''}" style="--reader-fs:${rel.toFixed(2)}rem;">${b.content}</div>`;
+            const rel = Math.max(0.85, Math.min(1.9, (num(b.w, 0) || cw) / cw * 2.2));
+            html += `<div class="reader-block reader-text${b.dropCap ? ' mag-dropcap' : ''}" style="--reader-fs:${rel.toFixed(2)}rem;">${htmlField(b.content)}</div>`;
           }
         });
       });
@@ -522,6 +521,67 @@
   const OVERLAY_TONES = ['band-dark', 'band-light', 'plain'];
   // 읽기 모드에서 사진 위 덧글씨가 페이지 크기 대비 이보다 작게 그려지지 않게 한다
   const READER_OVERLAY_MIN_SCALE = 0.75;
+  // 사진 필터 — 에디터(frontend/board_*_tiptap.js FILTERS)와 같은 값 ('none' 은 클래스 없음)
+  const IMG_FILTERS = ['bw', 'duotone'];
+  const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
+  const ATTR_ESCAPES = { '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' };
+
+  // content_blocks is the author's JSON. The server checks it too
+  // (app/services/sanitize.py), but every value below is checked again where
+  // it is written into markup, so a value of the wrong type or format can
+  // never close an attribute or add one.
+
+  /**
+   * A stored value when it is a finite number, else a default.
+   *
+   * @param {*} value - Value from content_blocks.
+   * @param {number} fallback - Used for anything that is not a finite number.
+   * @returns {number} The number to write.
+   */
+  function num(value, fallback) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  }
+
+  /**
+   * A block's border colour when it is a #hex colour, else black.
+   *
+   * @param {*} value - Value from content_blocks.
+   * @returns {string} A #hex colour.
+   */
+  function borderColor(value) {
+    return typeof value === 'string' && HEX_COLOR.test(value) ? value : '#000000';
+  }
+
+  /**
+   * The class suffix for a photo filter the editor offers.
+   *
+   * @param {*} value - Filter name from content_blocks.
+   * @returns {string} " mag-filter-<name>", or "" for none or an unknown name.
+   */
+  function filterClass(value) {
+    return IMG_FILTERS.includes(value) ? ` mag-filter-${value}` : '';
+  }
+
+  /**
+   * Escape a value for a double-quoted HTML attribute.
+   *
+   * @param {*} value - Value from content_blocks.
+   * @returns {string} The value as text with &, ", < and > escaped.
+   */
+  function escapeAttr(value) {
+    return String(value).replace(/[&"<>]/g, c => ATTR_ESCAPES[c]);
+  }
+
+  /**
+   * A block's HTML field (text or overlay), sanitized by the server; anything
+   * that is not a string (which the browser would turn into markup) is dropped.
+   *
+   * @param {*} value - Value from content_blocks.
+   * @returns {string} The HTML, or "".
+   */
+  function htmlField(value) {
+    return typeof value === 'string' ? value : '';
+  }
 
   /**
    * Read a saved viewer preference.

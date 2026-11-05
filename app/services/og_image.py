@@ -11,7 +11,6 @@ SNS 공유 시 밋밋한 기본 썸네일 대신 '매거진 표지' 같은 미�
 from __future__ import annotations
 
 import html as _html
-import json as _json
 import logging
 import re as _re
 from functools import lru_cache
@@ -19,6 +18,8 @@ from pathlib import Path
 from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+from app.services.content_blocks import parse as parse_content_blocks
 
 logger = logging.getLogger(__name__)
 
@@ -461,14 +462,12 @@ def _first_page(content_blocks) -> Optional[dict]:
 
     Returns:
         A page dict with at least ``blocks`` (v3 pages are returned as stored),
-        or ``None`` if the input is invalid JSON, empty or unrecognised.
+        or ``None`` if the input cannot be decoded, is empty or unrecognised.
     """
-    try:
-        data = _json.loads(content_blocks) if isinstance(content_blocks, str) else content_blocks
-    except (ValueError, TypeError):
-        return None
-    if isinstance(data, dict) and data.get("v") == 3 and data.get("pages"):
-        return data["pages"][0]
+    data = parse_content_blocks(content_blocks) if isinstance(content_blocks, str) else content_blocks
+    pages = data.get("pages") if isinstance(data, dict) else None
+    if isinstance(data, dict) and data.get("v") == 3 and isinstance(pages, list) and pages:
+        return pages[0] if isinstance(pages[0], dict) else None
     if isinstance(data, dict) and isinstance(data.get("blocks"), list):
         return {"blocks": data["blocks"], "cw": data.get("cw", 1200), "ch": data.get("ch", 800)}
     if isinstance(data, list) and data:

@@ -1107,28 +1107,6 @@ async def calculate_reading_time(content: str):
 
 
 # ─────────────────────────────────────────────
-# Markdown Preview Endpoint
-# ─────────────────────────────────────────────
-
-@router.post("/markdown/preview")
-async def preview_markdown(content: str):
-    """Render Markdown to HTML for a live preview.
-
-    Args:
-        content: Markdown source (a query parameter).
-
-    Returns:
-        A dict with the rendered ``html`` and the generated ``toc`` HTML.
-    """
-    import markdown
-    md = markdown.Markdown(
-        extensions=["fenced_code", "tables", "toc", "nl2br", "sane_lists", "codehilite", "meta"]
-    )
-    html_content = md.convert(content)
-    return {"html": html_content, "toc": md.toc if hasattr(md, "toc") else None}
-
-
-# ─────────────────────────────────────────────
 # Spell Check Endpoint
 # ─────────────────────────────────────────────
 

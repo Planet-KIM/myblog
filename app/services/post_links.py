@@ -13,17 +13,17 @@ The other direction, "이 글을 언급한 글" (backlinks), lists the readable 
 that link to a post: by a card, a card block or a plain link in a sentence.
 """
 import html as html_module
-import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Iterable, Iterator, Optional
+from typing import Callable, Iterable, Optional
 from urllib.parse import urlsplit
 
 from sqlalchemy import case, or_
 from sqlalchemy.orm import Query, Session, joinedload
 
 from app import models
+from app.services import content_blocks
 from app.services.bilingual import has_pairs
 from app.services.plain_text import markdown_to_plain
 from app.services.post_media import extract_first_image
@@ -37,6 +37,7 @@ BACKLINK_LIMIT = 6
 BACKLINK_SCAN = 100   # 후보(본문에 /board/<id> 가 들어간 글)를 최신순으로 이만큼만 살핀다
 
 _POST_PATH = re.compile(r"^/board/(\d+)/?$")
+_MAX_POST_ID = 2**63 - 1   # SQLite INTEGER 범위; 더 큰 id 는 질의에서 OverflowError
 _POST_PATH_ANYWHERE = re.compile(r"/board/(\d+)")
 # 링크 하나만 담은 문단 (링크 앞뒤 공백, 끝의 <br> 하나는 허용)
 _CARD_PARAGRAPH = re.compile(
@@ -76,6 +77,23 @@ class PostCard:
     is_private: bool
 
 
+def _as_post_id(value) -> Optional[int]:
+    """Read a post id from a link or a card block.
+
+    Args:
+        value: An integer, or text of one.
+
+    Returns:
+        The id when it is in 1..2**63-1 (SQLite's INTEGER range: a larger id
+        would make the query raise OverflowError); else None.
+    """
+    try:
+        post_id = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return post_id if 0 < post_id <= _MAX_POST_ID else None
+
+
 def post_id_from_href(href: str, hosts: Iterable[str]) -> Optional[int]:
     """Tell which post a link points to.
 
@@ -94,7 +112,7 @@ def post_id_from_href(href: str, hosts: Iterable[str]) -> Optional[int]:
     if parts.netloc and parts.hostname not in {h.lower() for h in hosts if h}:
         return None
     match = _POST_PATH.match(parts.path)
-    return int(match.group(1)) if match else None
+    return _as_post_id(match.group(1)) if match else None
 
 
 def _paragraph_post_id(match: re.Match, hosts: Iterable[str]) -> Optional[int]:
@@ -136,29 +154,11 @@ def replace_card_paragraphs(html: str, hosts: Iterable[str], render: Callable[[i
     return _CARD_PARAGRAPH.sub(card_or_paragraph, html or "")
 
 
-def _blocks(data) -> Iterator[dict]:
-    """Yield every block dict of a content_blocks structure (v3, a page list or one page)."""
-    if isinstance(data, dict) and isinstance(data.get("pages"), list):
-        pages = data["pages"]
-    elif isinstance(data, list):
-        pages = data
-    else:
-        pages = [data]
-    for page in pages:
-        if isinstance(page, dict):
-            for block in page.get("blocks") or []:
-                if isinstance(block, dict):
-                    yield block
-
-
 def _card_block_id(block: dict) -> Optional[int]:
     """Post id of a magazine card block, or None for any other block."""
     if block.get("type") != CARD_BLOCK_TYPE:
         return None
-    try:
-        return int(block.get("postId"))
-    except (TypeError, ValueError):
-        return None
+    return _as_post_id(block.get("postId"))
 
 
 def card_block_ids(raw: str) -> list[int]:
@@ -170,11 +170,7 @@ def card_block_ids(raw: str) -> list[int]:
     Returns:
         Post ids in order, without repeats; empty when the JSON is invalid.
     """
-    try:
-        data = json.loads(raw or "")
-    except (TypeError, ValueError):
-        return []
-    ids = (_card_block_id(b) for b in _blocks(data))
+    ids = (_card_block_id(b) for b in content_blocks.iter_blocks(content_blocks.parse(raw)))
     return list(dict.fromkeys(i for i in ids if i is not None))
 
 
@@ -187,17 +183,16 @@ def refresh_card_blocks(raw: str, render: Callable[[int], str]) -> str:
 
     Returns:
         The JSON with each card block's ``content`` replaced (other blocks
-        untouched), or ``raw`` itself when it is not valid JSON.
+        untouched), or ``raw`` itself when it cannot be decoded or encoded.
     """
-    try:
-        data = json.loads(raw or "")
-    except (TypeError, ValueError):
+    data = content_blocks.parse(raw)
+    if data is None:
         return raw
-    for block in _blocks(data):
+    for block in content_blocks.iter_blocks(data):
         post_id = _card_block_id(block)
         if post_id is not None:
             block["content"] = render(post_id)
-    return json.dumps(data, ensure_ascii=False)
+    return content_blocks.dumps(data) or raw
 
 
 def visible_posts(db: Session, viewer: Optional[models.User]) -> Query:

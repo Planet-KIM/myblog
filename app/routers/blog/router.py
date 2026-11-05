@@ -206,16 +206,6 @@ def build_approved_api_catalog() -> List[Dict[str, str]]:
             "fetch_example": "fetch('/api/calculate-reading-time', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: 'example text' }) })",
         },
         {
-            "name": "마크다운 미리보기",
-            "method": "POST",
-            "path": "/api/markdown/preview",
-            "auth": "불필요",
-            "access": "읽기",
-            "purpose": "마크다운을 렌더링 HTML로 변환",
-            "curl_example": "curl -X POST -H 'Content-Type: application/json' -d '{\"content\":\"# hello\"}' http://127.0.0.1:8000/api/markdown/preview",
-            "fetch_example": "fetch('/api/markdown/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: '# hello' }) })",
-        },
-        {
             "name": "맞춤법 검사",
             "method": "POST",
             "path": "/api/spellcheck",

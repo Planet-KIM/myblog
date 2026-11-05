@@ -8,9 +8,10 @@ in at most one of them, and the list below leaves out what they already show.
 A post without a title of its own is labelled with the start of its body; a
 post with neither a title nor any body text is left off the home altogether.
 """
-import json
 from dataclasses import dataclass, field
 from typing import Optional, Protocol, Sequence
+
+from app.services.content_blocks import parse as parse_content_blocks
 
 PLACEHOLDER_TITLES = {"untitled", "제목 없음"}
 FALLBACK_TITLE_CHARS = 60
@@ -93,12 +94,9 @@ def page_count(content_blocks: Optional[str]) -> int:
 
     Returns:
         The number of pages, 1 for the older single-page formats, and 0 when
-        there is no layout or it is not valid JSON.
+        there is no layout or it cannot be decoded.
     """
-    try:
-        data = json.loads(content_blocks or "")
-    except (TypeError, ValueError):
-        return 0
+    data = parse_content_blocks(content_blocks)
     if isinstance(data, dict) and isinstance(data.get("pages"), list):
         return len(data["pages"])
     if (isinstance(data, dict) and isinstance(data.get("blocks"), list)) or (isinstance(data, list) and data):
