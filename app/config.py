@@ -59,6 +59,12 @@ class Settings(BaseSettings):
         LAYOUT_COPY_RATE_LIMIT, LAYOUT_COPY_RATE_WINDOW: Server-side layout
             copies (save as template, new post from a template or starter)
             per user, and the window.
+        CATEGORY_MAX_DEPTH, CATEGORY_MAX_PER_USER: Most levels in a user's
+            category tree (a top-level category is level 1) and most
+            categories per user.
+        CATEGORY_NAME_MAX_CHARS, CATEGORY_DESCRIPTION_MAX_CHARS: Longest
+            category name and description, in characters after NFC
+            normalization (a Hangul syllable counts once, like a Latin letter).
         UPLOAD_MAX_IMAGE_PIXELS: Largest uploaded image, in pixels.
         UPLOAD_USER_QUOTA_MB, UPLOAD_RATE_LIMIT, UPLOAD_DRAFT_TTL_DAYS: Storage
             per user, uploads per user per hour, and days before uploads that
@@ -131,6 +137,13 @@ class Settings(BaseSettings):
     LAYOUT_STORAGE_BUDGET_CHARS: int = 64 * 1024 * 1024  # 글자 수 (글 + 템플릿 합계)
     LAYOUT_COPY_RATE_LIMIT: int = 30
     LAYOUT_COPY_RATE_WINDOW: int = 3600
+
+    # ── 카테고리 트리 한도 (사용자별). 이름·설명은 NFC 정규화 뒤 글자 수로 센다
+    # (한글 한 글자 = 영문 한 글자). 영어 이름이 더 길어지는 것을 감안해 이름은 60자
+    CATEGORY_MAX_DEPTH: int = 5
+    CATEGORY_MAX_PER_USER: int = 100
+    CATEGORY_NAME_MAX_CHARS: int = 60
+    CATEGORY_DESCRIPTION_MAX_CHARS: int = 300
 
     # 업로드 이미지 최대 픽셀 수 (가로×세로). 압축 해제 폭탄 방지
     UPLOAD_MAX_IMAGE_PIXELS: int = 40_000_000

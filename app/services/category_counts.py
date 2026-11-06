@@ -46,52 +46,53 @@ def rollup_category_counts(
     categories: Iterable[models.BoardCategory],
     direct_counts: Mapping[int, int],
 ) -> dict[int, int]:
-    """
-    카테고리 계층(parent -> children)을 따라 하위 카테고리 글 수까지 합산한다.
+    """Add up post counts along the category tree, each category including its descendants.
 
-    direct_counts:
-      - {category_id: 직계 글 수}
-      - 예) bangkok=1, chiang-mai=0, travel=0
+    For example travel=0, bangkok=1, chiang-mai=0 (both under travel) gives
+    travel=1. Walks with an explicit stack, so any depth works; in a cycle a
+    category already on the current path adds only its own count.
 
-    반환값:
-      - {category_id: 하위 포함 총 글 수}
-      - 예) travel=1 (bangkok+chiang-mai 포함)
+    Args:
+        categories: The categories of the tree.
+        direct_counts: Posts filed directly in each category, by id.
+
+    Returns:
+        Total posts per category id, descendants included.
     """
     by_id, children_by_parent = _build_children_by_parent(categories)
-    category_ids = sorted(by_id.keys())
 
+    def direct(category_id: int) -> int:
+        """The category's own post count."""
+        return int(direct_counts.get(category_id, 0) or 0)
+
+    # 재귀 대신 명시적 스택 (트리가 아무리 깊어도 RecursionError 없이 끝난다)
     memo: dict[int, int] = {}
-
-    def dfs(category_id: int, visiting: set[int]) -> int:
-        """Return the post count of ``category_id`` plus all of its descendants.
-
-        Results are memoized in ``memo``. If ``category_id`` is already on the
-        current path (a cycle), only its direct count is returned.
-
-        Args:
-            category_id: The category whose subtree total is wanted.
-            visiting: Ids on the current recursion path; updated in place.
-
-        Returns:
-            The subtree's total post count.
-        """
-        if category_id in memo:
-            return memo[category_id]
-
-        # 잘못된 순환 참조가 있어도 서버가 죽지 않게 안전장치
-        if category_id in visiting:
-            return int(direct_counts.get(category_id, 0) or 0)
-
-        total = int(direct_counts.get(category_id, 0) or 0)
-        visiting.add(category_id)
-        for child_id in children_by_parent.get(category_id, []):
-            total += dfs(child_id, visiting)
-        visiting.remove(category_id)
-
-        memo[category_id] = total
-        return total
-
-    return {category_id: dfs(category_id, set()) for category_id in category_ids}
+    done = object()
+    for start_id in sorted(by_id.keys()):
+        if start_id in memo:
+            continue
+        stack = [(start_id, iter(children_by_parent.get(start_id, [])))]
+        on_path = {start_id}
+        totals = {start_id: direct(start_id)}
+        while stack:
+            node, children = stack[-1]
+            child = next(children, done)
+            if child is done:
+                stack.pop()
+                on_path.discard(node)
+                memo[node] = totals.pop(node)
+                if stack:
+                    totals[stack[-1][0]] += memo[node]
+            elif child in memo:
+                totals[node] += memo[child]
+            elif child in on_path:
+                # 잘못된 순환 참조: 그 카테고리의 직계 글 수만 더한다
+                totals[node] += direct(child)
+            else:
+                on_path.add(child)
+                totals[child] = direct(child)
+                stack.append((child, iter(children_by_parent.get(child, []))))
+    return memo
 
 
 def collect_descendant_category_ids(
@@ -126,49 +127,49 @@ def collect_descendant_category_ids(
 def order_categories_parent_first(
     categories: Iterable[models.BoardCategory],
 ) -> tuple[list[models.BoardCategory], dict[int, int]]:
-    """
-    부모 카테고리를 먼저, 각 부모 아래에 자식을 depth 순으로 정렬한다.
-    반환:
-      - ordered_categories: 정렬된 카테고리 리스트
-      - depth_map: {category_id: depth}
+    """Order categories parent first, each followed by its subtree (depth first, ids ascending).
+
+    Categories no root reaches (a cycle) are placed afterwards at depth 0.
+
+    Args:
+        categories: The categories to order.
+
+    Returns:
+        ``(ordered_categories, depth_map)``: the categories in display order
+        and each id's nesting depth (0 for a root).
     """
     by_id, children_by_parent = _build_children_by_parent(categories)
     ordered_ids: list[int] = []
     depth_map: dict[int, int] = {}
-    visiting: set[int] = set()
 
-    def walk(category_id: int, depth: int) -> None:
-        """Append ``category_id`` and then its subtree, depth first, to the ordering.
+    def place(start_id: int) -> None:
+        """Append ``start_id`` and then its subtree, depth first, to the ordering.
 
-        Records each visited id in ``ordered_ids`` and its depth in
-        ``depth_map``. Ids that are already placed are skipped, and a cycle
-        stops at the repeated id instead of recursing forever.
+        Uses an explicit stack instead of recursion, so a tree of any depth is
+        placed without RecursionError. Each id is placed once, which also stops
+        a cycle at the repeated id.
 
         Args:
-            category_id: The category to place next.
-            depth: Its nesting depth (0 for a root).
+            start_id: A root (or an id no root reaches) placed at depth 0.
         """
-        if category_id in depth_map:
-            return
-        if category_id in visiting:
+        stack = [(start_id, 0)]
+        while stack:
+            category_id, depth = stack.pop()
+            if category_id in depth_map:
+                continue
             depth_map[category_id] = depth
             ordered_ids.append(category_id)
-            return
-
-        visiting.add(category_id)
-        depth_map[category_id] = depth
-        ordered_ids.append(category_id)
-        for child_id in children_by_parent.get(category_id, []):
-            walk(child_id, depth + 1)
-        visiting.remove(category_id)
+            for child_id in reversed(children_by_parent.get(category_id, [])):
+                if child_id not in depth_map:
+                    stack.append((child_id, depth + 1))
 
     for root_id in children_by_parent.get(None, []):
-        walk(root_id, 0)
+        place(root_id)
 
     # 순환 등으로 루트에서 도달 불가한 노드 fallback
     for category_id in sorted(by_id.keys()):
         if category_id not in depth_map:
-            walk(category_id, 0)
+            place(category_id)
 
     ordered_categories = [by_id[category_id] for category_id in ordered_ids]
     return ordered_categories, depth_map

@@ -35,6 +35,13 @@ from app.services.profile import author_matches, public_author_name
 from app.services.sanitize import sanitize_html, sanitize_content_blocks
 from app.services.content_blocks import has_layout, parse as parse_content_blocks
 from app.services.csp import mark_editor_page
+from app.services.category_limits import (
+    category_count_error,
+    category_placement_error,
+    category_text_error,
+    category_text_limits,
+    clean_category_text,
+)
 from app.services.email_verification import is_verified, require_verified
 from app.services.spellcheck_access import effective_level
 from app.services.ratelimit import enforce
@@ -72,6 +79,7 @@ logger = logging.getLogger(__name__)
 
 
 templates.env.globals["asset_ver"] = asset_version
+templates.env.globals["category_text_limits"] = category_text_limits
 
 
 # ------------------------------------------------------------
@@ -457,9 +465,13 @@ def category_create(
 ):
     """Create a category in the user's blog, optionally under a parent.
 
+    The name and description are NFC-normalized and trimmed, then held to
+    the category limits (``app/services/category_limits.py``): name and
+    description length, categories per user and tree depth.
+
     Args:
         request: The incoming request.
-        name: Category name; trimmed, required and unique within the user's
+        name: Category name; required and unique within the user's
             categories.
         description: Optional description.
         parent_id: Id of one of the user's categories, or empty for a
@@ -470,7 +482,8 @@ def category_create(
     Returns:
         A 303 redirect to ``/board/categories?created=1`` on success, or the
         category page again with an error message (status 200) when the name
-        is empty or taken or the parent is invalid.
+        is empty, too long or taken, the description is too long, the parent
+        is invalid, or the user is at the category count or depth limit.
 
     Raises:
         HTTPException: 401 if not logged in.
@@ -478,14 +491,17 @@ def category_create(
 
     ensure_default_category(db, current_user)
 
-    name = name.strip()
+    name = clean_category_text(name)
+    description = clean_category_text(description)
     error: Optional[str] = None
 
     # ─────────────────────────────────────────
-    # 1) 기본 검증: 이름 필수
+    # 1) 기본 검증: 이름 필수, 이름·설명 길이
     # ─────────────────────────────────────────
     if not name:
         error = "Category name is required."
+    else:
+        error = category_text_error(name, description)
 
     # ─────────────────────────────────────────
     # 2) 중복 이름 체크 (본인 블로그 범위 내에서만)
@@ -523,6 +539,13 @@ def category_create(
                 )
                 if not parent:
                     error = "Parent category not found."
+
+    # 개수·깊이 한도 (본인 카테고리 기준)
+    if not error:
+        own_categories = db.query(models.BoardCategory).filter(models.BoardCategory.user_id == current_user.id).all()
+        error = category_count_error(len(own_categories)) or category_placement_error(
+            own_categories, None, parent.id if parent else None
+        )
 
     # ─────────────────────────────────────────
     # 4) 에러 있으면 다시 리스트 렌더
@@ -603,7 +626,8 @@ def category_move(
     Raises:
         HTTPException: 401 if not logged in; 404 if the category or the new
             parent is not one of the user's categories; 400 if the move would
-            put a category inside itself or one of its descendants.
+            put a category inside itself or one of its descendants, or make
+            the tree deeper than ``CATEGORY_MAX_DEPTH``.
     """
     category = db.query(models.BoardCategory).filter(
         models.BoardCategory.id == req.category_id,
@@ -634,6 +658,11 @@ def category_move(
                 ).first()
             else:
                 break
+
+    own_categories = db.query(models.BoardCategory).filter(models.BoardCategory.user_id == current_user.id).all()
+    depth_error = category_placement_error(own_categories, category.id, req.new_parent_id or None)
+    if depth_error:
+        raise HTTPException(status_code=400, detail=depth_error)
 
     category.parent_id = req.new_parent_id
     db.commit()
@@ -745,7 +774,7 @@ def category_rename(
 
     Args:
         category_id: The category to rename.
-        req: The new name; trimmed.
+        req: The new name; NFC-normalized and trimmed.
         db: Database session.
         current_user: The logged-in user.
 
@@ -754,14 +783,15 @@ def category_rename(
 
     Raises:
         HTTPException: 401 if not logged in; 400 if the name is empty or longer
-            than 100 characters; 404 if the category is not the user's; 409 if
-            the user already has a category with that name.
+            than ``CATEGORY_NAME_MAX_CHARS``; 404 if the category is not the
+            user's; 409 if the user already has a category with that name.
     """
-    name = req.name.strip()
+    name = clean_category_text(req.name)
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
-    if len(name) > 100:
-        raise HTTPException(status_code=400, detail="Name too long (max 100 chars)")
+    too_long = category_text_error(name)
+    if too_long:
+        raise HTTPException(status_code=400, detail=too_long)
 
     category = db.query(models.BoardCategory).filter(
         models.BoardCategory.id == category_id,

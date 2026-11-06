@@ -3,7 +3,8 @@
   charts, the create form, and the drag-and-drop category tree with rename,
   delete (modal) and a right-click menu.
   Context: categories (list[BoardCategory]), post_count_map (dict id -> count),
-  error (str|None), success (str|None).
+  error (str|None), success (str|None); global category_text_limits() gives the
+  name/description maxlength (app/services/category_limits.py).
   Assets: static/css/categories.css, static/js/categories-flash.js,
           static/js/categories.js (+ Fuse.js, Tom Select, SortableJS, Chart.js)
 #}
@@ -98,7 +99,7 @@
           <div class="mb-3">
             <label for="name" class="form-label">이름</label>
             <input type="text" class="form-control" id="name" name="name"
-                   required placeholder="예: 개발, 일상, 강의…" />
+                   required maxlength="{{ category_text_limits().name }}" placeholder="예: 개발, 일상, 강의…" />
           </div>
 
           <div class="mb-3">
@@ -116,7 +117,8 @@
             <label for="description" class="form-label">
               설명 <span class="text-muted">(선택)</span>
             </label>
-            <input type="text" class="form-control" id="description" name="description" />
+            <input type="text" class="form-control" id="description" name="description"
+                   maxlength="{{ category_text_limits().description }}" />
           </div>
 
           <button type="submit" class="btn-travel">
