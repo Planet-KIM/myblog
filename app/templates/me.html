@@ -76,7 +76,7 @@
                 {% endif %}
                 <div class="bookmark-body">
                   <h3 class="bookmark-title">
-                    <a href="/board/{{ post.id }}">{{ post.title or 'Untitled' }}</a>
+                    <a href="/board/{{ post.id }}">{{ post.title|title_label }}</a>
                   </h3>
                   <div class="bookmark-preview">{{ post.preview or '미리보기 텍스트가 없습니다.' }}</div>
                   <div class="meta-row bookmark-meta">

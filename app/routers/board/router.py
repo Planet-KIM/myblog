@@ -50,6 +50,7 @@ from app.services.static_assets import asset_version
 from app.services.bilingual import has_pairs, pick_language
 from app.services.plain_text import block_html_to_lines, drop_elements, markdown_line_text, strip_tags
 from app.services.reading_time import estimate_reading_minutes
+from app.services.home_sections import UNTITLED_LABEL, label_card, title_label
 from app.services.post_links import (
     build_post_card,
     card_block_ids,
@@ -80,6 +81,7 @@ logger = logging.getLogger(__name__)
 
 templates.env.globals["asset_ver"] = asset_version
 templates.env.globals["category_text_limits"] = category_text_limits
+templates.env.filters["title_label"] = title_label
 
 
 # ------------------------------------------------------------
@@ -95,7 +97,7 @@ def extract_title_from_markdown(content: str) -> str:
         content: Markdown source of the post.
 
     Returns:
-        That line as plain text, cut to 200 characters, or ``"Untitled"``.
+        That line as plain text, cut to 200 characters, or ``UNTITLED_LABEL``.
     """
     import html as html_module
 
@@ -116,7 +118,7 @@ def extract_title_from_markdown(content: str) -> str:
         if plain:
             return plain[:200]
 
-    return "Untitled"
+    return UNTITLED_LABEL
 
 
 # ------------------------------------------------------------
@@ -162,13 +164,13 @@ def extract_title_from_html(html: str) -> str:
         html: HTML body (TipTap).
 
     Returns:
-        That element's text, cut to 200 characters, or ``"Untitled"``.
+        That element's text, cut to 200 characters, or ``UNTITLED_LABEL``.
     """
     for opening, closing in ((_HEADING_OPEN, _HEADING_CLOSE), (_PARAGRAPH_OPEN, _PARAGRAPH_CLOSE)):
         plain = _first_element_text(html, opening, closing)
         if plain:
             return plain[:200]
-    return "Untitled"
+    return UNTITLED_LABEL
 
 
 # ------------------------------------------------------------
@@ -187,13 +189,13 @@ def extract_title_from_milkdown_top_line(
         content: Markdown source, used when there is no HTML.
 
     Returns:
-        That line, cut to 200 characters, or ``"Untitled"``.
+        That line, cut to 200 characters, or ``UNTITLED_LABEL``.
     """
     import html as html_module
 
     source = (content_html or content or "").strip()
     if not source:
-        return "Untitled"
+        return UNTITLED_LABEL
 
     # 1) entity decode
     text = html_module.unescape(source)
@@ -244,7 +246,7 @@ def extract_title_from_milkdown_top_line(
         if cleaned:
             return cleaned[:200]
 
-    return "Untitled"
+    return UNTITLED_LABEL
 
 
 def derive_title(
@@ -265,7 +267,7 @@ def derive_title(
         lang: ``"ko"`` (stored title) or ``"en"`` (English title on the post page).
 
     Returns:
-        The title as plain text, or ``"Untitled"``.
+        The title as plain text, or ``UNTITLED_LABEL``.
     """
     html_one = pick_language(content_html, lang) if content_html else content_html
     source_one = pick_language(content, lang) if content else content
@@ -296,13 +298,13 @@ def create_preview(
             ``...``.
 
     Returns:
-        The preview, or ``"No preview available..."`` when there is no text.
+        The preview, or "" when there is no text.
     """
     import html as html_module
 
     source = (content_html or content or "").strip()
     if not source:
-        return "No preview available..."
+        return ""
 
     text = html_module.unescape(source)
 
@@ -317,7 +319,7 @@ def create_preview(
     text = re.sub(r"\s+", " ", text).strip()
 
     if not text:
-        return "No preview available..."
+        return ""
 
     if len(text) > max_length:
         text = text[:max_length].rsplit(" ", 1)[0] + "..."
@@ -1554,10 +1556,13 @@ def board_list(
 
     posts = query.offset((page - 1) * size).limit(size).all()
 
-    # Add preview to each post
+    # 카드 제목·미리보기(홈과 같은 규칙: 미리보기는 앞의 제목을 빼고, 제목 없는 글은 본문 첫머리로)와
+    # 읽기 시간(글 상세와 같은 계산)
     for post in posts:
-        if not hasattr(post, 'preview') or not post.preview:
-            post.preview = create_preview(post.content_html, post.content)
+        label = label_card(post.title, post.show_title, create_preview(post.content_html, post.content))
+        post.display_title = label.title or UNTITLED_LABEL
+        post.preview = label.preview
+        post.reading_minutes = estimate_reading_minutes(post.content_html or post.content or "")
 
     return templates.TemplateResponse(
         request,
@@ -1751,7 +1756,7 @@ def board_detail(
             "series_label": series_label,
             "series_slug": series_slug,
             "meta_description": meta_description,
-            "og_title": post.title,
+            "og_title": title_label(post.title),
             "og_image": og_image,
             "og_type": "article",
             "jsonld": [
@@ -1836,7 +1841,8 @@ def board_post_og(post_id: int, db: Session = Depends(get_db)):
     # 캐시 키: 표시에 쓰는 값 + 수정시각 → 내용이 바뀌면 파일명이 바뀜
     import hashlib
 
-    sig_src = f"{post.title}|{author_name}|{handle}|{label}|{getattr(post, 'updated_at', None)}"
+    og_title = title_label(post.title)
+    sig_src = f"{og_title}|{author_name}|{handle}|{label}|{getattr(post, 'updated_at', None)}"
     sig = hashlib.md5(sig_src.encode("utf-8")).hexdigest()[:10]
     cache_path = _OG_CACHE_DIR / f"post-{post_id}-{sig}.png"
 
@@ -1847,7 +1853,7 @@ def board_post_og(post_id: int, db: Session = Depends(get_db)):
         else:
             from app.services.og_image import render_post_og
 
-            data = render_post_og(post.title, author_name, handle=handle, tag=label)
+            data = render_post_og(og_title, author_name, handle=handle, tag=label)
             _OG_CACHE_DIR.mkdir(parents=True, exist_ok=True)
             # 오래된 버전 정리(같은 글의 이전 해시 파일 제거)
             for old in _OG_CACHE_DIR.glob(f"post-{post_id}-*.png"):
@@ -1889,9 +1895,9 @@ def board_post_cover(post_id: int, db: Session = Depends(get_db)):
     if post.editor_type != "tiptap" or not post.content_blocks:
         raise HTTPException(404, "No layout")
 
-    import hashlib
+    from app.services.og_image import layout_thumbnail_key
 
-    sig = hashlib.md5(post.content_blocks.encode("utf-8")).hexdigest()[:10]
+    sig = layout_thumbnail_key(post.content_blocks)
     cache_path = _OG_CACHE_DIR / f"cover-{post_id}-{sig}.png"
     headers = {"Cache-Control": "public, max-age=86400"}
     try:
@@ -1928,9 +1934,9 @@ def board_starter_thumb(key: str):
     if not blocks:
         raise HTTPException(404, "Not found")
 
-    import hashlib
+    from app.services.og_image import layout_thumbnail_key
 
-    sig = hashlib.md5(blocks.encode("utf-8")).hexdigest()[:10]
+    sig = layout_thumbnail_key(blocks)
     cache_path = _OG_CACHE_DIR / f"starter-{key}-{sig}.png"
     headers = {"Cache-Control": "public, max-age=604800"}
     try:

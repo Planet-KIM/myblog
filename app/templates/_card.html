@@ -6,7 +6,8 @@
   in the author's accent color), category/private badges, title, preview and
   meta (date, views, reading time).
     post: BoardPost with the list extras the routes attach (thumbnail,
-          preview/preview_html, view_count, reading_minutes, user, category).
+          display_title, preview/preview_html, view_count, reading_minutes,
+          user, category; blog router _decorate_list_card).
     show_author: render the author row (false on the author's own blog home).
   Assets: static/css/post_card.css (link it from every page that imports this
   macro); image fallbacks via data-img-fallback (image-fallback.js, base.html).
@@ -18,7 +19,7 @@
     <div class="col-12 col-md-6">
       <article class="travel-card h-100" data-vt-card>
         {# 카드 전체 클릭: 오버레이(z-2)가 본문 위, 작성자 링크(z-3)만 그 위 #}
-        <a href="/board/{{ post.id }}" class="card-link-overlay z-2" aria-label="{{ post.title }}"></a>
+        <a href="/board/{{ post.id }}" class="card-link-overlay z-2" aria-label="{{ post.display_title }}"></a>
         {% if post.thumbnail %}
         <div class="card-img-wrap ratio ratio-21x9 border-bottom">
           <img src="{{ post.thumbnail }}" class="card-img object-fit-cover rounded-0" alt="" loading="lazy"
@@ -48,7 +49,7 @@
           {% endif %}
           <h3 class="card-title" data-vt-title>
             <a href="/board/{{ post.id }}">
-              {% if post.show_title != False %}{{ post.title or 'Untitled' }}{% else %}Untitled{% endif %}
+              {{ post.display_title }}
             </a>
           </h3>
           {# 미리보기는 서버에서 180자로 잘림 → 페이드 마스크(.card-preview::after) 없이 그대로 표시 #}

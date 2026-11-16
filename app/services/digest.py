@@ -80,6 +80,7 @@ def build_weekly_digest(db, base_url: str, days: int = 7, limit: int = 5):
         ``subject`` (str), ``text`` (str), ``html`` (str) and ``posts`` (the
         ``BoardPost`` rows used).
     """
+    from app.services.home_sections import title_label
     from app.services.plain_text import markdown_to_plain
 
     posts = top_weekly_posts(db, days=days, limit=limit)
@@ -97,7 +98,7 @@ def build_weekly_digest(db, base_url: str, days: int = 7, limit: int = 5):
         if getattr(p, "user", None) and p.user.handle:
             author = p.user.display_name or ("@" + p.user.handle)
         preview = markdown_to_plain(p.content_html or p.content or "", max_len=120)
-        title = p.title or "Untitled"
+        title = title_label(p.title)
         text_lines.append(f"- {title} ({author})\n  {link}")
         html_items.append(
             "<li style=\"margin:0 0 18px;\">"

@@ -47,7 +47,7 @@
       <span class="toc-thumb toc-thumb-ph"><i class="bi bi-file-text"></i></span>
       {% endif %}
       <span class="toc-main">
-        <span class="toc-title">{{ post.title or 'Untitled' }}</span>
+        <span class="toc-title">{{ post.title|title_label }}</span>
         <span class="meta-row">
           {% if post.user and post.user.handle %}<span>@{{ post.user.handle }}</span>{% endif %}
           <span>{{ post.created_at.strftime('%Y-%m-%d') }}</span>

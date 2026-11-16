@@ -12,7 +12,7 @@
     {% for bp in backlinks %}
     <a href="/board/{{ bp.id }}" class="related-item">
       <span class="related-text">
-        <span class="related-title">{{ bp.title or 'Untitled' }}</span>
+        <span class="related-title">{{ bp.title|title_label }}</span>
         {% if bp.user and bp.user.handle %}
         <span class="related-author">{{ bp.user.display_name or ('@' ~ bp.user.handle) }}{% if bp.is_private %} · 비공개{% endif %}</span>
         {% elif bp.is_private %}

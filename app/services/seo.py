@@ -12,6 +12,8 @@ import json
 from datetime import datetime
 from typing import Optional
 
+from app.services.home_sections import title_label
+
 SITE_NAME = "Planet KIM"
 
 
@@ -80,7 +82,7 @@ def post_jsonld(request, post, description: str = "", image: str = "") -> str:
     data = {
         "@context": "https://schema.org",
         "@type": "BlogPosting",
-        "headline": (post.title or "")[:110],
+        "headline": title_label(post.title)[:110],
         "mainEntityOfPage": {"@type": "WebPage", "@id": url},
         "url": url,
         "datePublished": _iso(getattr(post, "created_at", None)),
@@ -110,7 +112,7 @@ def breadcrumb_jsonld(request, post) -> str:
         })
     items.append({
         "@type": "ListItem", "position": len(items) + 1,
-        "name": (post.title or "")[:110], "item": _abs(request, f"/board/{post.id}"),
+        "name": title_label(post.title)[:110], "item": _abs(request, f"/board/{post.id}"),
     })
     return _dump({
         "@context": "https://schema.org",

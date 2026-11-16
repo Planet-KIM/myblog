@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const title = document.createElement('span');
         title.className = 'rp-title';
-        title.textContent = item.title || 'Untitled';
+        title.textContent = item.title || '제목 없음';
 
         const date = document.createElement('span');
         date.className = 'rp-date';

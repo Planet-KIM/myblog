@@ -33,13 +33,13 @@ from app.services.plain_text import markdown_to_plain
 from app.services.post_media import extract_first_image
 from app.services.reading_time import estimate_reading_minutes
 from app.services.home_sections import (
+    UNTITLED_LABEL,
     HomeShowcase,
-    fallback_title,
+    label_card,
     list_posts,
-    own_title,
     page_count,
     pick_showcase,
-    strip_leading_title,
+    title_label,
 )
 from app.services.category_counts import collect_descendant_category_ids
 from app.services.recommendations import get_recommended_blogs
@@ -99,6 +99,7 @@ def render_markdown_fields(cv):
 
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["asset_ver"] = asset_version
+templates.env.filters["title_label"] = title_label
 
 router = APIRouter(tags=["blog"])
 
@@ -544,10 +545,10 @@ def read_index(
         toc_count = count_toc_headings(source)
 
         preview = key_sentence if len(preview) > 170 and key_sentence else preview
-        title = own_title(post.title, post.show_title)
-        post.has_own_title = title is not None
-        post.display_title = title or fallback_title(preview)
-        post.preview = strip_leading_title(preview, title) if title else ""
+        label = label_card(post.title, post.show_title, preview)
+        post.has_own_title = label.has_own_title
+        post.display_title = label.title
+        post.preview = label.preview
         post.page_count = page_count(post.content_blocks)
         post.thumbnail = extract_first_image(source)
         post.reading_minutes = estimate_reading_minutes(source)
@@ -1043,6 +1044,26 @@ def profile_edit_save(
     return RedirectResponse(f"/@{handle_norm}", status_code=303)
 
 
+def _decorate_list_card(post: models.BoardPost) -> None:
+    """Attach what ``_card.html`` shows to a post in a portal list.
+
+    Sets ``display_title`` and ``preview`` by the ``label_card`` rules (the
+    preview drops the title it opens with; a post without a title is named
+    after the start of its body, or "제목 없음" without any), plus
+    ``thumbnail``, ``reading_minutes`` and ``view_count``.
+
+    Args:
+        post: The post to decorate; its ``stats`` should be loaded.
+    """
+    source = post.content_html or post.content or ""
+    label = label_card(post.title, post.show_title, markdown_to_plain(source))
+    post.display_title = label.title or UNTITLED_LABEL
+    post.preview = label.preview
+    post.thumbnail = extract_first_image(source)
+    post.reading_minutes = estimate_reading_minutes(source)
+    post.view_count = post.stats.views if post.stats else 0
+
+
 # ─────────────────────────────────────────────
 # 개인 블로그 홈 (/@handle)
 # ─────────────────────────────────────────────
@@ -1131,11 +1152,7 @@ def blog_home(
         .all()
     )
     for post in posts:
-        source = post.content_html or post.content or ""
-        post.preview = markdown_to_plain(source)
-        post.thumbnail = extract_first_image(source)
-        post.reading_minutes = estimate_reading_minutes(source)
-        post.view_count = post.stats.views if post.stats else 0
+        _decorate_list_card(post)
 
     categories = (
         db.query(models.BoardCategory)
@@ -1254,11 +1271,7 @@ def tag_feed(
         .all()
     )
     for post in posts:
-        source = post.content_html or post.content or ""
-        post.preview = markdown_to_plain(source)
-        post.thumbnail = extract_first_image(source)
-        post.reading_minutes = estimate_reading_minutes(source)
-        post.view_count = post.stats.views if post.stats else 0
+        _decorate_list_card(post)
 
     popular_tags = (
         db.query(models.Tag).order_by(models.Tag.count.desc(), models.Tag.name.asc()).limit(20).all()
@@ -1329,7 +1342,7 @@ def blog_rss(
         pub = p.created_at.strftime("%a, %d %b %Y %H:%M:%S +0900") if p.created_at else ""
         items.append(
             "<item>"
-            f"<title>{escape(p.title or 'Untitled')}</title>"
+            f"<title>{escape(title_label(p.title))}</title>"
             f"<link>{escape(link)}</link>"
             f"<guid isPermaLink=\"true\">{escape(link)}</guid>"
             f"<pubDate>{escape(pub)}</pubDate>"
@@ -1383,7 +1396,7 @@ def portal_rss(request: Request, db: Session = Depends(get_db)):
         author = (p.user.display_name or ("@" + p.user.handle)) if (p.user and p.user.handle) else ""
         items.append(
             "<item>"
-            f"<title>{escape(p.title or 'Untitled')}</title>"
+            f"<title>{escape(title_label(p.title))}</title>"
             f"<link>{escape(link)}</link>"
             f"<guid isPermaLink=\"true\">{escape(link)}</guid>"
             f"<pubDate>{escape(pub)}</pubDate>"
@@ -1575,11 +1588,7 @@ def search_page(
         if q:
             hl = _re.compile(_re.escape(_html.escape(q)), _re.IGNORECASE)
         for post in posts:
-            source = post.content_html or post.content or ""
-            post.preview = markdown_to_plain(source)
-            post.thumbnail = extract_first_image(source)
-            post.reading_minutes = estimate_reading_minutes(source)
-            post.view_count = post.stats.views if post.stats else 0
+            _decorate_list_card(post)
             # 검색어 하이라이트: 이스케이프한 미리보기에 <mark> 래핑(XSS 안전)
             esc = _html.escape(post.preview or "")
             post.preview_html = hl.sub(lambda m: f"<mark>{m.group(0)}</mark>", esc) if hl else esc
@@ -1669,10 +1678,11 @@ def my_template_thumb(
     if not tmpl:
         raise HTTPException(404, "Not found")
 
-    import hashlib
     from pathlib import Path
 
-    sig = hashlib.md5((tmpl.content_blocks or "").encode("utf-8")).hexdigest()[:10]
+    from app.services.og_image import layout_thumbnail_key
+
+    sig = layout_thumbnail_key(tmpl.content_blocks)
     cache_dir = Path("app/static/og_cache")
     cache = cache_dir / f"tmpl-{template_id}-{sig}.png"
     headers = {"Cache-Control": "private, max-age=3600"}

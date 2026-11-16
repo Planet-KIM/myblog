@@ -14,6 +14,7 @@ from typing import Optional, Protocol, Sequence
 from app.services.content_blocks import parse as parse_content_blocks
 
 PLACEHOLDER_TITLES = {"untitled", "제목 없음"}
+UNTITLED_LABEL = "제목 없음"
 FALLBACK_TITLE_CHARS = 60
 COVER_LIMIT = 3
 POPULAR_LIMIT = 2
@@ -83,6 +84,53 @@ def fallback_title(preview: str, limit: int = FALLBACK_TITLE_CHARS) -> Optional[
     if " " in cut:
         cut = cut.rsplit(" ", 1)[0]
     return cut.rstrip(" ,·") + "…"
+
+
+def title_label(title: Optional[str]) -> str:
+    """Return the title to print for a post: its own title, else ``UNTITLED_LABEL``.
+
+    Used where there is no body text to name the post after (navigation
+    links, page titles, feeds), so a stored placeholder such as "Untitled"
+    reads as "제목 없음" instead.
+    """
+    return own_title(title) or UNTITLED_LABEL
+
+
+@dataclass(frozen=True)
+class CardLabel:
+    """What a post card shows as its title and its preview line.
+
+    Attributes:
+        title: The post's own title, else the start of its body; None when
+            it has neither.
+        has_own_title: True when ``title`` is the author's title.
+        preview: The body text without the title it opens with; "" when the
+            title was made from the body (it would only repeat it).
+    """
+
+    title: Optional[str]
+    has_own_title: bool
+    preview: str
+
+
+def label_card(title: Optional[str], show_title: Optional[bool], preview: str) -> CardLabel:
+    """Decide a post card's title and preview line.
+
+    Magazine bodies open with their title, so the preview drops it; a post
+    without a real title is named after the start of its body instead.
+
+    Args:
+        title: The stored title.
+        show_title: False when the author hid the title on the post page.
+        preview: Plain-text preview of the body ("" when it has no text).
+
+    Returns:
+        The card's title, whether it is the author's, and its preview line.
+    """
+    own = own_title(title, show_title)
+    if own:
+        return CardLabel(own, True, strip_leading_title(preview, own))
+    return CardLabel(fallback_title(preview), False, "")
 
 
 def page_count(content_blocks: Optional[str]) -> int:

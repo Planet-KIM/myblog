@@ -10,6 +10,7 @@ SNS 공유 시 밋밋한 기본 썸네일 대신 '매거진 표지' 같은 미�
 """
 from __future__ import annotations
 
+import hashlib
 import html as _html
 import logging
 import math
@@ -20,6 +21,7 @@ from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from app.services.bilingual import pick_language
 from app.services.content_blocks import legacy_canvas, parse as parse_content_blocks
 
 logger = logging.getLogger(__name__)
@@ -406,15 +408,23 @@ def render_timeline_image(text: str, width: int = 620, direction: str = "v") -> 
 #   - 본문/코드: 글줄을 암시하는 가로선 / 구분선: 테라코타 줄
 # ============================================================
 _LINE = (214, 206, 197)      # 본문 글줄
+# 레이아웃 썸네일 그리는 방식이 바뀌면 올린다 (디스크에 캐시된 썸네일을 다시 그리게)
+LAYOUT_THUMBNAIL_VERSION = 2
 _IMG_BG = (234, 228, 221)    # 이미지 플레이스홀더 배경
 
 
 def _plain(s: str) -> str:
-    """Strip HTML tags and entities from ``s`` and collapse whitespace to single spaces."""
+    """Return ``s`` as one line of plain text in the default language.
+
+    Strips HTML tags and entities, keeps the Korean side of bilingual
+    ``{{ko||en}}`` pairs (the side the post page shows first) and collapses
+    whitespace to single spaces.
+    """
     if not s:
         return ""
     s = _re.sub(r"<[^>]+>", " ", s)
     s = _html.unescape(s)
+    s = pick_language(s)
     return " ".join(s.split())
 
 
@@ -490,6 +500,23 @@ def _finite(value, default: float = 0.0) -> float:
     except (TypeError, ValueError):
         return default
     return number if math.isfinite(number) else default
+
+
+def layout_thumbnail_key(content_blocks: Optional[str]) -> str:
+    """Return a short cache key for the thumbnail of a layout.
+
+    The key changes when the layout changes and when
+    ``LAYOUT_THUMBNAIL_VERSION`` is raised, so thumbnails cached on disk are
+    drawn again after the drawing code changes.
+
+    Args:
+        content_blocks: The layout JSON text, or None.
+
+    Returns:
+        Ten hex characters.
+    """
+    raw = f"{LAYOUT_THUMBNAIL_VERSION}:{content_blocks or ''}"
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()[:10]
 
 
 def render_layout_thumbnail(content_blocks, width: int = 600) -> bytes:

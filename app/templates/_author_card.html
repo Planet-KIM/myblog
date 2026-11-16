@@ -30,7 +30,7 @@
     <span class="eyebrow">More from this blog</span>
     <div class="mt-2">
       {% for p in author_other_posts %}
-      <a href="/board/{{ p.id }}">{{ p.title or 'Untitled' }}</a>
+      <a href="/board/{{ p.id }}">{{ p.title|title_label }}</a>
       {% endfor %}
     </div>
   </div>

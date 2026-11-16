@@ -17,7 +17,7 @@
 {% extends "base.html" %}
 {% from "_bilingual.html" import bilingual_title, reading_time %}
 
-{% block title %}{{ post.title or 'Story' }}{% endblock %}
+{% block title %}{{ post.title|title_label }}{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', path='css/writer-journey.css') }}">
@@ -39,7 +39,7 @@
     <a class="eyebrow" href="/board/?category_id={{ post.category.id }}">{{ post.category.name }}</a>
     {% endif %}
 
-    <h1 class="article-title">{{ bilingual_title(post.title, title_en) }}</h1>
+    <h1 class="article-title">{{ bilingual_title(post.title|title_label, title_en) }}</h1>
 
     <div class="meta-row article-byline">
       <span class="byline-author">
@@ -129,7 +129,7 @@
       {% if prev_post %}
       <a href="/board/{{ prev_post.id }}" class="nav-post prev">
         <span class="nav-label"><i class="bi bi-arrow-left"></i> 이전 글</span>
-        <span class="nav-title">{{ prev_post.title or 'Untitled' }}</span>
+        <span class="nav-title">{{ prev_post.title|title_label }}</span>
       </a>
       {% else %}
       <div></div>
@@ -138,7 +138,7 @@
       {% if next_post %}
       <a href="/board/{{ next_post.id }}" class="nav-post next">
         <span class="nav-label">다음 글 <i class="bi bi-arrow-right"></i></span>
-        <span class="nav-title">{{ next_post.title or 'Untitled' }}</span>
+        <span class="nav-title">{{ next_post.title|title_label }}</span>
       </a>
       {% else %}
       <div></div>
@@ -158,8 +158,8 @@
 
 <script type="application/json" id="board-detail-data">{{ {
   "postId": post.id,
-  "shareTitle": post.title or 'Untitled',
-  "recentTitle": post.title or 'Untitled Story',
+  "shareTitle": post.title|title_label,
+  "recentTitle": post.title|title_label,
   "recentDate": post.created_at.strftime('%m/%d'),
   "isPrivate": post.is_private or false
 }|tojson }}</script>

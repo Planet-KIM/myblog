@@ -1,7 +1,8 @@
 {#
   board_list_writer.html: archive of every public post (/board/) — search,
   feed/sort/category filters (re-rendered in place by AJAX) and the story list.
-  Context: posts, categories, selected_scope/sort/category_id, search_query,
+  Context: posts (each with display_title, preview and reading_minutes from
+  the route), categories, selected_scope/sort/category_id, search_query,
   current_page, total_pages, current_time.
   Assets: static/css/board_list_writer.css,
           static/js/board_list_writer.js (filters + whole-card links)
@@ -110,11 +111,7 @@
               </div>
 
               <a href="/board/{{ post.id }}" class="story-title" data-vt-title>
-                {% if post.show_title != False %}
-                  {{ post.title or 'Untitled' }}
-                {% else %}
-                  Untitled
-                {% endif %}
+                {{ post.display_title }}
               </a>
 
               {% if post.preview %}
@@ -136,7 +133,7 @@
                 </span>
                 <time datetime="{{ post.created_at.strftime('%Y-%m-%d') }}">{{ post.created_at.strftime('%Y.%m.%d') }}</time>
                 <span>조회 {{ post.stats.views if post.stats else 0 }}</span>
-                <span>{{ [1, ((post.content or '').split()|length / 200)|round|int]|max }}분</span>
+                <span>{{ post.reading_minutes }}분</span>
               </div>
             </article>
             {% endfor %}
