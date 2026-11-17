@@ -1,0 +1,16 @@
+{#
+  _reading_size.html: 작게 / 보통 / 크게 text-size buttons for the post body.
+  The choice is kept in this browser (localStorage "readingSize") and applied
+  as data-reading-size on <html> — before the first paint by theme-init.js,
+  on a click by reading_size.js. Hidden while a magazine shows fixed pages.
+  Included once in the header of board_detail_writer.html and
+  board_detail_magazine.html; no context variables.
+  Assets: static/css/reading_size.css, static/js/reading_size.js
+#}
+<link rel="stylesheet" href="{{ url_for('static', path='css/reading_size.css') }}?v={{ asset_ver('css/reading_size.css') }}">
+<div class="segmented-control reading-size" data-reading-size-control role="group" aria-label="본문 글자 크기">
+  <button type="button" class="segmented-item reading-size-sm" data-reading-size-set="sm" aria-label="글자 작게" aria-pressed="false">가</button>
+  <button type="button" class="segmented-item reading-size-md" data-reading-size-set="md" aria-label="글자 보통" aria-pressed="true">가</button>
+  <button type="button" class="segmented-item reading-size-lg" data-reading-size-set="lg" aria-label="글자 크게" aria-pressed="false">가</button>
+</div>
+<script src="{{ url_for('static', path='js/reading_size.js') }}?v={{ asset_ver('js/reading_size.js') }}" defer></script>

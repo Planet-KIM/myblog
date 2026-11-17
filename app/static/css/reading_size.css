@@ -1,0 +1,62 @@
+/**
+ * reading_size.css: reader-chosen text size of the post body, and its buttons.
+ * Used by templates/_reading_size.html (buttons) with static/js/reading_size.js
+ * and static/js/theme-init.js, which set data-reading-size="sm|lg" on <html>.
+ * The buttons are theme.css's .segmented-control. Relies on theme tokens.
+ */
+
+/* The chosen scale. Bodies use rem type sizes, so the whole body is zoomed:
+   text, code and spacing grow together and images still fill the column. */
+:root { --reading-zoom: 1; }
+:root[data-reading-size="sm"] { --reading-zoom: 0.9; }
+:root[data-reading-size="lg"] { --reading-zoom: 1.2; }
+
+/* Bodies that scale: Markdown posts, magazine posts shown as HTML, and the
+   magazine's reading mode. Fixed magazine pages keep their layout. */
+.article-content.markdown-content,
+.magazine-content > .markdown-content,
+.mag-reader-inner {
+  zoom: var(--reading-zoom);
+}
+
+/* zoom also scales the element's own max-width; divide it back so the
+   reading column stays as wide as the header above it. */
+.mag-reader-inner { max-width: calc(var(--reading-max-width) / var(--reading-zoom)); }
+
+/* Row under the byline that holds the language switch (left) and these buttons (right). */
+.article-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--space-md);
+}
+
+/* Buttons: three "가" of growing size; the pressed one is the current size. */
+.reading-size {
+  margin-top: var(--space-md);
+  margin-left: auto;
+}
+
+.reading-size .segmented-item {
+  min-width: 2.25rem;
+  padding: 0.3rem 0.6rem;
+  line-height: 1.3;
+}
+
+.reading-size .segmented-item[aria-pressed="true"] {
+  color: var(--text-primary);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.reading-size-sm { font-size: var(--fs-xs); }
+.reading-size-md { font-size: var(--fs-sm); }
+.reading-size-lg { font-size: var(--fs-md); }
+
+/* A magazine in page-flip mode has nothing to scale. */
+body:has(#magazine-viewer-root:not(.reader-on)) .reading-size { display: none; }
+
+@media print {
+  .reading-size { display: none; }
+}

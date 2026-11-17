@@ -17,7 +17,7 @@
           static/js/bilingual.js ({{ko||en}} text and the language switch; context
           title_en, reading_minutes, reading_minutes_en), static/css/post-link.css
           (cards of linked posts; card blocks get their HTML from the server);
-          partials bring their own (reading_enhancements.*, reading_position.* —
+          partials bring their own (reading_enhancements.*, reading_size.* in the header, reading_position.* —
           the article carries data-reading-article for it, author_card.css).
 #}
 {% extends "base.html" %}
@@ -67,7 +67,10 @@
       <span class="byline-private"><i class="bi bi-lock"></i> 비공개</span>
       {% endif %}
     </div>
-    <div class="bilingual-switch" data-bilingual-switch hidden></div>
+    <div class="article-tools">
+      <div class="bilingual-switch" data-bilingual-switch hidden></div>
+      {% include "_reading_size.html" %}
+    </div>
   </header>
 </div>
 
