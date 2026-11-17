@@ -1,0 +1,69 @@
+/**
+ * reading_position.css: the "continue where you left off" prompt on post pages.
+ * Used by templates/_reading_position.html with static/js/reading_position.js.
+ * Relies on theme tokens (--surface, --border-dark, --shadow-md, --space-*).
+ */
+
+/* Prompt: a small bar fixed at the bottom centre, left of the scroll-to-top button. */
+.reading-resume {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-xl);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: calc(100vw - 2 * var(--space-md));
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--fs-sm);
+  color: var(--text-main);
+  transform: translateX(-50%);
+}
+
+.reading-resume[hidden] { display: none; }
+
+.reading-resume-text { white-space: nowrap; }
+
+.reading-resume-go {
+  padding: 0.35rem 0.9rem;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+/* Close: icon only, no border. */
+.reading-resume-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.reading-resume-close:hover { background: var(--surface-light); color: var(--text-primary); }
+
+/* Narrow screens: full width, above the scroll-to-top button (--tap-min high). */
+@media (max-width: 575.98px) {
+  .reading-resume {
+    left: var(--space-md);
+    right: var(--space-md);
+    bottom: calc(var(--space-md) + var(--tap-min) + var(--space-sm));
+    max-width: none;
+    justify-content: space-between;
+    transform: none;
+  }
+
+  .reading-resume-text { margin-right: auto; }
+}
+
+@media print {
+  .reading-resume { display: none; }
+}

@@ -17,7 +17,8 @@
           static/js/bilingual.js ({{ko||en}} text and the language switch; context
           title_en, reading_minutes, reading_minutes_en), static/css/post-link.css
           (cards of linked posts; card blocks get their HTML from the server);
-          partials bring their own (reading_enhancements.*, author_card.css).
+          partials bring their own (reading_enhancements.*, reading_position.* —
+          the article carries data-reading-article for it, author_card.css).
 #}
 {% extends "base.html" %}
 {% from "_bilingual.html" import bilingual_title, reading_time %}
@@ -71,7 +72,7 @@
 </div>
 
 <!-- Magazine content: page viewer -->
-<article class="magazine-content" id="magazineContent">
+<article class="magazine-content" id="magazineContent" data-reading-article>
   {% if post.has_layout %}
   <!-- content_blocks is parsed by JS viewer below -->
   <div id="magazine-viewer-root" data-bilingual-root></div>
@@ -191,6 +192,7 @@
   "recentDate": post.created_at.strftime('%m/%d'),
   "isPrivate": post.is_private or false
 }|tojson }}</script>
+{% include "_reading_position.html" %}
 <script src="{{ url_for('static', path='js/board_detail.js') }}"></script>
 <script src="{{ url_for('static', path='js/board_detail_magazine.js') }}?v={{ asset_ver('js/board_detail_magazine.js') }}"></script>
 <script src="{{ url_for('static', path='js/bilingual.js') }}?v={{ asset_ver('js/bilingual.js') }}"></script>

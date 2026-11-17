@@ -1,0 +1,17 @@
+{#
+  _reading_position.html: "continue where you left off" prompt on post pages.
+  Hidden until reading_position.js finds a position stored in this browser for
+  the post; the body element must carry data-reading-article.
+  Included once by board_detail_writer.html and board_detail_magazine.html.
+  Context: post (id).
+  Assets: static/css/reading_position.css, static/js/reading_position.js
+#}
+<link rel="stylesheet" href="{{ url_for('static', path='css/reading_position.css') }}?v={{ asset_ver('css/reading_position.css') }}">
+<div class="reading-resume" data-reading-resume data-post-id="{{ post.id }}" role="status" hidden>
+  <span class="reading-resume-text" data-reading-resume-text></span>
+  <button type="button" class="btn-ghost reading-resume-go" data-reading-resume-go>이어 읽기</button>
+  <button type="button" class="reading-resume-close" data-reading-resume-close aria-label="닫고 기록 지우기">
+    <i class="bi bi-x-lg" aria-hidden="true"></i>
+  </button>
+</div>
+<script src="{{ url_for('static', path='js/reading_position.js') }}?v={{ asset_ver('js/reading_position.js') }}" defer></script>

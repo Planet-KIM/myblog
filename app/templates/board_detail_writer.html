@@ -13,7 +13,8 @@
           language switch; context title_en, reading_minutes, reading_minutes_en),
           static/css/post-link.css (cards the server puts in place of link-only
           paragraphs that point to a post); partials bring their own
-          (reading_enhancements.*, author_card.css).
+          (reading_enhancements.*, reading_position.* — the article carries
+          data-reading-article for it, author_card.css).
 #}
 {% extends "base.html" %}
 {% from "_bilingual.html" import bilingual_title, reading_time %}
@@ -66,7 +67,7 @@
   </header>
 
   <!-- Article content -->
-  <article class="article-content markdown-content" data-bilingual-root>
+  <article class="article-content markdown-content" data-bilingual-root data-reading-article>
     {{ post.content_html_safe | safe }}
   </article>
 
@@ -164,6 +165,7 @@
   "recentDate": post.created_at.strftime('%m/%d'),
   "isPrivate": post.is_private or false
 }|tojson }}</script>
+{% include "_reading_position.html" %}
 <script src="{{ url_for('static', path='js/board_detail.js') }}"></script>
 <script src="{{ url_for('static', path='js/board_detail_writer.js') }}"></script>
 {% endblock %}

@@ -6,6 +6,8 @@
  * switches to the reading mode; photos keep their overlay text and the text
  * blocks laid on them, also in the reading mode), the name prompt of the "save as layout
  * template" form, and hiding a duplicated title in HTML-bodied posts. The
+ * viewer announces its page (`magazine:page`) and turns to one on request
+ * (`magazine:goto`) so reading_position.js can remember where a reader was. The
  * action bar, scroll progress and recent-posts history are shared with the
  * Markdown page in board_detail.js.
  *
@@ -344,7 +346,9 @@
     }
 
     /**
-     * Sync the dots, page counter and prev/next buttons with a view.
+     * Sync the dots, page counter and prev/next buttons with a view, and
+     * announce the page with a `magazine:page` event ({ page, pages }) for
+     * reading_position.js.
      *
      * @param {number} idx - View index.
      * @returns {void}
@@ -356,6 +360,7 @@
       counter.textContent = `${first === last ? first : `${first}–${last}`} / ${pages.length}`;
       prevBtn.disabled = idx <= 0;
       nextBtn.disabled = idx >= views.length - 1;
+      document.dispatchEvent(new CustomEvent('magazine:page', { detail: { page: shown[0], pages: pages.length } }));
     }
 
     /**
@@ -448,6 +453,22 @@
       scaleReaderOverlays();
     }
 
+    /**
+     * Turn straight to a page, without the flip (`magazine:goto` event from
+     * reading_position.js). Ignored while a flip runs or for a page that
+     * does not exist.
+     *
+     * @param {CustomEvent<{page: number}>} event - The request.
+     * @returns {void}
+     */
+    function showRequestedPage(event) {
+      const page = event.detail && Number(event.detail.page);
+      if (animating || !viewEls.length || !Number.isInteger(page) || page < 0 || page >= pages.length) return;
+      current = viewOfPage(page);
+      showImmediate(current);
+    }
+
+    document.addEventListener('magazine:goto', showRequestedPage);
     prevBtn.addEventListener('click', () => goTo(current - 1, -1));
     nextBtn.addEventListener('click', () => goTo(current + 1,  1));
 
