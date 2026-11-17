@@ -6,7 +6,7 @@
  * switches to the reading mode; photos keep their overlay text and the text
  * blocks laid on them, also in the reading mode), the name prompt of the "save as layout
  * template" form, and hiding a duplicated title in HTML-bodied posts. The
- * viewer announces its page (`magazine:page`) and turns to one on request
+ * viewer lists its pages by their headings ("목차"), announces its page (`magazine:page`) and turns to one on request
  * (`magazine:goto`) so reading_position.js can remember where a reader was. The
  * action bar, scroll progress and recent-posts history are shared with the
  * Markdown page in board_detail.js.
@@ -280,6 +280,78 @@
     modeBar.className = 'mag-mode-bar';
     modeBar.append(modeToggle, spreadToggle, fullToggle);
     root.insertBefore(modeBar, root.firstChild);
+
+    // ── 페이지 목차: 각 페이지의 맨 위 제목 ─────────────────
+    /**
+     * Title of a page for the page list: the text of its topmost heading
+     * block ({{ko||en}} pairs are left for bilingual.js to split).
+     *
+     * @param {{blocks: Array}} page - A page of the layout.
+     * @returns {string} The heading's text, or "" when the page has none.
+     */
+    function pageTitle(page) {
+      const heading = (page.blocks || [])
+        .filter(b => b && b.type === 'heading' && typeof b.content === 'string')
+        .sort((a, b) => (num(a.y, 0) - num(b.y, 0)) || (num(a.x, 0) - num(b.x, 0)))[0];
+      if (!heading) return '';
+      const parsed = new DOMParser().parseFromString(heading.content, 'text/html');
+      parsed.body.querySelectorAll('br').forEach(br => br.replaceWith(' '));  // 줄바꿈은 띄어쓰기로
+      return (parsed.body.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
+    /**
+     * Go to a page from the page list: flip to it in magazine mode, scroll to
+     * where it starts (below the sticky site navigation) in reading mode.
+     *
+     * @param {number} page - Page index.
+     * @returns {void}
+     */
+    function openPage(page) {
+      if (!root.classList.contains('reader-on')) { goTo(viewOfPage(page)); return; }
+      const start = page === 0 ? reader : reader.querySelectorAll('.reader-page-sep')[page - 1];
+      if (!start) return;
+      const nav = document.querySelector('.site-nav');
+      const top = start.getBoundingClientRect().top + window.scrollY - (nav ? nav.offsetHeight : 0) - TOC_SCROLL_GAP;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }
+
+    /**
+     * Build the collapsed page list ("목차") shown under the mode bar: one
+     * button per page with its number and title ("N쪽" without a heading).
+     * Left out for a single page or when no page has a heading.
+     *
+     * @returns {HTMLButtonElement[]} The buttons by page index ([] when there is no list).
+     */
+    function buildPageToc() {
+      const titles = pages.map(pageTitle);
+      if (pages.length < 2 || !titles.some(Boolean)) return [];
+      const toc = document.createElement('details');
+      toc.className = 'mag-toc';
+      const summary = document.createElement('summary');
+      summary.textContent = `목차 · ${pages.length}쪽`;
+      const list = document.createElement('ol');
+      const buttons = titles.map((title, i) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'mag-toc-link';
+        const number = document.createElement('span');
+        number.className = 'mag-toc-num';
+        number.textContent = String(i + 1);
+        const label = document.createElement('span');
+        label.textContent = title || `${i + 1}쪽`;
+        button.append(number, label);
+        button.addEventListener('click', () => openPage(i));
+        const item = document.createElement('li');
+        item.appendChild(button);
+        list.appendChild(item);
+        return button;
+      });
+      toc.append(summary, list);
+      modeBar.after(toc);
+      return buttons;
+    }
+
+    const tocButtons = buildPageToc();
     if (window.innerWidth < 640) root.classList.add('reader-on');  // 모바일 기본 읽기 모드
     syncToggleLabel();
 
@@ -346,7 +418,7 @@
     }
 
     /**
-     * Sync the dots, page counter and prev/next buttons with a view, and
+     * Sync the dots, page counter, page list and prev/next buttons with a view, and
      * announce the page with a `magazine:page` event ({ page, pages }) for
      * reading_position.js.
      *
@@ -360,6 +432,9 @@
       counter.textContent = `${first === last ? first : `${first}–${last}`} / ${pages.length}`;
       prevBtn.disabled = idx <= 0;
       nextBtn.disabled = idx >= views.length - 1;
+      tocButtons.forEach((b, i) => {
+        if (shown.includes(i)) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+      });
       document.dispatchEvent(new CustomEvent('magazine:page', { detail: { page: shown[0], pages: pages.length } }));
     }
 
@@ -541,6 +616,7 @@
   const PREF_SPREAD = 'magViewer.spread';
   const PREF_FULL = 'magViewer.full';
   const SPREAD_MIN_WIDTH = 900;  // px; narrower screens always show one page
+  const TOC_SCROLL_GAP = 12;     // px left above a page the page list scrolls to
   const FLIP_CLASSES = ['flip-out-left', 'flip-in-right', 'flip-out-right', 'flip-in-left'];
   // 사진 위 글씨(덧글씨)의 위치·띠 — 에디터 frontend/plugins/imageOverlay.js 와 같은 값
   const OVERLAY_POSITIONS = ['bottom', 'center', 'top'];
