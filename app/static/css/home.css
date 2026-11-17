@@ -222,6 +222,12 @@
   transition: background-color var(--transition-fast);
 }
 
+/* Touch screens: the button grows to the minimum touch size (--tap-min); this
+   rule outranks mobile.css's plain `button` one, so it is repeated here. */
+@media (pointer: coarse) {
+  .cover-steps button { min-height: var(--tap-min); }
+}
+
 .cover-steps button:hover::before { background-color: var(--text-muted); }
 .cover-steps button.active::before { background-color: var(--primary); }
 

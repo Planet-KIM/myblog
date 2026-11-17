@@ -7,11 +7,17 @@ in at most one of them, and the list below leaves out what they already show.
 
 A post without a title of its own is labelled with the start of its body; a
 post with neither a title nor any body text is left off the home altogether.
+The title rules here are shared with the post pages, feeds and meta tags,
+including whether a post page's header prints the title at all.
 """
+import html
+import unicodedata
 from dataclasses import dataclass, field
-from typing import Optional, Protocol, Sequence
+from typing import Any, Optional, Protocol, Sequence
 
-from app.services.content_blocks import parse as parse_content_blocks
+from app.services.bilingual import pick_language
+from app.services.content_blocks import first_heading_html, parse as parse_content_blocks
+from app.services.plain_text import strip_tags
 
 PLACEHOLDER_TITLES = {"untitled", "제목 없음"}
 UNTITLED_LABEL = "제목 없음"
@@ -94,6 +100,54 @@ def title_label(title: Optional[str]) -> str:
     reads as "제목 없음" instead.
     """
     return own_title(title) or UNTITLED_LABEL
+
+
+def _comparable_text(markup: str) -> str:
+    """Return ``markup`` as plain text for comparing titles.
+
+    Tags are removed, entities decoded, ``{{ko||en}}`` pairs reduced to one
+    language, Hangul NFC-normalized, whitespace collapsed and case folded.
+    """
+    text = pick_language(html.unescape(strip_tags(markup)))
+    return " ".join(unicodedata.normalize("NFC", text).split()).casefold()
+
+
+def layout_opens_with_title(layout: Any, title: Optional[str]) -> bool:
+    """Tell whether a magazine layout's first page opens with the post's title.
+
+    Magazine covers usually print the title in a large heading block, so a
+    header title above the viewer would show it twice in a row.
+
+    Args:
+        layout: The decoded content_blocks value the viewer draws, or None.
+        title: The stored title.
+
+    Returns:
+        True when the topmost heading on the first page reads the same as the
+        post's own title; False for placeholder titles or no heading.
+    """
+    own = own_title(title)
+    heading = first_heading_html(layout) if layout is not None else ""
+    return bool(own and heading) and _comparable_text(heading) == _comparable_text(own)
+
+
+def header_shows_title(title: Optional[str], show_title: Optional[bool], layout: Any = None) -> bool:
+    """Decide whether a post page's header prints the title.
+
+    The header keeps its ``<h1>`` either way (screen readers and search
+    engines read it); this only decides whether readers see it.
+
+    Args:
+        title: The stored title.
+        show_title: False when the author turned the title off.
+        layout: The decoded layout the page's viewer draws, or None for a
+            post shown as HTML.
+
+    Returns:
+        False when the author turned the title off or the layout's first page
+        already opens with it, else True.
+    """
+    return show_title is not False and not layout_opens_with_title(layout, title)
 
 
 @dataclass(frozen=True)

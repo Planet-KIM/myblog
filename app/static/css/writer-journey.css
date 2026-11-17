@@ -39,6 +39,13 @@
   text-wrap: balance;
 }
 
+/* Title read only by screen readers (turned off, or the magazine's first page
+   opens with it): the kicker sits on its own line just above the byline. */
+.article-header.is-title-hidden > .eyebrow {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
 .article-byline .byline-author {
   display: inline-flex;
   align-items: center;
@@ -197,6 +204,12 @@
 .btn-action-share {
   min-width: 36px;
   padding: 0 0.6rem;
+}
+
+/* Touch screens: icon-only buttons as wide as the minimum touch size, the
+   height mobile.css already gives every button (--tap-min). */
+@media (pointer: coarse) {
+  .btn-action-share { min-width: var(--tap-min); }
 }
 
 .btn-action-share .bi-hand-thumbs-up-fill,

@@ -50,7 +50,7 @@ from app.services.static_assets import asset_version
 from app.services.bilingual import has_pairs, pick_language
 from app.services.plain_text import block_html_to_lines, drop_elements, markdown_line_text, strip_tags
 from app.services.reading_time import estimate_reading_minutes
-from app.services.home_sections import UNTITLED_LABEL, label_card, title_label
+from app.services.home_sections import UNTITLED_LABEL, header_shows_title, label_card, title_label
 from app.services.post_links import (
     build_post_card,
     card_block_ids,
@@ -1606,7 +1606,8 @@ def board_detail(
     the body text only; a bilingual post also gets its English title and
     English reading time for the language switch. Links to other posts become
     cards, and the posts that link here are listed (backlinks; left out of the
-    related posts).
+    related posts). The header hides its title from view when the author
+    turned it off or a magazine's first page opens with the same title.
 
     Args:
         post_id: The post to show.
@@ -1671,7 +1672,10 @@ def board_detail(
     post.content_html_safe = html_safe
     post.content_blocks_safe = sanitize_content_blocks(blocks_raw)
     # 뷰어가 그릴 수 없는 레이아웃(초기 TipTap 문서 등)이면 HTML 본문을 보여 준다
-    post.has_layout = has_layout(parse_content_blocks(post.content_blocks_safe))
+    layout = parse_content_blocks(post.content_blocks_safe)
+    post.has_layout = has_layout(layout)
+    # 머리말 제목: 작성자가 껐거나 매거진 첫 페이지가 같은 제목으로 시작하면 감춘다 (h1 은 남김)
+    show_header_title = header_shows_title(post.title, post.show_title, layout if post.has_layout else None)
 
     # 읽기 시간: 본문 텍스트만, 이중 언어 글은 언어마다 따로 (머리말에서 언어 전환용)
     body = post.content_html or post.content or ""
@@ -1743,6 +1747,7 @@ def board_detail(
             "request": request,
             "post": post,
             "title_en": title_en,
+            "show_header_title": show_header_title,
             "reading_minutes": reading_minutes,
             "reading_minutes_en": reading_minutes_en,
             "current_user": current_user,

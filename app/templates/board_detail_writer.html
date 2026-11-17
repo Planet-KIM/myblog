@@ -5,7 +5,8 @@
   banner, related posts, comments and prev/next navigation.
   Context: post, current_user, stats, prev_post, next_post, comments,
   author_other_posts, related_posts, backlinks (posts linking here, _backlinks.html),
-  series_label, series_slug (+ SEO meta).
+  series_label, series_slug, show_header_title (False: the author turned the
+  title off; the h1 stays for screen readers) (+ SEO meta).
   Assets: static/css/board_detail_writer.css, static/js/board_detail.js (shared
           with the magazine page), static/js/board_detail_writer.js,
           static/css/bilingual.css + static/js/bilingual.js ({{ko||en}} text and the
@@ -20,7 +21,7 @@
 {% block title %}{{ post.title|title_label }}{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{{ url_for('static', path='css/writer-journey.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/writer-journey.css') }}?v={{ asset_ver('css/writer-journey.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', path='css/markdown-rendering.css') }}?v={{ asset_ver('css/markdown-rendering.css') }}">
 <!-- Highlight.js — 구문 색은 markdown-rendering.css 가 정의 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -34,12 +35,12 @@
 {% set _who = post.user.display_name or post.user.handle or post.author or '?' %}
 <div class="reading-container">
   <!-- Article header -->
-  <header class="article-header">
+  <header class="article-header{% if not show_header_title %} is-title-hidden{% endif %}">
     {% if post.category %}
     <a class="eyebrow" href="/board/?category_id={{ post.category.id }}">{{ post.category.name }}</a>
     {% endif %}
 
-    <h1 class="article-title">{{ bilingual_title(post.title|title_label, title_en) }}</h1>
+    <h1 class="article-title{% if not show_header_title %} visually-hidden is-transition-muted{% endif %}">{{ bilingual_title(post.title|title_label, title_en) }}</h1>
 
     <div class="meta-row article-byline">
       <span class="byline-author">

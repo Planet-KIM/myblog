@@ -164,6 +164,54 @@ def has_layout(data: Any) -> bool:
     return (data.get("v") == 2 or bool(data.get("cw"))) and isinstance(data.get("blocks"), list)
 
 
+def first_page_blocks(data: Any) -> list[dict]:
+    """Return the blocks of the page the post page's viewer draws first.
+
+    The same choice as ``has_layout`` and static/js/board_detail_magazine.js:
+    the first page of a v3 document, a v2 page, or a v1 block list.
+
+    Args:
+        data: A decoded content_blocks value.
+
+    Returns:
+        The page's block dicts in stored order; [] when there is no such page.
+    """
+    if isinstance(data, list):
+        blocks: Any = data
+    elif not isinstance(data, dict):
+        return []
+    elif data.get("v") == 3 and isinstance(data.get("pages"), list) and data["pages"]:
+        page = data["pages"][0]
+        blocks = page.get("blocks") if isinstance(page, dict) else None
+    elif data.get("v") == 2 or data.get("cw"):
+        blocks = data.get("blocks")
+    else:
+        return []
+    return [b for b in blocks if isinstance(b, dict)] if isinstance(blocks, list) else []
+
+
+def first_heading_html(data: Any) -> str:
+    """Return the HTML of the topmost heading block on the first page.
+
+    Topmost means the smallest ``y``, then the smallest ``x``, which is where
+    the viewer draws it, whatever order the blocks are stored in.
+
+    Args:
+        data: A decoded content_blocks value.
+
+    Returns:
+        The heading block's ``content``; "" when the page has no heading.
+    """
+    headings = [
+        b for b in first_page_blocks(data)
+        if b.get("type") == "heading" and isinstance(b.get("content"), str)
+    ]
+    if not headings:
+        return ""
+    top = min(headings, key=lambda b: (_coordinate(b.get("y")), _coordinate(b.get("x"))))
+    return top["content"]
+
+
 def iter_blocks(data: Any) -> Iterator[dict]:
     """Yield every block dict in any stored format (see ``iter_block_lists``).
 

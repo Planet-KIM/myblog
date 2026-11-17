@@ -2,17 +2,58 @@
    Planet KIM — Responsive & print
    ============================================ */
 
-/* Touch-friendly tap targets */
+/* Touch-friendly tap targets (--tap-min, theme.css) */
 @media (pointer: coarse) {
   button,
   .btn,
+  .btn-ghost,
   a.nav-link,
   .btn-travel {
-    min-height: 44px;
-    min-width: 44px;
+    min-height: var(--tap-min);
+    min-width: var(--tap-min);
   }
 
   .toast-close { padding: 0.5rem; }
+
+  /* Small links and chips keep their look; an invisible ::after centred on
+     each grows what a finger can hit to at least --tap-min on both sides.
+     Text links that stand alone in a line: header kicker and byline author,
+     the home cover's author and "읽기" links, list authors and titles,
+     "더 보기". Buttons whose own size rule outranks the one above get theirs
+     in their own stylesheet (home.css, writer-journey.css). */
+  .article-header > .eyebrow a,
+  .article-header > a.eyebrow,
+  .byline-author a,
+  .post-row-author,
+  .cover-author,
+  .cover-links a,
+  .section-link,
+  .author-card-name,
+  .story-title,
+  .chip,
+  .stories-container .page-link {
+    position: relative;
+  }
+
+  .article-header > .eyebrow a::after,
+  .article-header > a.eyebrow::after,
+  .byline-author a::after,
+  .post-row-author::after,
+  .cover-author::after,
+  .cover-links a::after,
+  .section-link::after,
+  .author-card-name::after,
+  .story-title::after,
+  .chip::after,
+  .stories-container .page-link::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, var(--tap-min));
+    height: max(100%, var(--tap-min));
+    transform: translate(-50%, -50%);
+  }
 }
 
 @media (max-width: 575.98px) {

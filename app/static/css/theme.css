@@ -127,6 +127,9 @@
   --btn-radius: var(--radius-md);
   --input-radius: var(--radius-md);
 
+  /* Touch — smallest area a finger should hit (mobile.css, pointer: coarse) */
+  --tap-min: 44px;
+
   /* Layout */
   --max-width: 1200px;
   --reading-max-width: 720px;
